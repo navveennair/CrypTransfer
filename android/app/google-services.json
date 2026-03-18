@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881677813575",
+    "project_id": "cryptransfer-96e9f",
+    "storage_bucket": "cryptransfer-96e9f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881677813575:android:87c5d27a6a2518eca8ae62",
+        "android_client_info": {
+          "package_name": "com.example.cryptransfer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdCTzslx5ugbCG7Yd7_Bjz_B_mX42FMkQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
