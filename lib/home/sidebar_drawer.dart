@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../auth/auth_service.dart';
+import '../auth/login_screen.dart';
 
 class SidebarDrawer extends StatelessWidget {
   const SidebarDrawer({super.key});
@@ -100,8 +101,46 @@ class SidebarDrawer extends StatelessWidget {
             leading: Icon(Icons.logout, color: cs.error),
             title: Text('Logout', style: TextStyle(color: cs.error)),
             onTap: () async {
-              Navigator.pop(context);
-              await AuthService().logout();
+              // Capture the navigator before closing the drawer so its
+              // context remains valid after the drawer route is popped.
+              final nav = Navigator.of(context);
+              nav.pop(); // close drawer
+
+              final confirmed = await showDialog<bool>(
+                context: nav.context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Logout'),
+                  content:
+                      const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor:
+                            Theme.of(ctx).colorScheme.error,
+                        foregroundColor:
+                            Theme.of(ctx).colorScheme.onError,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                await AuthService().logout();
+                if (nav.context.mounted) {
+                  nav.pushAndRemoveUntil(
+                    MaterialPageRoute(
+                        builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              }
             },
           ),
           const SizedBox(height: 8),

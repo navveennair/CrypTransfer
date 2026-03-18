@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'receiver_screen.dart';
+import 'sender_screen.dart';
 import 'sidebar_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -91,6 +93,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Role buttons ──────────────────────────────────
+            _RoleButton(
+              emoji: '📤',
+              label: 'I am a Sender',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SenderScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _RoleButton(
+              emoji: '📥',
+              label: 'I am a Receiver',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReceiverScreen()),
               ),
             ),
             const SizedBox(height: 28),
@@ -284,6 +306,39 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: color, size: 36),
+    );
+  }
+}
+
+class _RoleButton extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final VoidCallback onTap;
+
+  const _RoleButton({
+    required this.emoji,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.green.shade600,
+          foregroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: onTap,
+        child: Text(
+          '$emoji  $label',
+          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 }

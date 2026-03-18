@@ -49,6 +49,16 @@ class AuthService {
     return credential;
   }
 
+  /// Returns true if the username is already taken in Firestore.
+  Future<bool> isUsernameTaken(String username) async {
+    final result = await _db
+        .collection('users')
+        .where('username', isEqualTo: username)
+        .limit(1)
+        .get();
+    return result.docs.isNotEmpty;
+  }
+
   /// Logs in with username (looks up email in Firestore first).
   Future<UserCredential> loginWithUsername({
     required String username,
