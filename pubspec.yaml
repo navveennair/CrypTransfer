@@ -48,6 +48,9 @@ dependencies:
   # UI
   google_fonts: ^6.2.1
 
+  # Biometric auth
+  local_auth: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../home/home_screen.dart';
 import 'auth_service.dart';
 import 'register_screen.dart';
 
@@ -38,20 +40,57 @@ class _LoginScreenState extends State<LoginScreen> {
         username: username,
         password: password,
       );
-      // SplashScreen's StreamBuilder will navigate automatically
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = _authError(e.code));
     } catch (e) {
-      setState(() => _errorMessage = _friendlyError(e.toString()));
+      if (mounted) setState(() => _errorMessage = _generalError(e.toString()));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _friendlyError(String raw) {
-    if (raw.contains('wrong-password') || raw.contains('invalid-credential')) {
-      return 'Incorrect password. Please try again.';
+  /// Maps FirebaseAuthException codes to user-friendly messages.
+  String _authError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found with this username.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'invalid-credential':
+        return 'Invalid username or password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      default:
+        return 'Login failed ($code). Please try again.';
     }
-    if (raw.contains('No account found')) return 'No account found for that username.';
-    if (raw.contains('network')) return 'Network error. Check your connection.';
+  }
+
+  /// Maps non-Firebase exceptions (our own string codes) to messages.
+  String _generalError(String raw) {
+    if (raw.contains('username-not-found')) {
+      return 'No account found with this username.';
+    }
+    if (raw.contains('firestore-permission-denied')) {
+      return 'Database permission error. Check Firestore security rules.';
+    }
+    if (raw.contains('account-data-corrupted')) {
+      return 'Account data is corrupted. Please re-register.';
+    }
+    if (raw.contains('firestore-error')) {
+      return 'Database error. Check your connection and try again.';
+    }
+    if (raw.contains('network')) {
+      return 'Network error. Check your connection.';
+    }
     return 'Login failed. Please try again.';
   }
 
@@ -135,12 +174,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // ── Login button ──────────────────────────────
                 const SizedBox(height: 8),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : FilledButton(
-                        onPressed: _login,
-                        child: const Text('Login'),
-                      ),
+                FilledButton(
+                  onPressed: _isLoading ? null : _login,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Login'),
+                ),
 
                 const SizedBox(height: 16),
 

@@ -18,7 +18,7 @@ class SplashScreen extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (snapshot.hasData) {
+        if (snapshot.hasData && snapshot.data != null) {
           return const HomeScreen();
         }
         return const LoginScreen();

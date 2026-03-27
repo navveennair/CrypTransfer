@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart';
 
@@ -38,6 +38,8 @@ class AuthService {
     // Store display name for easy access
     await credential.user!.updateDisplayName(username);
 
+    debugPrint('[AuthService] register: saving username="$username" email="$email" uid="${credential.user!.uid}"');
+
     await _db.collection('users').doc(credential.user!.uid).set({
       'username': username,
       'email': email,
@@ -60,25 +62,54 @@ class AuthService {
   }
 
   /// Logs in with username (looks up email in Firestore first).
+  /// Throws [FirebaseAuthException] for auth errors (check .code).
+  /// Throws [Exception] with a string code for lookup errors.
   Future<UserCredential> loginWithUsername({
     required String username,
     required String password,
   }) async {
-    final query = await _db
-        .collection('users')
-        .where('username', isEqualTo: username)
-        .limit(1)
-        .get();
-
-    if (query.docs.isEmpty) {
-      throw Exception('No account found for that username.');
+    // Step 1 — Firestore lookup
+    debugPrint('[Auth] Step 1: querying Firestore for username="$username"');
+    late QuerySnapshot<Map<String, dynamic>> query;
+    try {
+      query = await _db
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .limit(1)
+          .get();
+    } on FirebaseException catch (e) {
+      debugPrint('[Auth] Firestore query failed — code: ${e.code} msg: ${e.message}');
+      if (e.code == 'permission-denied') {
+        throw Exception('firestore-permission-denied');
+      }
+      throw Exception('firestore-error:${e.code}');
     }
 
-    final email = query.docs.first.data()['email'] as String;
-    return await _auth.signInWithEmailAndPassword(
+    // Step 2 — Check document exists
+    debugPrint('[Auth] Step 2: got ${query.docs.length} doc(s)');
+    if (query.docs.isEmpty) {
+      debugPrint('[Auth] No document found for username="$username"');
+      throw Exception('username-not-found');
+    }
+
+    // Step 3 — Extract email
+    final data = query.docs.first.data();
+    final email = (data['email'] as String?)?.trim() ?? '';
+    debugPrint('[Auth] Step 3: resolved email="${email.isEmpty ? "(EMPTY — Firestore data corrupt)" : email}"');
+    if (email.isEmpty) {
+      throw Exception('account-data-corrupted');
+    }
+
+    // Step 4 — Firebase Auth sign-in (let FirebaseAuthException propagate as-is)
+    debugPrint('[Auth] Step 4: calling signInWithEmailAndPassword...');
+    final credential = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
+
+    // Step 5 — Success
+    debugPrint('[Auth] Step 5: login success — uid=${credential.user?.uid}');
+    return credential;
   }
 
   Future<void> logout() async {
