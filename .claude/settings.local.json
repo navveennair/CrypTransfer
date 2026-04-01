@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter pub:*)"
+      "Bash(flutter pub:*)",
+      "Bash(cp lib/utils/biometric_helper.dart lib/core/utils/biometric_helper.dart)",
+      "Bash(cp lib/utils/notification_service.dart lib/core/utils/notification_service.dart)",
+      "Bash(sed -i \"s|AuthService\\(\\)|AuthRepository\\(\\)|g\" lib/presentation/auth/login_screen.dart)",
+      "Bash(sed -i \"s|final _authService = AuthService|final _authService = AuthRepository|g\" lib/presentation/auth/login_screen.dart)",
+      "Bash(sed -i \"s|AuthService\\(\\)|AuthRepository\\(\\)|g\" lib/presentation/auth/register_screen.dart)",
+      "Bash(sed -i \"s|final _authService = AuthService|final _authService = AuthRepository|g\" lib/presentation/auth/register_screen.dart)",
+      "Bash(sed -i \"s|AuthService\\(\\)|AuthRepository\\(\\)|g\" lib/presentation/home/sidebar_drawer.dart)",
+      "Bash(sed -i \"s|ConnectionService\\(\\)|KeyRepository\\(\\)|g\" lib/presentation/sender/sender_screen.dart)",
+      "Bash(sed -i \"s|final _connService = ConnectionService|final _connService = KeyRepository|g\" lib/presentation/sender/sender_screen.dart)",
+      "Bash(sed -i \"s|ConnectionService\\(\\)|KeyRepository\\(\\)|g\" lib/presentation/receiver/receiver_screen.dart)",
+      "Bash(sed -i \"s|final _connService = ConnectionService|final _connService = KeyRepository|g\" lib/presentation/receiver/receiver_screen.dart)",
+      "Bash(echo \"ConnectionService -> KeyRepository done\")"
     ]
   }
 }

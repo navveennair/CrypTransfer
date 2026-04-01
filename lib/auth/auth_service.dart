@@ -38,7 +38,6 @@ class AuthService {
     // Store display name for easy access
     await credential.user!.updateDisplayName(username);
 
-    debugPrint('[AuthService] register: saving username="$username" email="$email" uid="${credential.user!.uid}"');
 
     await _db.collection('users').doc(credential.user!.uid).set({
       'username': username,
@@ -69,7 +68,6 @@ class AuthService {
     required String password,
   }) async {
     // Step 1 — Firestore lookup
-    debugPrint('[Auth] Step 1: querying Firestore for username="$username"');
     late QuerySnapshot<Map<String, dynamic>> query;
     try {
       query = await _db
@@ -78,7 +76,6 @@ class AuthService {
           .limit(1)
           .get();
     } on FirebaseException catch (e) {
-      debugPrint('[Auth] Firestore query failed — code: ${e.code} msg: ${e.message}');
       if (e.code == 'permission-denied') {
         throw Exception('firestore-permission-denied');
       }
@@ -86,29 +83,24 @@ class AuthService {
     }
 
     // Step 2 — Check document exists
-    debugPrint('[Auth] Step 2: got ${query.docs.length} doc(s)');
     if (query.docs.isEmpty) {
-      debugPrint('[Auth] No document found for username="$username"');
       throw Exception('username-not-found');
     }
 
     // Step 3 — Extract email
     final data = query.docs.first.data();
     final email = (data['email'] as String?)?.trim() ?? '';
-    debugPrint('[Auth] Step 3: resolved email="${email.isEmpty ? "(EMPTY — Firestore data corrupt)" : email}"');
     if (email.isEmpty) {
       throw Exception('account-data-corrupted');
     }
 
     // Step 4 — Firebase Auth sign-in (let FirebaseAuthException propagate as-is)
-    debugPrint('[Auth] Step 4: calling signInWithEmailAndPassword...');
     final credential = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
 
     // Step 5 — Success
-    debugPrint('[Auth] Step 5: login success — uid=${credential.user?.uid}');
     return credential;
   }
 

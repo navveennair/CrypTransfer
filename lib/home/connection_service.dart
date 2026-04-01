@@ -7,7 +7,11 @@ class ConnectionService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FlutterSecureStorage _secure = const FlutterSecureStorage();
 
-  String get _uid => _auth.currentUser!.uid;
+  String get _uid {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Not authenticated.');
+    return uid;
+  }
 
   // ─── User search ──────────────────────────────────────────────────────────
 
