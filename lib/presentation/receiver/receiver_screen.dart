@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../data/repositories/key_repository.dart';
@@ -17,16 +18,18 @@ class ReceiverScreen extends StatefulWidget {
 }
 
 class _ReceiverScreenState extends State<ReceiverScreen> {
-  final _authService = AuthService();
+  final _authService = AuthRepository();
   final _connService = KeyRepository();
 
   bool _hasPrivateKey = false;
   bool _hasPublicKey = false;
   bool _checkingStatus = true;
 
-  List<Map<String, dynamic>> _connectedFriends = [];
+  List<UserModel> _connectedFriends = [];
   bool _loadingFriends = false;
   Set<String> _keySentTo = {};
+
+  bool _isReadyToReceive = false;
 
   StreamSubscription<QuerySnapshot>? _transferSub;
   bool _initialLoadDone = false;
@@ -36,6 +39,7 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     super.initState();
     _checkKeyStatus();
     _loadConnectedFriends();
+    _loadReadyToReceiveState();
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _startTransferListener());
   }
@@ -103,6 +107,40 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
       }
     } catch (e) {
       if (mounted) _showError(e.toString());
+    }
+  }
+
+  // ─── Ready to Receive toggle ─────────────────────────────────────────────
+
+  Future<void> _loadReadyToReceiveState() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (mounted) {
+        setState(() {
+          _isReadyToReceive =
+              doc.data()?['isReadyToReceive'] as bool? ?? false;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleReadyToReceive() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'isReadyToReceive': !_isReadyToReceive,
+        'readySince':
+            !_isReadyToReceive ? FieldValue.serverTimestamp() : null,
+      });
+      if (mounted) setState(() => _isReadyToReceive = !_isReadyToReceive);
+    } catch (e) {
+      if (mounted) _showError('Could not update ready status: $e');
     }
   }
 
@@ -325,6 +363,29 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
               subtitle: 'Create your 2048-bit RSA-OAEP keypair',
               badge: _hasPrivateKey ? '✓ Key stored' : null,
               onTap: _generateKeys,
+            ),
+            const SizedBox(height: 12),
+
+            // ── Ready to Receive toggle ───────────────────────
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  Icons.inbox_rounded,
+                  color: _isReadyToReceive ? Colors.green : Colors.grey,
+                ),
+                title: const Text('Ready to Receive Files'),
+                subtitle: Text(
+                  _isReadyToReceive
+                      ? 'Senders can now send you files'
+                      : 'Toggle on to receive files',
+                ),
+                trailing: Switch(
+                  value: _isReadyToReceive,
+                  onChanged: (_) => _toggleReadyToReceive(),
+                  activeThumbColor: Colors.green,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -574,7 +635,7 @@ class _ActionTile extends StatelessWidget {
 // ─── Connection bottom sheet ──────────────────────────────────────────────────
 
 class _ConnectionSheet extends StatefulWidget {
-  final ConnectionService service;
+  final KeyRepository service;
 
   const _ConnectionSheet({required this.service});
 
@@ -585,7 +646,7 @@ class _ConnectionSheet extends StatefulWidget {
 class _ConnectionSheetState extends State<_ConnectionSheet> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  List<Map<String, dynamic>> _results = [];
+  List<UserModel> _results = [];
   bool _isSearching = false;
   final Map<String, String> _statusCache = {};
 
@@ -609,7 +670,7 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
     _debounce = Timer(const Duration(milliseconds: 500), () async {
       final results = await widget.service.searchUsers(value.trim());
       for (final u in results) {
-        final uid = u['uid'] as String;
+        final uid = u.uid;
         if (!_statusCache.containsKey(uid)) {
           final s = await widget.service.getConnectionStatus(uid);
           _statusCache[uid] = s ?? 'none';
@@ -721,9 +782,9 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
                     itemCount: _results.length,
                     itemBuilder: (_, i) {
                       final user = _results[i];
-                      final uid = user['uid'] as String;
+                      final uid = user.uid;
                       final status = _statusCache[uid] ?? 'none';
-                      final username = user['username'] ?? 'Unknown';
+                      final username = user.username.isNotEmpty ? user.username : 'Unknown';
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -741,7 +802,7 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
                           title: Text(username,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600)),
-                          subtitle: Text(user['email'] ?? ''),
+                          subtitle: Text(user.email),
                           trailing: _connectionButton(status, uid),
                         ),
                       );
@@ -781,8 +842,8 @@ class _ConnectionSheetState extends State<_ConnectionSheet> {
 // ─── Key manager bottom sheet ─────────────────────────────────────────────────
 
 class _KeyManagerSheet extends StatefulWidget {
-  final AuthService authService;
-  final ConnectionService connService;
+  final AuthRepository authService;
+  final KeyRepository connService;
   final bool hasPrivateKey;
   final bool hasPublicKey;
 
@@ -1044,7 +1105,7 @@ class _SentKeyCard extends StatelessWidget {
 
 class _ReceivedKeyCard extends StatefulWidget {
   final Map<String, dynamic> entry;
-  final ConnectionService connService;
+  final KeyRepository connService;
 
   const _ReceivedKeyCard(
       {required this.entry, required this.connService});
@@ -1159,7 +1220,7 @@ class _EmptyHint extends StatelessWidget {
 
 class _SendKeySection extends StatelessWidget {
   final bool loading;
-  final List<Map<String, dynamic>> friends;
+  final List<UserModel> friends;
   final Set<String> keySentTo;
   final void Function(String uid, String username) onSendKey;
 
@@ -1193,8 +1254,8 @@ class _SendKeySection extends StatelessWidget {
           ),
         ),
         ...friends.map((f) {
-          final uid = f['uid'] as String;
-          final username = (f['username'] as String?) ?? 'Unknown';
+          final uid = f.uid;
+          final username = f.username.isNotEmpty ? f.username : 'Unknown';
           final sent = keySentTo.contains(uid);
 
           return Card(

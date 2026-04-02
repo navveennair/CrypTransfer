@@ -334,4 +334,98 @@ class KeyRepository {
       });
     }
   }
+
+  // ─── Session key management ───────────────────────────────────────────────
+
+  /// Returns all users who have sent their RSA public key to the current user.
+  /// The [publicKey] on each [UserModel] comes from the key transfer document.
+  Future<List<UserModel>> getAvailableReceivers() async {
+    try {
+      final snapshot = await _db
+          .collection(FirebaseConstants.rsaKeyTransfers)
+          .where('toUserId', isEqualTo: _uid)
+          .get();
+
+      final receivers = <UserModel>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final fromUserId = data['fromUserId'] as String;
+        final publicKey = data['publicKey'] as String?;
+        if (publicKey == null || publicKey.isEmpty) continue;
+        final userDoc = await _db
+            .collection(FirebaseConstants.users)
+            .doc(fromUserId)
+            .get();
+        if (!userDoc.exists) continue;
+        final userData = userDoc.data()!;
+        receivers.add(UserModel(
+          uid: fromUserId,
+          username: userData['username'] as String? ?? 'Unknown',
+          email: userData['email'] as String? ?? '',
+          phone: userData['phone'] as String? ?? '',
+          publicKey: publicKey,
+        ));
+      }
+      return receivers;
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not load available receivers: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Updates the current user's readiness-to-receive status in Firestore.
+  Future<void> setReadyToReceive(bool ready) async {
+    try {
+      await _db.collection(FirebaseConstants.users).doc(_uid).update({
+        'isReadyToReceive': ready,
+        if (ready) 'readySince': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not update ready status: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Wipes all RSA session data for [uid] on app startup:
+  /// - Secure storage entries with rsa_private_key_* / rsa_public_key_* prefixes
+  /// - All rsa_key_transfers documents where fromUserId or toUserId == uid
+  /// - All rsa_key_received notifications for uid
+  Future<void> wipeAllSessionKeys(String uid) async {
+    // Wipe secure storage
+    final all = await _secure.readAll();
+    for (final key in all.keys) {
+      if (key.startsWith('rsa_private_key_') ||
+          key.startsWith('rsa_public_key_')) {
+        await _secure.delete(key: key);
+      }
+    }
+
+    // Wipe rsa_key_transfers sent by uid
+    final sent = await _db
+        .collection(FirebaseConstants.rsaKeyTransfers)
+        .where('fromUserId', isEqualTo: uid)
+        .get();
+    for (final doc in sent.docs) {
+      await doc.reference.delete();
+    }
+
+    // Wipe rsa_key_transfers received by uid
+    final received = await _db
+        .collection(FirebaseConstants.rsaKeyTransfers)
+        .where('toUserId', isEqualTo: uid)
+        .get();
+    for (final doc in received.docs) {
+      await doc.reference.delete();
+    }
+
+    // Wipe rsa_key_received notifications
+    final notifs = await _db
+        .collection(FirebaseConstants.notifications)
+        .where('toUserId', isEqualTo: uid)
+        .where('type', isEqualTo: 'rsa_key_received')
+        .get();
+    for (final doc in notifs.docs) {
+      await doc.reference.delete();
+    }
+  }
 }
