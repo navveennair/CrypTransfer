@@ -44,6 +44,7 @@ dependencies:
 
   # File handling
   file_picker: ^8.1.7
+  path_provider: ^2.1.0
 
   # UI
   google_fonts: ^6.2.1
@@ -54,13 +55,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  fake_cloud_firestore: ^3.0.0
+  firebase_auth_mocks: ^0.14.0
+  mockito: ^5.4.0
+  build_runner: ^2.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

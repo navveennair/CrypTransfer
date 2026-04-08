@@ -320,7 +320,7 @@ class KeyRepository {
     final update = <String, dynamic>{
       'publicKey': publicKey,
       'sentAt': FieldValue.serverTimestamp(),
-      if (fromUsername != null) 'fromUsername': fromUsername,
+      'fromUsername': ?fromUsername,
       if (includeStatus) 'status': 'pending',
     };
 

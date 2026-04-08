@@ -1,33 +1,34 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pointycastle/export.dart' hide State, Padding;
 
-import '../session/end_session_screen.dart';
+import '../../core/constants/firebase_constants.dart';
+import '../../data/models/transfer_model.dart';
+import '../../data/models/user_model.dart';
+import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/transfer_repository.dart';
+import '../../data/services/encryption_service.dart';
+import 'download_confirm_screen.dart';
 
-// ─── Top-level isolate function (must be top-level for compute()) ─────────────
+// ─── Top-level isolate helper (compute() requires top-level / static) ─────────
 
-Uint8List _runAesGcmDecrypt(List<Uint8List> args) {
-  final ciphertext = args[0]; // ciphertext + 16-byte GCM tag appended
-  final key = args[1]; // 32 bytes
-  final iv = args[2]; // 12 bytes
-
-  final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
-  final cipher = GCMBlockCipher(AESEngine())..init(false, params);
-  return cipher.process(ciphertext);
+Uint8List _decryptAesKeyIsolate(List<dynamic> args) {
+  final privateKeyJson = args[0] as String;
+  final encryptedBytes = args[1] as Uint8List;
+  return EncryptionService.decryptAesKeyWithPrivateKeyJson(
+    privateKeyJson,
+    encryptedBytes,
+  );
 }
 
-// ─── Screen phases ─────────────────────────────────────────────────────────────
+// ─── Screen phases ────────────────────────────────────────────────────────────
 
-enum _Phase { loading, ready, decrypting, done, error }
+enum _Phase { loading, ready, decrypting, error }
 
-// ─── DecryptScreen ─────────────────────────────────────────────────────────────
+// ─── DecryptScreen ────────────────────────────────────────────────────────────
 
 class DecryptScreen extends StatefulWidget {
   final String transferId;
@@ -39,19 +40,14 @@ class DecryptScreen extends StatefulWidget {
 }
 
 class _DecryptScreenState extends State<DecryptScreen> {
+  final _repo = TransferRepository();
+  final _auth = AuthRepository();
+
   _Phase _phase = _Phase.loading;
   String? _error;
 
-  String _fileName = '';
-  int _fileSize = 0;
+  late TransferModel _transfer;
   String _senderUsername = '';
-  String _senderId = '';
-  String _receiverId = '';
-  String _encryptedAesKeyB64 = '';
-  String _ivB64 = '';
-
-  Uint8List? _decryptedBytes;
-  Uint8List? _aesKey;
 
   @override
   void initState() {
@@ -59,43 +55,23 @@ class _DecryptScreenState extends State<DecryptScreen> {
     _loadTransfer();
   }
 
+  // ─── Step: load transfer metadata ────────────────────────────────────────
+
   Future<void> _loadTransfer() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('transfers')
-          .doc(widget.transferId)
-          .get();
+      final transfer = await _repo.getTransfer(widget.transferId);
 
-      if (!doc.exists) throw Exception('Transfer not found');
-
-      final data = doc.data()!;
-      final senderId = data['senderId'] as String;
-
-      final senderDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(senderId)
-          .get();
-      final senderUsername =
-          senderDoc.data()?['username'] as String? ?? 'Unknown';
-
-      // Mark as received
-      await FirebaseFirestore.instance
-          .collection('transfers')
-          .doc(widget.transferId)
-          .update({
-        'status': 'received',
-        'receivedAt': FieldValue.serverTimestamp(),
-      });
+      // Sender username is not stored in TransferModel — fetch from users.
+      final results = await Future.wait([
+        _auth.getUserProfile(transfer.senderId),
+        _repo.markReceived(widget.transferId),
+      ]);
+      final senderUsername = (results[0] as UserModel?)?.username ?? 'Unknown';
 
       if (mounted) {
         setState(() {
-          _fileName = data['fileName'] as String? ?? 'file';
-          _fileSize = data['fileSize'] as int? ?? 0;
+          _transfer = transfer;
           _senderUsername = senderUsername;
-          _senderId = senderId;
-          _receiverId = data['receiverId'] as String? ?? '';
-          _encryptedAesKeyB64 = data['encryptedAESKey'] as String? ?? '';
-          _ivB64 = data['iv'] as String? ?? '';
           _phase = _Phase.ready;
         });
       }
@@ -109,44 +85,66 @@ class _DecryptScreenState extends State<DecryptScreen> {
     }
   }
 
+  // ─── Step: decrypt ────────────────────────────────────────────────────────
+
   Future<void> _decrypt() async {
     setState(() => _phase = _Phase.decrypting);
 
-    try {
-      // Step 1: Download encrypted file (100 MB max)
-      final encryptedBytes = await FirebaseStorage.instance
-          .ref('transfers/${widget.transferId}/encrypted_file')
-          .getData(100 * 1024 * 1024);
-      if (encryptedBytes == null) throw Exception('Failed to download file');
+    // Track AES key locally so we can zero it if a later step fails.
+    Uint8List? localAesKey;
 
-      // Step 2: Get private key from secure storage
-      const secure = FlutterSecureStorage();
-      final privateKeyJson = await secure.read(key: 'rsa_private_key');
+    try {
+      // Download encrypted file bytes from Firebase Storage.
+      final encryptedBytes =
+          await _repo.downloadEncryptedFile(widget.transferId);
+
+      // Read RSA private key from secure storage.
+      const storage = FlutterSecureStorage();
+      final privateKeyJson =
+          await storage.read(key: FirebaseConstants.privateKeyStorageKey);
       if (privateKeyJson == null) {
-        throw Exception('Private key not found on this device');
+        throw Exception('Private RSA key not found on this device');
       }
 
-      // Step 3: RSA-OAEP decrypt the AES key
-      final encryptedAesKeyBytes = base64Decode(_encryptedAesKeyB64);
-      final aesKey = _rsaDecrypt(privateKeyJson, encryptedAesKeyBytes);
-
-      // Step 4: AES-256-GCM decrypt via compute() isolate
-      final iv = base64Decode(_ivB64);
-      final plaintext = await compute(
-        _runAesGcmDecrypt,
-        [encryptedBytes, aesKey, iv],
+      // RSA-OAEP decrypt the AES key in a background isolate via compute().
+      // compute() requires a top-level function — see _decryptAesKeyIsolate.
+      final encryptedAesKeyBytes = base64Decode(_transfer.encryptedAesKey);
+      final aesKey = await compute(
+        _decryptAesKeyIsolate,
+        [privateKeyJson, encryptedAesKeyBytes],
       );
+      localAesKey = aesKey;
+
+      // AES-256-GCM decrypt the file payload.
+      final iv = base64Decode(_transfer.iv);
+      final decryptedBytes = await EncryptionService.decryptAesGcm(
+        encryptedBytes,
+        aesKey,
+        iv,
+      );
+      localAesKey = null; // ownership transfers to DownloadConfirmScreen
 
       if (mounted) {
-        setState(() {
-          _decryptedBytes = plaintext;
-          _aesKey = aesKey;
-          _phase = _Phase.done;
-        });
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DownloadConfirmScreen(
+              transferId: widget.transferId,
+              fileName: _transfer.fileName,
+              fileSize: _transfer.fileSize,
+              senderUsername: _senderUsername,
+              senderId: _transfer.senderId,
+              receiverId: _transfer.receiverId,
+              decryptedBytes: decryptedBytes,
+              aesKey: aesKey,
+              transferredAt: DateTime.now(),
+            ),
+          ),
+        );
       }
     } catch (e) {
-      // Zero key bytes on failure
-      _aesKey?.fillRange(0, _aesKey!.length, 0);
+      // Zero key bytes on failure before surfacing the error.
+      localAesKey?.fillRange(0, localAesKey.length, 0);
       if (mounted) {
         setState(() {
           _error = e.toString().replaceFirst('Exception: ', '');
@@ -156,78 +154,13 @@ class _DecryptScreenState extends State<DecryptScreen> {
     }
   }
 
-  /// Decodes JSON private key and RSA-OAEP decrypts [ciphertext].
-  Uint8List _rsaDecrypt(String privateKeyJson, Uint8List ciphertext) {
-    final map = jsonDecode(privateKeyJson) as Map<String, dynamic>;
-    final modulus = BigInt.parse(map['modulus'] as String, radix: 16);
-    final privateExp = BigInt.parse(map['privateExponent'] as String, radix: 16);
-    final p = BigInt.parse(map['p'] as String, radix: 16);
-    final q = BigInt.parse(map['q'] as String, radix: 16);
-    final privateKey = RSAPrivateKey(modulus, privateExp, p, q);
-
-    final cipher = OAEPEncoding(RSAEngine())
-      ..init(false, PrivateKeyParameter<RSAPrivateKey>(privateKey));
-    return cipher.process(ciphertext);
-  }
-
-  Future<void> _saveFile() async {
-    final bytes = _decryptedBytes;
-    if (bytes == null) return;
-    try {
-      final String downloadsPath;
-      if (Platform.isWindows) {
-        downloadsPath =
-            '${Platform.environment['USERPROFILE']}\\Downloads\\$_fileName';
-      } else {
-        downloadsPath =
-            '${Platform.environment['HOME']}/Downloads/$_fileName';
-      }
-      await File(downloadsPath).writeAsBytes(bytes);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved to $downloadsPath'),
-            backgroundColor: Colors.green.shade600,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Save failed: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _goToEndSession() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EndSessionScreen(
-          transferId: widget.transferId,
-          fileName: _fileName,
-          fileSize: _fileSize,
-          senderUsername: _senderUsername,
-          receiverUsername:
-              FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown',
-          senderId: _senderId,
-          receiverId: _receiverId,
-          transferredAt: DateTime.now(),
-          aesKey: _aesKey,
-        ),
-      ),
-    );
-  }
-
   String _fmtSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +188,6 @@ class _DecryptScreenState extends State<DecryptScreen> {
       _Phase.loading => const Center(child: CircularProgressIndicator()),
       _Phase.ready => _buildReady(cs),
       _Phase.decrypting => _buildDecrypting(cs),
-      _Phase.done => _buildDone(cs),
       _Phase.error => _buildError(cs),
     };
   }
@@ -276,7 +208,7 @@ class _DecryptScreenState extends State<DecryptScreen> {
               Icon(Icons.lock_rounded, size: 44, color: cs.primary),
               const SizedBox(height: 12),
               Text(
-                _fileName,
+                _transfer.fileName,
                 style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600, fontSize: 15),
                 textAlign: TextAlign.center,
@@ -285,7 +217,7 @@ class _DecryptScreenState extends State<DecryptScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                _fmtSize(_fileSize),
+                _fmtSize(_transfer.fileSize),
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -364,73 +296,6 @@ class _DecryptScreenState extends State<DecryptScreen> {
     );
   }
 
-  Widget _buildDone(ColorScheme cs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.green.shade300),
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.check_circle_rounded,
-                  size: 52, color: Colors.green.shade600),
-              const SizedBox(height: 12),
-              Text(
-                'File Decrypted!',
-                style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    color: Colors.green.shade700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _fileName,
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                _fmtSize(_decryptedBytes?.length ?? _fileSize),
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        OutlinedButton.icon(
-          icon: const Icon(Icons.save_alt_rounded),
-          label: const Text('💾 Save to Downloads'),
-          onPressed: _saveFile,
-          style:
-              OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-        ),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          icon: const Icon(Icons.delete_forever_rounded),
-          label: const Text('🗑️ Permanently Delete'),
-          onPressed: _goToEndSession,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.red.shade700,
-            minimumSize: const Size.fromHeight(50),
-          ),
-        ),
-        const SizedBox(height: 10),
-        TextButton.icon(
-          icon: const Icon(Icons.check_rounded),
-          label: const Text('✅ Done'),
-          onPressed: _goToEndSession,
-          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-        ),
-      ],
-    );
-  }
-
   Widget _buildError(ColorScheme cs) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -495,8 +360,7 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style:
-                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
         ),

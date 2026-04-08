@@ -41,6 +41,7 @@ class _SenderScreenState extends State<SenderScreen> {
   // Step 0 — Receiver selection
   List<UserModel> _availableReceivers = [];
   bool _loadingReceivers = true;
+  bool _loadReceiversFailed = false;
   String? _selectedReceiverPublicKeyJson;
 
   // Step 1 — File
@@ -74,7 +75,10 @@ class _SenderScreenState extends State<SenderScreen> {
   // ─── Step 0: Load and select receiver ────────────────────────────────────
 
   Future<void> _loadAvailableReceivers() async {
-    setState(() => _loadingReceivers = true);
+    setState(() {
+      _loadingReceivers = true;
+      _loadReceiversFailed = false;
+    });
     try {
       final receivers = await _connService.getAvailableReceivers();
       if (mounted) {
@@ -84,7 +88,12 @@ class _SenderScreenState extends State<SenderScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loadingReceivers = false);
+      if (mounted) {
+        setState(() {
+          _loadingReceivers = false;
+          _loadReceiversFailed = true;
+        });
+      }
     }
   }
 
@@ -294,6 +303,7 @@ class _SenderScreenState extends State<SenderScreen> {
                     )
                   : _ReceiverSelectBody(
                       loading: _loadingReceivers,
+                      failed: _loadReceiversFailed,
                       receivers: _availableReceivers,
                       onSelect: _selectReceiver,
                       onRefresh: _loadAvailableReceivers,
@@ -493,12 +503,14 @@ class _StepCard extends StatelessWidget {
 
 class _ReceiverSelectBody extends StatelessWidget {
   final bool loading;
+  final bool failed;
   final List<UserModel> receivers;
   final void Function(UserModel) onSelect;
   final VoidCallback onRefresh;
 
   const _ReceiverSelectBody({
     required this.loading,
+    required this.failed,
     required this.receivers,
     required this.onSelect,
     required this.onRefresh,
@@ -508,6 +520,29 @@ class _ReceiverSelectBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (loading) return const LinearProgressIndicator();
+    if (failed) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, size: 16, color: cs.error),
+              const SizedBox(width: 8),
+              Text(
+                'Failed to load receivers.',
+                style: TextStyle(color: cs.error, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            onPressed: onRefresh,
+          ),
+        ],
+      );
+    }
     if (receivers.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

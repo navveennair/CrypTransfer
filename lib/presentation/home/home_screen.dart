@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -149,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Divider(color: cs.outlineVariant),
             const SizedBox(height: 12),
 
-            // ── Recent transfers placeholder ──────────────────
+            // ── Recent transfers (from transfers_log) ─────────
             Row(
               children: [
                 Icon(Icons.history_rounded, color: cs.primary, size: 20),
@@ -161,21 +162,116 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.inbox_outlined,
-                        size: 48, color: cs.onSurfaceVariant),
-                    const SizedBox(height: 8),
-                    Text(
-                      'No transfers yet',
-                      style: TextStyle(color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('transfers_log')
+                    .where('participants',
+                        arrayContains:
+                            FirebaseAuth.instance.currentUser?.uid ?? '')
+                    .orderBy('loggedAt', descending: true)
+                    .limit(10)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.inbox_outlined,
+                              size: 48, color: cs.onSurfaceVariant),
+                          const SizedBox(height: 8),
+                          Text('No transfers yet',
+                              style:
+                                  TextStyle(color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                    );
+                  }
+                  final uid =
+                      FirebaseAuth.instance.currentUser?.uid ?? '';
+                  return ListView.separated(
+                    itemCount: docs.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: 6),
+                    itemBuilder: (context, i) {
+                      final data =
+                          docs[i].data() as Map<String, dynamic>;
+                      final isSender = data['senderId'] == uid;
+                      final fileName =
+                          data['fileName'] as String? ?? 'file';
+                      final date =
+                          data['transferDate'] as String? ?? '';
+                      final time =
+                          data['transferTime'] as String? ?? '';
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: cs.outlineVariant),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSender
+                                  ? Icons.upload_rounded
+                                  : Icons.download_rounded,
+                              size: 20,
+                              color: isSender
+                                  ? Colors.indigo.shade600
+                                  : Colors.deepPurple.shade600,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fileName,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '$date  $time',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isSender ? 'Sent' : 'Received',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],

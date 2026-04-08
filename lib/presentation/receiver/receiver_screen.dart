@@ -4,11 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/constants/firebase_constants.dart';
+import '../../core/utils/biometric_helper.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../../core/utils/biometric_helper.dart';
 import '../../data/repositories/key_repository.dart';
-import 'decrypt_screen.dart';
+import 'receiver_transfer_screen.dart';
 
 class ReceiverScreen extends StatefulWidget {
   const ReceiverScreen({super.key});
@@ -30,8 +31,11 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
   Set<String> _keySentTo = {};
 
   bool _isReadyToReceive = false;
+  bool _loadingReadyState = true;
+  bool _togglingReady = false;
 
   StreamSubscription<QuerySnapshot>? _transferSub;
+  StreamSubscription<QuerySnapshot>? _keySub;
   bool _initialLoadDone = false;
 
   @override
@@ -40,13 +44,16 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     _checkKeyStatus();
     _loadConnectedFriends();
     _loadReadyToReceiveState();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _startTransferListener());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startTransferListener();
+      _startKeyListener();
+    });
   }
 
   @override
   void dispose() {
     _transferSub?.cancel();
+    _keySub?.cancel();
     super.dispose();
   }
 
@@ -114,7 +121,11 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
 
   Future<void> _loadReadyToReceiveState() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) {
+      setState(() => _loadingReadyState = false);
+      return;
+    }
+    setState(() => _loadingReadyState = true);
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -124,23 +135,35 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
         setState(() {
           _isReadyToReceive =
               doc.data()?['isReadyToReceive'] as bool? ?? false;
+          _loadingReadyState = false;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() => _loadingReadyState = false);
+    }
   }
 
   Future<void> _toggleReadyToReceive() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    setState(() => _togglingReady = true);
     try {
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'isReadyToReceive': !_isReadyToReceive,
         'readySince':
             !_isReadyToReceive ? FieldValue.serverTimestamp() : null,
       });
-      if (mounted) setState(() => _isReadyToReceive = !_isReadyToReceive);
+      if (mounted) {
+        setState(() {
+          _isReadyToReceive = !_isReadyToReceive;
+          _togglingReady = false;
+        });
+      }
     } catch (e) {
-      if (mounted) _showError('Could not update ready status: $e');
+      if (mounted) {
+        setState(() => _togglingReady = false);
+        _showError('Could not update ready status: $e');
+      }
     }
   }
 
@@ -173,6 +196,27 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
     });
   }
 
+  // Keeps _keySentTo in sync with Firestore in real-time.
+  // When wipeAllSessionKeys() deletes all rsa_key_transfers sent by this user,
+  // this listener fires with an empty snapshot and clears the badge set.
+  void _startKeyListener() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    _keySub = FirebaseFirestore.instance
+        .collection(FirebaseConstants.rsaKeyTransfers)
+        .where('fromUserId', isEqualTo: uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (!mounted) return;
+      setState(() {
+        _keySentTo = snapshot.docs
+            .map((doc) => (doc.data())['toUserId'] as String)
+            .toSet();
+      });
+    });
+  }
+
   void _showIncomingDialog(String transferId, Map<String, dynamic> data) {
     final fileName = data['fileName'] as String? ?? 'file';
 
@@ -199,7 +243,10 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => DecryptScreen(transferId: transferId),
+                  builder: (_) => ReceiverTransferScreen(
+                    transferId: transferId,
+                    fileName: fileName,
+                  ),
                 ),
               );
             },
@@ -380,11 +427,17 @@ class _ReceiverScreenState extends State<ReceiverScreen> {
                       ? 'Senders can now send you files'
                       : 'Toggle on to receive files',
                 ),
-                trailing: Switch(
-                  value: _isReadyToReceive,
-                  onChanged: (_) => _toggleReadyToReceive(),
-                  activeThumbColor: Colors.green,
-                ),
+                trailing: _loadingReadyState || _togglingReady
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : Switch(
+                        value: _isReadyToReceive,
+                        onChanged: (_) => _toggleReadyToReceive(),
+                        activeThumbColor: Colors.green,
+                      ),
               ),
             ),
             const SizedBox(height: 12),

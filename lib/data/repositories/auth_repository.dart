@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -115,7 +117,7 @@ class AuthRepository {
   // ─── RSA key management ────────────────────────────────────────────────────
 
   Future<void> generateAndStoreKeyPair() async {
-    final pair = EncryptionService.generateRsaKeyPairSync();
+    final pair = await Isolate.run(EncryptionService.generateRsaKeyPairSync);
     final pubKey = pair.publicKey as RSAPublicKey;
     final privKey = pair.privateKey as RSAPrivateKey;
 

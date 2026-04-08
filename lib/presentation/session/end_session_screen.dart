@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../home/home_screen.dart';
+
 class EndSessionScreen extends StatefulWidget {
   final String transferId;
   final String fileName;
@@ -131,6 +133,7 @@ class _EndSessionScreenState extends State<EndSessionScreen>
       await FirebaseFirestore.instance.collection('transfers_log').add({
         'senderId': widget.senderId,
         'receiverId': widget.receiverId,
+        'participants': [widget.senderId, widget.receiverId],
         'fileName': widget.fileName,
         'transferDate': _fmtDate(widget.transferredAt),
         'transferTime': _fmtTime(widget.transferredAt),
@@ -473,8 +476,10 @@ class _EndSessionScreenState extends State<EndSessionScreen>
         FilledButton.icon(
           icon: const Icon(Icons.home_rounded),
           label: const Text('Back to Home'),
-          onPressed: () =>
-              Navigator.of(context).popUntil((r) => r.isFirst),
+          onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (_) => false,
+          ),
           style: FilledButton.styleFrom(
             backgroundColor: Colors.green.shade600,
             minimumSize: const Size.fromHeight(52),
