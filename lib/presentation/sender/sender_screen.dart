@@ -12,6 +12,8 @@ import 'package:pointycastle/export.dart' hide State, Padding;
 import '../../core/utils/biometric_helper.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/key_repository.dart';
+import '../../core/utils/security_lifecycle_mixin.dart';
+import '../widgets/shared_widgets.dart';
 import 'transfer_progress_screen.dart';
 
 // ─── Isolate-safe AES-256-GCM encrypt ────────────────────────────────────────
@@ -35,7 +37,8 @@ class SenderScreen extends StatefulWidget {
   State<SenderScreen> createState() => _SenderScreenState();
 }
 
-class _SenderScreenState extends State<SenderScreen> {
+class _SenderScreenState extends State<SenderScreen>
+    with SecurityLifecycleMixin<SenderScreen> {
   final _connService = KeyRepository();
 
   // Step 0 — Receiver selection
@@ -119,6 +122,7 @@ class _SenderScreenState extends State<SenderScreen> {
   // ─── Step 1: File picker ─────────────────────────────────────────────────
 
   Future<void> _pickFile() async {
+    _wipeSensitiveData();
     try {
       final result = await FilePicker.platform.pickFiles(withData: true);
       if (result == null || result.files.isEmpty) return;
@@ -144,8 +148,11 @@ class _SenderScreenState extends State<SenderScreen> {
     try {
       final key = _secureBytes(32); // 256-bit AES key
       final iv = _secureBytes(12);  // 96-bit GCM nonce
+      registerBuffer(key);
+      registerBuffer(iv);
 
       final encrypted = await compute(_runAesGcm, [file.bytes!, key, iv]);
+      registerBuffer(encrypted);
 
       if (mounted) {
         setState(() {
@@ -192,6 +199,7 @@ class _SenderScreenState extends State<SenderScreen> {
     try {
       final rsaKey = _decodePublicKey(publicKeyJson);
       final encryptedAesKey = _rsaOaepEncrypt(aesKey, rsaKey);
+      registerBuffer(encryptedAesKey);
       if (mounted) {
         setState(() {
           _encryptedAesKey = encryptedAesKey;
@@ -244,20 +252,29 @@ class _SenderScreenState extends State<SenderScreen> {
     final transferId =
         FirebaseFirestore.instance.collection('transfers').doc().id;
 
+    // Encode b64 strings before the wipe — once wiped these are unreadable.
+    final encryptedAesKeyB64 = base64Encode(encryptedAesKey);
+    final ivB64 = base64Encode(iv);
+    // Defensive copy so TransferProgressScreen owns its own buffer.
+    final encryptedBytesCopy = Uint8List.fromList(encryptedBytes);
+
+    // Wipe all originals now — sender screen no longer holds key material.
+    _wipeSensitiveData();
+
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (_, anim, _) => TransferProgressScreen(
           transferId: transferId,
-          encryptedBytes: encryptedBytes,
+          encryptedBytes: encryptedBytesCopy,
           fileName: file.name,
           fileSize: file.size,
           receiverUsername: receiverUsername,
           receiverId: receiverId,
           senderId: senderId,
-          encryptedAesKeyB64: base64Encode(encryptedAesKey),
-          ivB64: base64Encode(iv),
-          aesKey: _aesKey,
+          encryptedAesKeyB64: encryptedAesKeyB64,
+          ivB64: ivB64,
+          // aesKey intentionally omitted — already wiped above.
         ),
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
@@ -266,6 +283,18 @@ class _SenderScreenState extends State<SenderScreen> {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  void _wipeSensitiveData() {
+    _aesKey?.fillRange(0, _aesKey!.length, 0);
+    _iv?.fillRange(0, _iv!.length, 0);
+    _encryptedBytes?.fillRange(0, _encryptedBytes!.length, 0);
+    _aesKey = null;
+    _iv = null;
+    _encryptedBytes = null;
+
+    // Unregister old buffers and clear
+    wipeAll();
+  }
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -280,7 +309,12 @@ class _SenderScreenState extends State<SenderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_encrypting && !_encryptingKey,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _wipeSensitiveData();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text('Send File',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
@@ -292,7 +326,7 @@ class _SenderScreenState extends State<SenderScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Step 0: Choose Receiver ─────────────────────────────────
-            _StepCard(
+            StepCard(
               step: 0,
               title: 'Choose Receiver',
               done: _receiverSelected,
@@ -315,7 +349,7 @@ class _SenderScreenState extends State<SenderScreen> {
             AnimatedOpacity(
               opacity: _receiverSelected ? 1.0 : 0.4,
               duration: const Duration(milliseconds: 300),
-              child: _StepCard(
+              child: StepCard(
                 step: 1,
                 title: 'Select File',
                 done: _fileSelected,
@@ -342,7 +376,7 @@ class _SenderScreenState extends State<SenderScreen> {
             AnimatedOpacity(
               opacity: _fileSelected ? 1.0 : 0.4,
               duration: const Duration(milliseconds: 300),
-              child: _StepCard(
+              child: StepCard(
                 step: 2,
                 title: 'Encrypt File (AES-256-GCM)',
                 done: _fileEncrypted,
@@ -378,7 +412,7 @@ class _SenderScreenState extends State<SenderScreen> {
             AnimatedOpacity(
               opacity: _fileEncrypted ? 1.0 : 0.4,
               duration: const Duration(milliseconds: 300),
-              child: _StepCard(
+              child: StepCard(
                 step: 3,
                 title: 'RSA Key Manager',
                 done: _readyToSend,
@@ -427,75 +461,8 @@ class _SenderScreenState extends State<SenderScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Step card ────────────────────────────────────────────────────────────────
-
-class _StepCard extends StatelessWidget {
-  final int step;
-  final String title;
-  final bool done;
-  final Widget child;
-
-  const _StepCard({
-    required this.step,
-    required this.title,
-    required this.done,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: done ? Colors.green.shade400 : cs.outlineVariant,
-          width: done ? 1.5 : 1.0,
-        ),
-        color: done
-            ? Colors.green.withValues(alpha: 0.05)
-            : cs.surfaceContainerLow,
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: done ? Colors.green.shade600 : cs.primary,
-                ),
-                child: Center(
-                  child: done
-                      ? const Icon(Icons.check, color: Colors.white, size: 16)
-                      : Text('$step',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(title,
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
+      ), // closes Scaffold
+    ); // closes PopScope
   }
 }
 

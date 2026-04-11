@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/firebase_constants.dart';
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/models/transfer_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -26,7 +29,7 @@ Uint8List _decryptAesKeyIsolate(List<dynamic> args) {
 
 // ─── Screen phases ────────────────────────────────────────────────────────────
 
-enum _Phase { loading, ready, decrypting, error }
+enum _Phase { loading, ready, decrypting, done, error }
 
 // ─── DecryptScreen ────────────────────────────────────────────────────────────
 
@@ -39,7 +42,8 @@ class DecryptScreen extends StatefulWidget {
   State<DecryptScreen> createState() => _DecryptScreenState();
 }
 
-class _DecryptScreenState extends State<DecryptScreen> {
+class _DecryptScreenState extends State<DecryptScreen>
+    with SecurityLifecycleMixin<DecryptScreen> {
   final _repo = TransferRepository();
   final _auth = AuthRepository();
 
@@ -48,6 +52,10 @@ class _DecryptScreenState extends State<DecryptScreen> {
 
   late TransferModel _transfer;
   String _senderUsername = '';
+
+  // Radioactive buffers — zeroed by SecurityLifecycleMixin on dispose.
+  Uint8List? _decryptedBytes;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -90,10 +98,10 @@ class _DecryptScreenState extends State<DecryptScreen> {
   Future<void> _decrypt() async {
     setState(() => _phase = _Phase.decrypting);
 
-    // Track AES key locally so we can zero it if a later step fails.
-    Uint8List? localAesKey;
-
     try {
+      // Signal to sender that download has begun.
+      await _repo.updateReceiverStatus(widget.transferId, 'downloading');
+
       // Download encrypted file bytes from Firebase Storage.
       final encryptedBytes =
           await _repo.downloadEncryptedFile(widget.transferId);
@@ -106,24 +114,72 @@ class _DecryptScreenState extends State<DecryptScreen> {
         throw Exception('Private RSA key not found on this device');
       }
 
-      // RSA-OAEP decrypt the AES key in a background isolate via compute().
-      // compute() requires a top-level function — see _decryptAesKeyIsolate.
+      // RSA-OAEP decrypt the AES key in a background isolate.
+      // compute() serialises args — the isolate receives its own copy.
       final encryptedAesKeyBytes = base64Decode(_transfer.encryptedAesKey);
-      final aesKey = await compute(
+      final decryptFuture = compute(
         _decryptAesKeyIsolate,
         [privateKeyJson, encryptedAesKeyBytes],
       );
-      localAesKey = aesKey;
+      final aesKey = await decryptFuture;
+
+      // Register AES key as radioactive — zeroed on dispose or wipeAll().
+      registerBuffer(aesKey);
+
+      // Signal to sender that AES decryption is beginning.
+      await _repo.updateReceiverStatus(widget.transferId, 'decrypting');
 
       // AES-256-GCM decrypt the file payload.
-      final iv = base64Decode(_transfer.iv);
+      final ivBuffer = Uint8List.fromList(base64Decode(_transfer.iv));
+      registerBuffer(ivBuffer);
+
       final decryptedBytes = await EncryptionService.decryptAesGcm(
         encryptedBytes,
         aesKey,
-        iv,
+        ivBuffer,
       );
-      localAesKey = null; // ownership transfers to DownloadConfirmScreen
 
+      // Register decrypted bytes as radioactive.
+      registerBuffer(decryptedBytes);
+
+      // Signal to sender that decryption succeeded.
+      await _repo.updateReceiverStatus(widget.transferId, 'decrypted');
+
+      // Store for the save step — do NOT navigate yet.
+      // aesKey is already tracked by registerBuffer; no separate field needed.
+      _decryptedBytes = decryptedBytes;
+
+      if (mounted) {
+        setState(() => _phase = _Phase.done);
+      }
+    } catch (e) {
+      // Wipe everything before surfacing the error.
+      wipeAll();
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceFirst('Exception: ', '');
+          _phase = _Phase.error;
+        });
+      }
+    }
+  }
+
+  // ─── Step: save then suicide ──────────────────────────────────────────────
+
+  Future<void> _saveAndWipe() async {
+    setState(() => _saving = true);
+    try {
+      final savedPath = await _saveFile();
+
+      // Signal to sender that the file has been saved to disk.
+      await _repo.updateReceiverStatus(widget.transferId, 'saved');
+
+      // Immediately wipe decrypted buffer.
+      _decryptedBytes?.fillRange(0, _decryptedBytes!.length, 0);
+      _decryptedBytes = null;
+      wipeAll(); // zero all registered buffers
+
+      // One-way navigation — no back button to this screen.
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -135,23 +191,40 @@ class _DecryptScreenState extends State<DecryptScreen> {
               senderUsername: _senderUsername,
               senderId: _transfer.senderId,
               receiverId: _transfer.receiverId,
-              decryptedBytes: decryptedBytes,
-              aesKey: aesKey,
+              savedPath: savedPath,
+              // decryptedBytes intentionally omitted — already saved & wiped.
+              // aesKey intentionally omitted — already wiped.
               transferredAt: DateTime.now(),
             ),
           ),
         );
       }
     } catch (e) {
-      // Zero key bytes on failure before surfacing the error.
-      localAesKey?.fillRange(0, localAesKey.length, 0);
       if (mounted) {
         setState(() {
+          _saving = false;
           _error = e.toString().replaceFirst('Exception: ', '');
-          _phase = _Phase.error;
         });
       }
     }
+  }
+
+  // ─── Save decrypted bytes to the Downloads directory ─────────────────────
+
+  Future<String> _saveFile() async {
+    final Directory saveDir;
+    if (Platform.isAndroid) {
+      final androidDownloads = Directory('/storage/emulated/0/Download');
+      saveDir = await androidDownloads.exists()
+          ? androidDownloads
+          : await getApplicationDocumentsDirectory();
+    } else {
+      saveDir = await getDownloadsDirectory() ??
+          await getApplicationDocumentsDirectory();
+    }
+    final path = '${saveDir.path}/${_transfer.fileName}';
+    await File(path).writeAsBytes(_decryptedBytes!);
+    return path;
   }
 
   String _fmtSize(int bytes) {
@@ -167,13 +240,17 @@ class _DecryptScreenState extends State<DecryptScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: _phase != _Phase.decrypting,
+      canPop: _phase != _Phase.decrypting && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) wipeAll();
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text('Decrypt File',
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           centerTitle: true,
-          automaticallyImplyLeading: _phase != _Phase.decrypting,
+          automaticallyImplyLeading:
+              _phase != _Phase.decrypting && !_saving,
         ),
         body: Padding(
           padding: const EdgeInsets.all(24),
@@ -188,6 +265,7 @@ class _DecryptScreenState extends State<DecryptScreen> {
       _Phase.loading => const Center(child: CircularProgressIndicator()),
       _Phase.ready => _buildReady(cs),
       _Phase.decrypting => _buildDecrypting(cs),
+      _Phase.done => _buildDone(cs),
       _Phase.error => _buildError(cs),
     };
   }
@@ -291,6 +369,77 @@ class _DecryptScreenState extends State<DecryptScreen> {
           'Downloading and decrypting your file.\nPlease wait.',
           textAlign: TextAlign.center,
           style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDone(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.green.shade600,
+            ),
+            child: const Icon(Icons.check_rounded,
+                color: Colors.white, size: 40),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Decryption Complete',
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: Colors.green.shade700),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _transfer.fileName,
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500, fontSize: 14),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _fmtSize(_transfer.fileSize),
+          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+          textAlign: TextAlign.center,
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.errorContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text('Save failed: $_error',
+                style: TextStyle(fontSize: 13, color: cs.error)),
+          ),
+        ],
+        const Spacer(),
+        FilledButton.icon(
+          icon: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.save_alt_rounded),
+          label: Text(_saving ? 'Saving…' : 'Save & Continue'),
+          onPressed: _saving ? null : _saveAndWipe,
+          style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52)),
         ),
       ],
     );

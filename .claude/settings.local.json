@@ -15,7 +15,15 @@
       "Bash(sed -i \"s|final _connService = ConnectionService|final _connService = KeyRepository|g\" lib/presentation/receiver/receiver_screen.dart)",
       "Bash(echo \"ConnectionService -> KeyRepository done\")",
       "Bash(flutter analyze:*)",
-      "Bash(flutter test:*)"
+      "Bash(flutter test:*)",
+      "Bash(dart scripts/write_obsidian_report.dart)",
+      "Bash(dart scripts/security_audit_report.dart)",
+      "Bash(powershell.exe -NonInteractive -NoProfile -File scripts/silent_guardian.ps1)",
+      "Read(//c/Users/navve/ObsidianVault/CrypTransfer/DailyReports/**)",
+      "Read(//c/Users/navve/ObsidianVault/CrypTransfer/Security/**)",
+      "Bash(powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File scripts/silent_guardian.ps1)",
+      "Bash(powershell -NoProfile -Command ':*)",
+      "Bash(flutter clean:*)"
     ]
   }
 }

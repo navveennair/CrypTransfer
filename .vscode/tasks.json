@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🛡️ Daily Report",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "scripts\\silent_guardian.ps1"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🧪 Run All Tests",
+      "type": "shell",
+      "command": "flutter test test/ --reporter=json > test_results.json && dart scripts/write_obsidian_report.dart",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🔐 Security Audit",
+      "type": "shell",
+      "command": "flutter test test/security/ --reporter=expanded && dart scripts/security_audit_report.dart",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "📊 Update Status",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "scripts\\update_status.ps1"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "🚀 Full Pipeline",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "🧪 Run All Tests",
+        "🔐 Security Audit",
+        "🛡️ Daily Report"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

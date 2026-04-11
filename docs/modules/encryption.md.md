@@ -3,6 +3,7 @@ tags: [module, encryption, agent-active]
 status: in-progress
 ---
 
+
 # Module: Encryption
 
 ## Responsibility
@@ -27,7 +28,10 @@ Hybrid encryption pipeline — AES-256-GCM for file data, RSA-2048-OAEP for key 
 3. GCM tag must always be verified on decrypt
 4. Update this doc after any crypto changes
 
-## Open Tasks
-- [ ] Add unit tests for GCM tag verification
-- [ ] Verify key wipe on session cancel
-- [ ] Ensure post-decrypt file is written to local storage correctly
+### 🛡️ Updated Logic: The "Closed Mailbox" Rule
+
+In your **`encryption.md`** module, we are adding a mandate for the **Receiver Side State**:
+
+1. **Toggle ON:** Generate RSA Pair $\rightarrow$ Save Public Key to Firestore $\rightarrow$ Set `isReadyToReceive = true`.
+    
+2. **Toggle OFF / App Close / Screen Exit:** Wipe Private Key from RAM $\rightarrow$ Delete Public Key from Firestore $\rightarrow$ Set `isReadyToReceive = false`.

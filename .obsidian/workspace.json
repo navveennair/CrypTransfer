@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "claude.md.md",
+                "file": "docs/modules/encryption.md.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "claude.md"
+              "title": "encryption.md"
             }
           }
         ]
@@ -185,25 +185,27 @@
   },
   "active": "b0bd1c63d906dce8",
   "lastOpenFiles": [
-    "build/test_cache/build/64958306",
-    "build/test_cache/build/ab714bbd",
-    "build/test_cache/build/9af50e42",
-    "build/test_cache/build/9088c63c",
-    "build/test_cache/build/865ee8ab",
-    "build/test_cache/build/c58c836f",
-    "build/test_cache/build/8730b13ca0249799964d0a71255a8f3b.cache.dill.track.dill",
-    "build/test_cache/build/41eb159",
-    "build/test_cache/build",
-    "build/test_cache",
-    "build/unit_test_assets/NativeAssetsManifest.json",
-    "docs/modules/ui.md.md",
-    "docs/modules/encryption.md.md",
-    "docs/modules/file-transfer.md.md",
+    "build/test_cache/build/30a6a18c",
+    "test/security/session_wipe_test.dart",
+    "claude.md",
     "claude.md.md",
-    "README.md",
-    "docs/agents/changelog.md.md",
     "docs/modules/notifications.md.md",
+    "docs/modules/ui.md.md",
+    "docs/modules/file-transfer.md.md",
     "docs/modules/auth.md.md",
+    "build/b8531b56",
+    "build/app/intermediates/compressed_assets/debug/compressDebugAssets/out/assets/flutter_assets/kernel_blob.bin.jar",
+    "build/app/intermediates/flutter/debug/flutter_assets/shaders/ink_sparkle.frag.spirv",
+    "build/app/intermediates/flutter/debug/flutter_assets/shaders/stretch_effect.frag.spirv",
+    "build/app/intermediates/flutter/debug/flutter_assets/ef618b7f",
+    "build/app/intermediates/flutter/debug/flutter_assets/2cbacf17",
+    "README.md",
+    "SECURITY_PROTOCOL.md",
+    "scripts/update_status.ps1",
+    "scripts/setup_guardian_task.ps1",
+    "scripts/launch_guardian.bat",
+    "docs/agents/changelog.md.md",
+    "docs/modules/encryption.md.md",
     "auth.md.md",
     "docs/Untitled.md"
   ]

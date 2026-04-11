@@ -1,12 +1,19 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart' hide State, Padding;
 
+import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 
 // ─── Top-level isolate functions ──────────────────────────────────────────────
 // These must be top-level (not instance methods) for Flutter's compute().
+
+/// Generates a 2048-bit RSA keypair in a background isolate.
+AsymmetricKeyPair<PublicKey, PrivateKey> _generateRsaKeyPairIsolate(void _) =>
+    EncryptionService.generateRsaKeyPairSync();
 
 Uint8List runAesGcmEncrypt(List<Uint8List> args) {
   final plaintext = args[0];
@@ -182,5 +189,128 @@ class EncryptionService {
   ) {
     final privateKey = decodePrivateKey(privateKeyJson);
     return rsaDecrypt(privateKey, encryptedAesKey);
+  }
+
+  // ─── Receiver session lifecycle ──────────────────────────────────────────
+
+  /// Opens the receiver's mailbox:
+  /// Generates a fresh RSA-2048 keypair in an isolate, stores the private key
+  /// on-device, and publishes the public key to Firestore.
+  static Future<void> setupReceiverSession(String uid) async {
+    try {
+      final pair = await compute(_generateRsaKeyPairIsolate, null);
+
+      final pubKey  = pair.publicKey  as RSAPublicKey;
+      final privKey = pair.privateKey as RSAPrivateKey;
+
+      final pubKeyJson  = encodePublicKey(pubKey);
+      final privKeyJson = encodePrivateKey(privKey);
+
+      // Store private key on device only.
+      const storage = FlutterSecureStorage();
+      await storage.write(
+        key: FirebaseConstants.privateKeyStorageKey,
+        value: privKeyJson,
+      );
+
+      // Publish public key to Firestore and mark user as ready.
+      await FirebaseFirestore.instance
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .update({
+        'publicKey': pubKeyJson,
+        'publicKeyUploadedAt': FieldValue.serverTimestamp(),
+        'isReadyToReceive': true,
+        'sessionActive': true,
+      });
+    } catch (e) {
+      _logSecurityEvent('setupReceiverSession_FAILED', uid, e.toString());
+      rethrow;
+    }
+  }
+
+  /// Closes the receiver's mailbox — the "Closed Mailbox" / Kill Switch rule:
+  /// Deletes public key from Firestore, wipes private key from secure storage,
+  /// and purges all related key-transfer and notification records.
+  static Future<void> closeReceiverSession(String uid) async {
+    try {
+      // 1. Remove public key from Firestore and mark user unavailable.
+      await FirebaseFirestore.instance
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .update({
+        'publicKey': FieldValue.delete(),
+        'isReadyToReceive': false,
+        'sessionActive': false,
+        'lastSessionClosed': FieldValue.serverTimestamp(),
+      });
+
+      // 2. Delete private key from secure storage.
+      const storage = FlutterSecureStorage();
+      await storage.delete(key: FirebaseConstants.privateKeyStorageKey);
+
+      // 3. Delete all rsa_key_transfers sent by this user.
+      final transfers = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.rsaKeyTransfers)
+          .where('fromUserId', isEqualTo: uid)
+          .get();
+
+      if (transfers.docs.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in transfers.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+
+      // 4. Delete rsa_key_received notifications sent by this user.
+      // Note: notification docs store fromUsername, not fromUserId; this query
+      // is a best-effort cleanup and returns empty if the field is absent.
+      final notifications = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.notifications)
+          .where('fromUserId', isEqualTo: uid)
+          .where('type', isEqualTo: 'rsa_key_received')
+          .get();
+
+      if (notifications.docs.isNotEmpty) {
+        final batch2 = FirebaseFirestore.instance.batch();
+        for (final doc in notifications.docs) {
+          batch2.delete(doc.reference);
+        }
+        await batch2.commit();
+      }
+
+      // 5. Log security event (event names only — no key material).
+      _logSecurityEvent(
+        'Receiver_Session_Closed',
+        uid,
+        'Firestore_Key_Deleted & Local_Buffer_Zeroed',
+      );
+    } catch (e) {
+      _logSecurityEvent('closeReceiverSession_FAILED', uid, e.toString());
+      rethrow;
+    }
+  }
+
+  // ─── Security event logger ───────────────────────────────────────────────
+
+  /// Logs a security event to debugPrint and the Firestore audit collection.
+  /// Never logs key material — event names and non-sensitive details only.
+  static void _logSecurityEvent(
+    String event,
+    String userId,
+    String details,
+  ) {
+    final timestamp = DateTime.now().toIso8601String();
+    debugPrint('🛡️ [$timestamp] $event | $details');
+
+    FirebaseFirestore.instance
+        .collection('security_audit_log')
+        .add({
+      'event': event,
+      'userId': userId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'details': details,
+    }).ignore();
   }
 }

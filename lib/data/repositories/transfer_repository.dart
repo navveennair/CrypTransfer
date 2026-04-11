@@ -204,6 +204,21 @@ class TransferRepository {
         .delete();
   }
 
+  // ─── Update receiver status ────────────────────────────────────────────────
+
+  Future<void> updateReceiverStatus(
+    String transferId,
+    String status,
+  ) async {
+    await _db
+        .collection(FirebaseConstants.transfers)
+        .doc(transferId)
+        .update({
+      'receiverStatus': status,
+      'receiverStatusUpdatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // ─── Real-time listener for pending transfers ──────────────────────────────
 
   Stream<QuerySnapshot<Map<String, dynamic>>> watchPendingTransfers(

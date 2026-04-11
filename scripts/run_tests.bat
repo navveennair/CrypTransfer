@@ -1,11 +1,24 @@
 @echo off
-echo Running CrypTransfer Test Suite...
+echo ============================================
+echo CrypTransfer Test Suite
+echo Started: %date% %time%
+echo ============================================
 echo.
+
 cd C:\Users\navve\projects\cryptransfer
-flutter test test/module_tests/ test/security/ --reporter=json > test_results.json
+
+echo Running Flutter tests...
+flutter test test/module_tests/ test/security/ ^
+  --reporter=json > test_results.json 2>&1
+
 echo.
 echo Writing report to Obsidian...
-dart scripts/write_obsidian_report.dart
+dart scripts/write_obsidian_report.dart >> ^
+  scripts\test_run.log 2>&1
+
 echo.
-echo Done! Check Obsidian for full report.
-pause
+echo ============================================
+echo Completed: %date% %time%
+echo ============================================
+
+exit /b 0

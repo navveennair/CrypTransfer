@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../home/home_screen.dart';
 
 class EndSessionScreen extends StatefulWidget {
@@ -55,7 +56,8 @@ class _Step {
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class _EndSessionScreenState extends State<EndSessionScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin,
+        SecurityLifecycleMixin<EndSessionScreen> {
   _Phase _phase = _Phase.ready;
   String? _error;
 
@@ -72,6 +74,9 @@ class _EndSessionScreenState extends State<EndSessionScreen>
   @override
   void initState() {
     super.initState();
+    // Safety net: zero the key on dispose if the user exits before
+    // _endSession() runs its explicit wipe at step 0.
+    if (widget.aesKey != null) registerBuffer(widget.aesKey!);
     _doneCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),

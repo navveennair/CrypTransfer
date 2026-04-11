@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../session/end_session_screen.dart';
 
 // ─── DownloadConfirmScreen ────────────────────────────────────────────────────
@@ -17,9 +18,12 @@ class DownloadConfirmScreen extends StatefulWidget {
   final String senderUsername;
   final String senderId;
   final String receiverId;
-  final Uint8List decryptedBytes;
+  /// Null when the file was already saved upstream (save-and-wipe pattern).
+  final Uint8List? decryptedBytes;
   final Uint8List? aesKey;
   final DateTime transferredAt;
+  /// Pre-populated save path when the caller already wrote the file.
+  final String? savedPath;
 
   const DownloadConfirmScreen({
     super.key,
@@ -29,19 +33,31 @@ class DownloadConfirmScreen extends StatefulWidget {
     required this.senderUsername,
     required this.senderId,
     required this.receiverId,
-    required this.decryptedBytes,
+    this.decryptedBytes,
     this.aesKey,
     required this.transferredAt,
+    this.savedPath,
   });
 
   @override
   State<DownloadConfirmScreen> createState() => _DownloadConfirmScreenState();
 }
 
-class _DownloadConfirmScreenState extends State<DownloadConfirmScreen> {
+class _DownloadConfirmScreenState extends State<DownloadConfirmScreen>
+    with SecurityLifecycleMixin<DownloadConfirmScreen> {
   bool _saving = false;
   String? _savedPath;
   String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate path when caller already saved the file.
+    if (widget.savedPath != null) _savedPath = widget.savedPath;
+    // Register plaintext and key — null when save-and-wipe pattern was used.
+    if (widget.decryptedBytes != null) registerBuffer(widget.decryptedBytes!);
+    if (widget.aesKey != null) registerBuffer(widget.aesKey!);
+  }
 
   // ─── Save file ──────────────────────────────────────────────────────────────
 
@@ -65,8 +81,9 @@ class _DownloadConfirmScreenState extends State<DownloadConfirmScreen> {
             await getApplicationDocumentsDirectory();
       }
 
+      if (widget.decryptedBytes == null) return; // already saved upstream
       final filePath = '${saveDir.path}/${widget.fileName}';
-      await File(filePath).writeAsBytes(widget.decryptedBytes);
+      await File(filePath).writeAsBytes(widget.decryptedBytes!);
 
       if (mounted) setState(() => _savedPath = filePath);
     } catch (e) {
@@ -215,7 +232,7 @@ class _DownloadConfirmScreenState extends State<DownloadConfirmScreen> {
                     _DetailRow(
                       icon: Icons.data_usage_rounded,
                       label: 'Size',
-                      value: _fmtSize(widget.decryptedBytes.length),
+                      value: _fmtSize(widget.fileSize),
                       cs: cs,
                     ),
                     const SizedBox(height: 10),
@@ -306,28 +323,30 @@ class _DownloadConfirmScreenState extends State<DownloadConfirmScreen> {
               ],
 
               // ── Action buttons ──────────────────────────────────────────────
-              if (_savedPath == null)
-                OutlinedButton.icon(
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_alt_rounded),
-                  label: Text(_saving ? 'Saving…' : '💾 Save to Downloads'),
-                  onPressed: _saving ? null : _saveFile,
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50)),
-                )
-              else
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.save_alt_rounded),
-                  label: const Text('💾 Save Again'),
-                  onPressed: _saving ? null : _saveFile,
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50)),
-                ),
+              // Save button only shown when bytes are available in memory.
+              if (widget.decryptedBytes != null)
+                if (_savedPath == null)
+                  OutlinedButton.icon(
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_alt_rounded),
+                    label: Text(_saving ? 'Saving…' : '💾 Save to Downloads'),
+                    onPressed: _saving ? null : _saveFile,
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50)),
+                  )
+                else
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.save_alt_rounded),
+                    label: const Text('💾 Save Again'),
+                    onPressed: _saving ? null : _saveFile,
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50)),
+                  ),
 
               const SizedBox(height: 10),
 

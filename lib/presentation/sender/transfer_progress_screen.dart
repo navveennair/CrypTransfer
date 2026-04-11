@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../session/end_session_screen.dart';
 
 class TransferProgressScreen extends StatefulWidget {
@@ -42,13 +44,20 @@ class TransferProgressScreen extends StatefulWidget {
 }
 
 class _TransferProgressScreenState extends State<TransferProgressScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin,
+        SecurityLifecycleMixin<TransferProgressScreen> {
   double _progress = 0.0;
   int _bytesTransferred = 0;
   int _totalBytes = 0;
   bool _done = false;
   String? _error;
   DateTime? _completedAt;
+
+  // ── Non-repudiation listener state ────────────────────────────────────────
+  StreamSubscription<DocumentSnapshot>? _transferListener;
+  bool _receiverDecrypted = false;
+  bool _canEndSession = false;
+  String? _statusMessage;
 
   late AnimationController _successCtrl;
   late Animation<double> _scaleAnim;
@@ -57,6 +66,9 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   void initState() {
     super.initState();
     _totalBytes = widget.encryptedBytes.length;
+    // Register sensitive buffers — zeroed automatically on dispose.
+    registerBuffer(widget.encryptedBytes);
+    if (widget.aesKey != null) registerBuffer(widget.aesKey!);
 
     _successCtrl = AnimationController(
       vsync: this,
@@ -68,12 +80,53 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
     );
 
     _startUpload();
+    _startTransferListener();
   }
 
   @override
   void dispose() {
+    _transferListener?.cancel();
     _successCtrl.dispose();
     super.dispose();
+  }
+
+  // ─── Non-repudiation: real-time receiver status ───────────────────────────
+
+  void _startTransferListener() {
+    _transferListener = FirebaseFirestore.instance
+        .collection('transfers')
+        .doc(widget.transferId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+      final data = snapshot.data()!;
+      final receiverStatus = data['receiverStatus'] as String?;
+
+      if (receiverStatus == 'decrypted' && mounted) {
+        setState(() {
+          _receiverDecrypted = true;
+          _statusMessage = '✅ Receiver successfully decrypted file';
+        });
+        _clearSenderLocalMetadata();
+      }
+
+      if (receiverStatus == 'saved' && mounted) {
+        setState(() {
+          _statusMessage = '✅ Receiver saved the file securely';
+          _canEndSession = true;
+        });
+      }
+    });
+  }
+
+  Future<void> _clearSenderLocalMetadata() async {
+    await FirebaseFirestore.instance
+        .collection('transfers')
+        .doc(widget.transferId)
+        .update({
+      'senderStatus': 'metadata_cleared',
+      'metadataClearedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> _startUpload() async {
@@ -291,7 +344,58 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                     ],
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 24),
+
+                // ── Receiver status badge (live) ──────────────────────────
+                if (_receiverDecrypted || _canEndSession)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    child: Container(
+                      key: ValueKey(_statusMessage),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: (_canEndSession
+                                ? Colors.green
+                                : Colors.deepPurple)
+                            .withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _canEndSession
+                              ? Colors.green.shade300
+                              : Colors.deepPurple.shade200,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _canEndSession
+                                ? Icons.verified_rounded
+                                : Icons.lock_open_rounded,
+                            size: 18,
+                            color: _canEndSession
+                                ? Colors.green.shade700
+                                : Colors.deepPurple.shade700,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _statusMessage!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: _canEndSession
+                                    ? Colors.green.shade800
+                                    : Colors.deepPurple.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 12),
                 FilledButton.icon(
                   icon: const Icon(Icons.lock_clock_rounded),
                   label: const Text('End Session'),
