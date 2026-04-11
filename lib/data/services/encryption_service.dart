@@ -181,14 +181,14 @@ class EncryptionService {
 
   // ─── Convenience: decrypt AES key from private key JSON string ───────────
 
-  /// Decodes the private key JSON then RSA-OAEP decrypts [encryptedAesKey].
+  /// Decodes the private key JSON then RSA-OAEP decrypts [encryptedAESKey].
   /// Convenience wrapper used by DecryptScreen.
   static Uint8List decryptAesKeyWithPrivateKeyJson(
     String privateKeyJson,
-    Uint8List encryptedAesKey,
+    Uint8List encryptedAESKey,
   ) {
     final privateKey = decodePrivateKey(privateKeyJson);
-    return rsaDecrypt(privateKey, encryptedAesKey);
+    return rsaDecrypt(privateKey, encryptedAESKey);
   }
 
   // ─── Receiver session lifecycle ──────────────────────────────────────────

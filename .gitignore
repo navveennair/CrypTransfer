@@ -38,6 +38,10 @@ migrate_working_dir/
 test_results.json
 report_error.log
 
+# One-time setup scripts (do not re-add)
+scripts/setup_*.bat
+scripts/setup_*.ps1
+
 # Symbolication related
 app.*.symbols
 

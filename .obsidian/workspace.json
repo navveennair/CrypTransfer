@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/modules/encryption.md.md",
+                "file": "docs/modules/encryption.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "encryption.md"
+              "title": "encryption"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 200
   },
   "right": {
     "id": "962c412171c847f9",
@@ -185,13 +185,20 @@
   },
   "active": "b0bd1c63d906dce8",
   "lastOpenFiles": [
+    "docs/modules/file-transfer.md",
+    "docs/modules/ui.md",
+    "docs/modules/security.md",
+    "docs/modules/notifications.md",
+    "docs/modules/encryption.md",
+    "docs/modules/auth.md",
+    "docs/modules/ui.md.md",
+    "docs/modules/file-transfer.md.md",
+    "docs/modules/encryption.md.md",
     "build/test_cache/build/30a6a18c",
     "test/security/session_wipe_test.dart",
     "claude.md",
     "claude.md.md",
     "docs/modules/notifications.md.md",
-    "docs/modules/ui.md.md",
-    "docs/modules/file-transfer.md.md",
     "docs/modules/auth.md.md",
     "build/b8531b56",
     "build/app/intermediates/compressed_assets/debug/compressDebugAssets/out/assets/flutter_assets/kernel_blob.bin.jar",
@@ -203,9 +210,7 @@
     "SECURITY_PROTOCOL.md",
     "scripts/update_status.ps1",
     "scripts/setup_guardian_task.ps1",
-    "scripts/launch_guardian.bat",
     "docs/agents/changelog.md.md",
-    "docs/modules/encryption.md.md",
     "auth.md.md",
     "docs/Untitled.md"
   ]

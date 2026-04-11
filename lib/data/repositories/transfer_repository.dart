@@ -34,7 +34,7 @@ class TransferRepository {
     required int fileSize,
     required String senderId,
     required String receiverId,
-    required String encryptedAesKeyB64,
+    required String encryptedAESKeyB64,
     required String ivB64,
   }) async* {
     try {
@@ -63,7 +63,7 @@ class TransferRepository {
           .set({
         'senderId': senderId,
         'receiverId': receiverId,
-        'encryptedAESKey': encryptedAesKeyB64,
+        'encryptedAESKey': encryptedAESKeyB64,
         'encryptedFileUrl': downloadUrl,
         'fileName': fileName,
         'fileSize': fileSize,
@@ -187,6 +187,7 @@ class TransferRepository {
     await _db.collection(FirebaseConstants.transfersLog).add({
       'senderId': senderId,
       'receiverId': receiverId,
+      'participants': [senderId, receiverId],
       'fileName': fileName,
       'transferDate': transferDate,
       'transferTime': transferTime,

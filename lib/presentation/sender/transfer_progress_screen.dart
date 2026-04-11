@@ -18,7 +18,7 @@ class TransferProgressScreen extends StatefulWidget {
   final String receiverUsername;
   final String receiverId;
   final String senderId;
-  final String encryptedAesKeyB64;
+  final String encryptedAESKeyB64;
   final String ivB64;
 
   /// Raw AES key bytes — passed through to EndSessionScreen for in-memory zeroing.
@@ -33,7 +33,7 @@ class TransferProgressScreen extends StatefulWidget {
     required this.receiverUsername,
     required this.receiverId,
     required this.senderId,
-    required this.encryptedAesKeyB64,
+    required this.encryptedAESKeyB64,
     required this.ivB64,
     this.aesKey,
   });
@@ -160,7 +160,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           .set({
         'senderId': widget.senderId,
         'receiverId': widget.receiverId,
-        'encryptedAESKey': widget.encryptedAesKeyB64,
+        'encryptedAESKey': widget.encryptedAESKeyB64,
         'encryptedFileUrl': downloadUrl,
         'fileName': widget.fileName,
         'fileSize': widget.fileSize,

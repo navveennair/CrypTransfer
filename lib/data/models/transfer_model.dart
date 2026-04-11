@@ -8,7 +8,7 @@ class TransferModel {
   final String receiverId;
   final String fileName;
   final int fileSize;
-  final String encryptedAesKey;
+  final String encryptedAESKey;
   final String iv;
   final String encryptedFileUrl;
   final TransferStatus status;
@@ -22,7 +22,7 @@ class TransferModel {
     required this.receiverId,
     required this.fileName,
     required this.fileSize,
-    required this.encryptedAesKey,
+    required this.encryptedAESKey,
     required this.iv,
     required this.encryptedFileUrl,
     required this.status,
@@ -39,7 +39,7 @@ class TransferModel {
       receiverId: data['receiverId'] as String? ?? '',
       fileName: data['fileName'] as String? ?? 'file',
       fileSize: data['fileSize'] as int? ?? 0,
-      encryptedAesKey: data['encryptedAESKey'] as String? ?? '',
+      encryptedAESKey: data['encryptedAESKey'] as String? ?? '',
       iv: data['iv'] as String? ?? '',
       encryptedFileUrl: data['encryptedFileUrl'] as String? ?? '',
       status: _parseStatus(data['status'] as String?),
@@ -65,7 +65,7 @@ class TransferModel {
         'receiverId': receiverId,
         'fileName': fileName,
         'fileSize': fileSize,
-        'encryptedAESKey': encryptedAesKey,
+        'encryptedAESKey': encryptedAESKey,
         'iv': iv,
         'encryptedFileUrl': downloadUrl,
         'status': 'pending',

@@ -58,7 +58,7 @@ class _SenderScreenState extends State<SenderScreen>
   // Step 3 — Receiver + RSA-encrypted AES key
   String? _receiverId;
   String? _receiverUsername;
-  Uint8List? _encryptedAesKey;
+  Uint8List? _encryptedAESKey;
 
   // UI flags
   bool _encrypting = false;
@@ -67,7 +67,7 @@ class _SenderScreenState extends State<SenderScreen>
   bool get _receiverSelected => _receiverId != null;
   bool get _fileSelected => _file != null;
   bool get _fileEncrypted => _encryptedBytes != null;
-  bool get _readyToSend => _encryptedAesKey != null;
+  bool get _readyToSend => _encryptedAESKey != null;
 
   @override
   void initState() {
@@ -106,7 +106,7 @@ class _SenderScreenState extends State<SenderScreen>
       _receiverUsername = receiver.username;
       _selectedReceiverPublicKeyJson = receiver.publicKey;
       // Reset downstream crypto when receiver changes
-      _encryptedAesKey = null;
+      _encryptedAESKey = null;
     });
   }
 
@@ -115,7 +115,7 @@ class _SenderScreenState extends State<SenderScreen>
       _receiverId = null;
       _receiverUsername = null;
       _selectedReceiverPublicKeyJson = null;
-      _encryptedAesKey = null;
+      _encryptedAESKey = null;
     });
   }
 
@@ -131,7 +131,7 @@ class _SenderScreenState extends State<SenderScreen>
         _encryptedBytes = null;
         _aesKey = null;
         _iv = null;
-        _encryptedAesKey = null;
+        _encryptedAESKey = null;
       });
     } catch (e) {
       if (mounted) _showError('Could not open file picker: $e');
@@ -159,7 +159,7 @@ class _SenderScreenState extends State<SenderScreen>
           _aesKey = key;
           _iv = iv;
           _encryptedBytes = encrypted;
-          _encryptedAesKey = null;
+          _encryptedAESKey = null;
           _encrypting = false;
         });
       }
@@ -198,11 +198,11 @@ class _SenderScreenState extends State<SenderScreen>
     setState(() => _encryptingKey = true);
     try {
       final rsaKey = _decodePublicKey(publicKeyJson);
-      final encryptedAesKey = _rsaOaepEncrypt(aesKey, rsaKey);
-      registerBuffer(encryptedAesKey);
+      final encryptedAESKey = _rsaOaepEncrypt(aesKey, rsaKey);
+      registerBuffer(encryptedAESKey);
       if (mounted) {
         setState(() {
-          _encryptedAesKey = encryptedAesKey;
+          _encryptedAESKey = encryptedAESKey;
           _encryptingKey = false;
         });
       }
@@ -233,7 +233,7 @@ class _SenderScreenState extends State<SenderScreen>
   void _send() {
     final file = _file;
     final encryptedBytes = _encryptedBytes;
-    final encryptedAesKey = _encryptedAesKey;
+    final encryptedAESKey = _encryptedAESKey;
     final iv = _iv;
     final receiverId = _receiverId;
     final receiverUsername = _receiverUsername;
@@ -241,7 +241,7 @@ class _SenderScreenState extends State<SenderScreen>
 
     if (file == null ||
         encryptedBytes == null ||
-        encryptedAesKey == null ||
+        encryptedAESKey == null ||
         iv == null ||
         receiverId == null ||
         receiverUsername == null ||
@@ -253,7 +253,7 @@ class _SenderScreenState extends State<SenderScreen>
         FirebaseFirestore.instance.collection('transfers').doc().id;
 
     // Encode b64 strings before the wipe — once wiped these are unreadable.
-    final encryptedAesKeyB64 = base64Encode(encryptedAesKey);
+    final encryptedAESKeyB64 = base64Encode(encryptedAESKey);
     final ivB64 = base64Encode(iv);
     // Defensive copy so TransferProgressScreen owns its own buffer.
     final encryptedBytesCopy = Uint8List.fromList(encryptedBytes);
@@ -272,7 +272,7 @@ class _SenderScreenState extends State<SenderScreen>
           receiverUsername: receiverUsername,
           receiverId: receiverId,
           senderId: senderId,
-          encryptedAesKeyB64: encryptedAesKeyB64,
+          encryptedAESKeyB64: encryptedAESKeyB64,
           ivB64: ivB64,
           // aesKey intentionally omitted — already wiped above.
         ),

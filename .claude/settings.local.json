@@ -23,7 +23,9 @@
       "Read(//c/Users/navve/ObsidianVault/CrypTransfer/Security/**)",
       "Bash(powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Bypass -File scripts/silent_guardian.ps1)",
       "Bash(powershell -NoProfile -Command ':*)",
-      "Bash(flutter clean:*)"
+      "Bash(flutter clean:*)",
+      "Bash(powershell -NoProfile -Command \"Test-Path 'C:\\\\Users\\\\navve\\\\ObsidianVault\\\\CrypTransfer\\\\Audit'\")",
+      "Bash(powershell -NoProfile -Command \"Test-Path 'C:\\\\Users\\\\navve\\\\ObsidianVault\\\\CrypTransfer'\")"
     ]
   }
 }

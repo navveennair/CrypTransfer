@@ -31,8 +31,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   bool _hasPrivateKey = false;
   bool _hasPublicKey = false;
   bool _checkingStatus = true;
-  bool _keysGenerated = false;
-
   // ── Step 1: Ready to receive ──────────────────────────────────────────────
   bool _isReadyToReceive = false;
   bool _loadingReadyState = true;
@@ -221,7 +219,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         if (mounted) {
           setState(() {
             _isReadyToReceive = true;
-            _keysGenerated = true;
             _hasPrivateKey = true;
             _hasPublicKey = true;
           });
@@ -244,7 +241,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         if (mounted) {
           setState(() {
             _isReadyToReceive = false;
-            _keysGenerated = false;
             _hasPrivateKey = false;
             _hasPublicKey = false;
             _sessionLocked = false;
@@ -467,17 +463,17 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         _sessionLocked = true;
         _activeTransferId = transferId;
       });
-      _showSessionLockedBanner(transferId);
+      _showSessionLockedBanner();
     }
   }
 
-  void _showSessionLockedBanner(String transferId) {
+  void _showSessionLockedBanner() {
     ScaffoldMessenger.of(context).showMaterialBanner(
       MaterialBanner(
         backgroundColor: Colors.orange.shade50,
         leading: Icon(Icons.lock_rounded, color: Colors.orange.shade700),
         content: Text(
-          'Session locked — transfer in progress',
+          '🔒 Active transfer: $_activeTransferId',
           style: TextStyle(
               fontWeight: FontWeight.w600, color: Colors.orange.shade900),
         ),

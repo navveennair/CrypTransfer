@@ -115,6 +115,36 @@ try {
         $warnings += "- ``receiver_screen.dart`` No lifecycle observer. Keys persist if app is force-closed!"
     }
 
+    # ── Auth repository: compute() check ──────────────────────────────────────
+    $authRepo = Get-Content "$ProjectRoot\lib\data\repositories\auth_repository.dart" `
+        -Raw -ErrorAction SilentlyContinue
+
+    if ($authRepo -match "Isolate\.run\(\)" -and $authRepo -match "generateAndStoreKeyPair") {
+        $warnings += "- ``auth_repository.dart`` generateAndStoreKeyPair still uses Isolate.run() - change to compute()"
+    } else {
+        $verified += "- ``auth_repository.dart`` compute() used for RSA keygen - no Isolate.run()"
+    }
+
+    # ── participants field: HomeScreen Recent Transfers check ──────────────────
+    $transferRepo = Get-Content "$ProjectRoot\lib\data\repositories\transfer_repository.dart" `
+        -Raw -ErrorAction SilentlyContinue
+
+    if ($transferRepo -match "'participants'") {
+        $verified += "- ``transfer_repository.dart`` participants field present in writeAuditLog()"
+    } else {
+        $warnings += "- ``transfer_repository.dart`` participants field MISSING from writeAuditLog() - HomeScreen Recent Transfers broken"
+    }
+
+    # ── encryptedAESKey field name consistency check ───────────────────────────
+    $transferModel = Get-Content "$ProjectRoot\lib\data\models\transfer_model.dart" `
+        -Raw -ErrorAction SilentlyContinue
+
+    if ($transferModel -cmatch "encryptedAesKey") {
+        $warnings += "- ``transfer_model.dart`` field name drift: encryptedAesKey found - must be encryptedAESKey"
+    } else {
+        $verified += "- ``transfer_model.dart`` encryptedAESKey naming consistent - uppercase AES, no drift"
+    }
+
     $verifiedList = if ($verified.Count -gt 0) { $verified -join "`n" } else { "_No files verified yet_" }
     $warningList  = if ($warnings.Count -gt 0) { $warnings -join "`n" } else { "_No warnings_" }
     $criticalList = if ($critical.Count -gt 0) { $critical -join "`n" } else { "_No critical issues_" }
@@ -180,11 +210,15 @@ $testSummary
 ---
 
 ## Open Issues (from CLAUDE.md)
-- [ ] Session cleanup after End Session
-- [ ] Sender shows previous receiver
 - [ ] Face ID re-enable before viva
+- [ ] Receiver stepper same as sender
+- [ ] 3D buttons across all screens
+- [ ] Session cleanup after End Session
+- [ ] pushAndRemoveUntil after EndSession
 - [ ] Chapter 3 thesis update
 - [ ] Chapter 5 testing results
+- [ ] Fix figure numbering in thesis
+- [ ] Fix shoutout in acknowledgements
 
 ---
 

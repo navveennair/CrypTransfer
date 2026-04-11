@@ -1,16 +1,17 @@
-import 'dart:isolate';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-import 'package:pointycastle/asymmetric/api.dart'
-    show RSAPublicKey, RSAPrivateKey;
+import 'package:pointycastle/export.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../models/user_model.dart';
 import '../services/encryption_service.dart';
+
+// Top-level function required by compute() — must not be a closure or instance method.
+AsymmetricKeyPair<PublicKey, PrivateKey> _generateKeyPairIsolate(dynamic _) =>
+    EncryptionService.generateRsaKeyPairSync();
 
 class AuthRepository {
   final FirebaseAuth _auth;
@@ -117,7 +118,7 @@ class AuthRepository {
   // ─── RSA key management ────────────────────────────────────────────────────
 
   Future<void> generateAndStoreKeyPair() async {
-    final pair = await Isolate.run(EncryptionService.generateRsaKeyPairSync);
+    final pair = await compute(_generateKeyPairIsolate, null);
     final pubKey = pair.publicKey as RSAPublicKey;
     final privKey = pair.privateKey as RSAPrivateKey;
 

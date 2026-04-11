@@ -91,6 +91,10 @@ When scanning lib/ for status updates:
 - [x] TC-WIPE-001 to TC-WIPE-006 all passing (`test/security/session_wipe_test.dart`)
 - [x] Silent Guardian Kill Switch scanner (FieldValue.delete check, ReceiverScreen wiring check, lifecycle observer check)
 - [x] Obsidian Security audit report (`scripts/security_audit_report.dart`)
+- [x] `generateAndStoreKeyPair()` migrated from `Isolate.run()` → `compute()` — Guardian WARNING resolved
+- [x] `participants` field added to `writeAuditLog()` — HomeScreen Recent Transfers query now satisfied
+- [x] `encryptedAESKey` field name drift fixed — all Dart identifiers now use uppercase AES to match Firestore key
+- [x] Guardian scanner updated — compute() check, participants check, encryptedAESKey consistency check added
 
 ## 🔲 Known Open Issues
 

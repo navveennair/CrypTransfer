@@ -116,10 +116,10 @@ class _DecryptScreenState extends State<DecryptScreen>
 
       // RSA-OAEP decrypt the AES key in a background isolate.
       // compute() serialises args — the isolate receives its own copy.
-      final encryptedAesKeyBytes = base64Decode(_transfer.encryptedAesKey);
+      final encryptedAESKeyBytes = base64Decode(_transfer.encryptedAESKey);
       final decryptFuture = compute(
         _decryptAesKeyIsolate,
-        [privateKeyJson, encryptedAesKeyBytes],
+        [privateKeyJson, encryptedAESKeyBytes],
       );
       final aesKey = await decryptFuture;
 
