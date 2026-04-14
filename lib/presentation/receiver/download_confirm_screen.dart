@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../session/end_session_screen.dart';
+import '../widgets/shared_widgets.dart';
 
 // ─── DownloadConfirmScreen ────────────────────────────────────────────────────
 
@@ -350,14 +351,11 @@ class _DownloadConfirmScreenState extends State<DownloadConfirmScreen>
 
               const SizedBox(height: 10),
 
-              FilledButton.icon(
+              CrypButton(
                 icon: const Icon(Icons.delete_forever_rounded),
-                label: const Text('🗑️ Permanently Delete'),
+                label: const Text('Permanently Delete'),
                 onPressed: _saving ? null : _confirmDelete,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                  minimumSize: const Size.fromHeight(50),
-                ),
+                color: Colors.red.shade700,
               ),
 
               const SizedBox(height: 10),

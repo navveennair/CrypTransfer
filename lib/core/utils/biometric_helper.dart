@@ -1,15 +1,15 @@
-// import 'package:local_auth/local_auth.dart'; // TODO(testing): re-enable with real auth
+// Biometric auth bypassed for thesis testing — see "Pre-Viva" in CLAUDE.md Roadmap to re-enable.
+// import 'package:local_auth/local_auth.dart';
 
 /// Centralised biometric / device-credential authentication helper.
 ///
 /// Used by both [SenderScreen] and [ReceiverScreen] so auth behaviour is
 /// consistent across the app.
 class BiometricHelper {
-  // static final _auth = LocalAuthentication(); // TODO(testing): re-enable with real auth
+  // static final _auth = LocalAuthentication();
 
   /// Returns true if the device can perform any form of authentication
   /// (fingerprint, face, iris, PIN, pattern, password).
-  // TODO(testing): bypassed — restore real check before release
   static Future<bool> checkBiometrics() async {
     return true;
     // Original implementation:
@@ -25,7 +25,6 @@ class BiometricHelper {
   /// Falls through to PIN / pattern when biometrics are unavailable.
   /// Returns `true` on success or when the device has no auth hardware.
   /// Returns `false` on failure or cancellation.
-  // TODO(testing): bypassed — restore real check before release
   static Future<bool> authenticate(String reason) async {
     return true;
     // Original implementation:

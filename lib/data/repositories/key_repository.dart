@@ -135,9 +135,16 @@ class KeyRepository {
 
   // ─── RSA public key sharing ───────────────────────────────────────────────
 
+  /// Sends the current user's RSA public key to [toUserId].
+  ///
+  /// When [isHandshake] is true (receiver has explicitly selected this sender),
+  /// the key-transfer document is stamped with `status: 'handshake_complete'`
+  /// instead of the default `'pending'`, signalling to the sender that the
+  /// receiver is ready and the session is isolated to this pair.
   Future<void> sendPublicKey({
     required String toUserId,
     required String toUsername,
+    bool isHandshake = false,
   }) async {
     try {
       final userDoc =
@@ -154,7 +161,7 @@ class KeyRepository {
         toUserId: toUserId,
         publicKey: publicKey,
         fromUsername: fromUsername,
-        includeStatus: true,
+        status: isHandshake ? 'handshake_complete' : 'pending',
       );
 
       await _db.collection(FirebaseConstants.notifications).add({
@@ -301,14 +308,14 @@ class KeyRepository {
     final userDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
     final publicKey = userDoc.data()?['publicKey'] as String?;
     if (publicKey == null || publicKey.isEmpty) return;
-    await _upsertKeyTransfer(toUserId: toUserId, publicKey: publicKey);
+    await _upsertKeyTransfer(toUserId: toUserId, publicKey: publicKey, status: 'pending');
   }
 
   Future<void> _upsertKeyTransfer({
     required String toUserId,
     required String publicKey,
     String? fromUsername,
-    bool includeStatus = false,
+    String status = 'pending',
   }) async {
     final existing = await _db
         .collection(FirebaseConstants.rsaKeyTransfers)
@@ -321,7 +328,7 @@ class KeyRepository {
       'publicKey': publicKey,
       'sentAt': FieldValue.serverTimestamp(),
       'fromUsername': ?fromUsername,
-      if (includeStatus) 'status': 'pending',
+      'status': status,
     };
 
     if (existing.docs.isNotEmpty) {
@@ -372,6 +379,106 @@ class KeyRepository {
           'Could not load available receivers: ${e.message ?? e.code}');
     }
   }
+
+  // ─── Receiver-Authorized Handshake ───────────────────────────────────────
+
+  /// Atomically marks [senderUid] as the session-authorized sender.
+  ///
+  /// A single [WriteBatch] commits two writes together:
+  ///
+  /// 1. `users/{receiverUid}.selectedSenderUid = senderUid` — persists the
+  ///    authorization so the sender side can verify it came from this receiver.
+  ///
+  /// 2. `rsa_key_transfers` — upserts the receiver's RSA public key addressed
+  ///    to [senderUid] with `status: 'handshake_complete'`, signalling the
+  ///    sender's Firestore stream that the secure channel is open.
+  ///
+  /// A notification is sent afterward (best-effort, outside the batch).
+  /// Throws [KeyNotFoundException] if the receiver has no public key yet.
+  Future<void> selectSenderHandshake({
+    required String senderUid,
+    required String senderUsername,
+  }) async {
+    try {
+      // Read receiver's current public key and display name.
+      final userDoc =
+          await _db.collection(FirebaseConstants.users).doc(_uid).get();
+      final publicKey = userDoc.data()?['publicKey'] as String?;
+      if (publicKey == null || publicKey.isEmpty) {
+        throw KeyNotFoundException('Generate RSA keys first');
+      }
+      final fromUsername = userDoc.data()?['username'] as String? ??
+          _auth.currentUser?.displayName ??
+          'Unknown';
+
+      // Find existing key-transfer doc to reuse its reference in the batch.
+      final existing = await _db
+          .collection(FirebaseConstants.rsaKeyTransfers)
+          .where('fromUserId', isEqualTo: _uid)
+          .where('toUserId', isEqualTo: senderUid)
+          .limit(1)
+          .get();
+
+      final batch = _db.batch();
+
+      // Write 1 — mark selected sender on the receiver's user document.
+      batch.set(
+        _db.collection(FirebaseConstants.users).doc(_uid),
+        {'selectedSenderUid': senderUid},
+        SetOptions(merge: true),
+      );
+
+      // Write 2 — publish receiver's public key to the sender with
+      // handshake_complete status so the sender's stream fires immediately.
+      final keyPayload = <String, dynamic>{
+        'publicKey': publicKey,
+        'sentAt': FieldValue.serverTimestamp(),
+        'fromUsername': fromUsername,
+        'status': 'handshake_complete',
+      };
+      if (existing.docs.isNotEmpty) {
+        batch.update(existing.docs.first.reference, keyPayload);
+      } else {
+        final newRef = _db.collection(FirebaseConstants.rsaKeyTransfers).doc();
+        batch.set(newRef, {
+          'fromUserId': _uid,
+          'toUserId': senderUid,
+          ...keyPayload,
+        });
+      }
+
+      await batch.commit();
+
+      // Notification — best-effort, not part of the atomic batch.
+      await _db.collection(FirebaseConstants.notifications).add({
+        'toUserId': senderUid,
+        'fromUsername': fromUsername,
+        'type': 'rsa_key_received',
+        'message': '🔑 $fromUsername sent you their RSA Public Key',
+        'createdAt': FieldValue.serverTimestamp(),
+        'read': false,
+      });
+    } on KeyNotFoundException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw NetworkException('Handshake failed: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Real-time stream of [rsa_key_transfers] docs where the current user is
+  /// the intended recipient and the status is `handshake_complete`.
+  ///
+  /// Used by [SenderScreen] to detect when a receiver has explicitly chosen
+  /// this sender and published their RSA public key.  The stream fires once
+  /// immediately with current state and again on every change — when the doc
+  /// disappears (receiver wipes session / kill switch fires) the sender
+  /// reverts to the waiting buffer.
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() =>
+      _db
+          .collection(FirebaseConstants.rsaKeyTransfers)
+          .where('toUserId', isEqualTo: _uid)
+          .where('status', isEqualTo: 'handshake_complete')
+          .snapshots();
 
   /// Updates the current user's readiness-to-receive status in Firestore.
   Future<void> setReadyToReceive(bool ready) async {

@@ -1,0 +1,418 @@
+{
+  "nodes": [
+    {
+      "id": "icon_app_canonical_flutter_logo",
+      "label": "CrypTransfer iOS App Icon (Flutter Logo Design)",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_20x20_1x",
+      "label": "App Icon 20x20 @1x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_20x20_2x",
+      "label": "App Icon 20x20 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_20x20_3x",
+      "label": "App Icon 20x20 @3x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_29x29_1x",
+      "label": "App Icon 29x29 @1x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_29x29_2x",
+      "label": "App Icon 29x29 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_29x29_3x",
+      "label": "App Icon 29x29 @3x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_40x40_1x",
+      "label": "App Icon 40x40 @1x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_40x40_2x",
+      "label": "App Icon 40x40 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_40x40_3x",
+      "label": "App Icon 40x40 @3x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_60x60_2x",
+      "label": "App Icon 60x60 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_60x60_3x",
+      "label": "App Icon 60x60 @3x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_76x76_1x",
+      "label": "App Icon 76x76 @1x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_76x76_2x",
+      "label": "App Icon 76x76 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "icon_app_83_5x83_5_2x",
+      "label": "App Icon 83.5x83.5 @2x",
+      "file_type": "image",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "design_flutter_default_logo",
+      "label": "Flutter Default Logo Design",
+      "file_type": "concept",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "design_color_light_blue",
+      "label": "Light Blue (#54C5F8) Primary Color",
+      "file_type": "concept",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "design_color_navy_blue",
+      "label": "Navy Blue (#01579B) Accent Color",
+      "file_type": "concept",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "platform_ios_runner",
+      "label": "iOS Runner Target",
+      "file_type": "concept",
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "icon_app_canonical_flutter_logo",
+      "target": "design_flutter_default_logo",
+      "relation": "depicts",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "design_flutter_default_logo",
+      "target": "design_color_light_blue",
+      "relation": "uses_color",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "design_flutter_default_logo",
+      "target": "design_color_navy_blue",
+      "relation": "uses_color",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_canonical_flutter_logo",
+      "target": "platform_ios_runner",
+      "relation": "belongs_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_20x20_1x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_20x20_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_20x20_3x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_29x29_1x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_29x29_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_29x29_3x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_40x40_1x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_40x40_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_40x40_3x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_60x60_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_60x60_3x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_76x76_1x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_76x76_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "icon_app_83_5x83_5_2x",
+      "target": "icon_app_canonical_flutter_logo",
+      "relation": "is_size_variant_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "design_flutter_default_logo",
+      "target": "platform_ios_runner",
+      "relation": "used_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "icon_app_canonical_flutter_logo",
+      "target": "design_flutter_default_logo",
+      "relation": "is_placeholder_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+      "source_location": null,
+      "weight": 0.9
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

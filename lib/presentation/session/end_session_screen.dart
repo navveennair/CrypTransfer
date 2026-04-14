@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../home/home_screen.dart';
+import '../widgets/shared_widgets.dart';
 
 class EndSessionScreen extends StatefulWidget {
   final String transferId;
@@ -196,7 +197,7 @@ class _EndSessionScreenState extends State<EndSessionScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: _phase != _Phase.cleaning,
+      canPop: _phase == _Phase.ready,
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -367,15 +368,11 @@ class _EndSessionScreenState extends State<EndSessionScreen>
         ],
 
         // ── End Session button ────────────────────────────────────────────
-        FilledButton.icon(
+        CrypButton(
           icon: const Icon(Icons.lock_clock_rounded),
           label: Text(_error != null ? 'Retry End Session' : 'End Session'),
           onPressed: _endSession,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.red.shade700,
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(52),
-          ),
+          color: Colors.red.shade700,
         ),
       ],
     );
@@ -478,17 +475,14 @@ class _EndSessionScreenState extends State<EndSessionScreen>
 
         const SizedBox(height: 32),
 
-        FilledButton.icon(
+        CrypButton(
           icon: const Icon(Icons.home_rounded),
           label: const Text('Back to Home'),
           onPressed: () => Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const HomeScreen()),
             (_) => false,
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.green.shade600,
-            minimumSize: const Size.fromHeight(52),
-          ),
+          color: Colors.green.shade600,
         ),
       ],
     );

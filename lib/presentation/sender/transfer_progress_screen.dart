@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../session/end_session_screen.dart';
+import '../widgets/shared_widgets.dart';
 
 class TransferProgressScreen extends StatefulWidget {
   final String transferId;
@@ -303,11 +304,9 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       TextStyle(color: cs.onSurfaceVariant, height: 1.5),
                 ),
                 const SizedBox(height: 28),
-                FilledButton(
+                CrypButton(
+                  label: const Text('Go Back'),
                   onPressed: () => Navigator.pop(context),
-                  style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(46)),
-                  child: const Text('Go Back'),
                 ),
               ] else if (_done) ...[
                 ScaleTransition(
@@ -396,7 +395,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                   ),
 
                 const SizedBox(height: 12),
-                FilledButton.icon(
+                CrypButton(
                   icon: const Icon(Icons.lock_clock_rounded),
                   label: const Text('End Session'),
                   onPressed: () => Navigator.pushReplacement(
@@ -417,10 +416,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       ),
                     ),
                   ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    minimumSize: const Size.fromHeight(50),
-                  ),
+                  color: Colors.red.shade700,
                 ),
               ] else ...[
                 Text(

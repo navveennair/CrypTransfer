@@ -1,0 +1,17 @@
+---
+source_file: "docs/modules/ui.md"
+type: "document"
+community: "Transfer & Repository Layer"
+location: "line 16"
+tags:
+  - graphify/document
+  - graphify/EXTRACTED
+  - community/Transfer_&_Repository_Layer
+---
+
+# SidebarDrawer
+
+## Connections
+- [[UIUX Module]] - `references` [EXTRACTED]
+
+#graphify/document #graphify/EXTRACTED #community/Transfer_&_Repository_Layer

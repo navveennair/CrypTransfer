@@ -1,0 +1,266 @@
+CLAUDE.md
+GEMINI.md
+gemini-scribe\Prompts\example-expert.md
+graphify-out\-registerWithRegistry.md
+graphify-out\AES-256-GCM Encryption.md
+graphify-out\Agent Changelog.md
+graphify-out\Android App Launcher Icon (HDPI).md
+graphify-out\Android App Launcher Icon (MDPI).md
+graphify-out\Android Mipmap Density Set.md
+graphify-out\AppDelegate.md
+graphify-out\AppDelegate.swift.md
+graphify-out\AppDelegate.swift_1.md
+graphify-out\Audit Log Document Schema (transfers_log{docId}).md
+graphify-out\Authentication Module.md
+graphify-out\AuthRepository.md
+graphify-out\Automation Protocol & Scripts.md
+graphify-out\Blank White Splash Screen.md
+graphify-out\build.gradle.kts.md
+graphify-out\build.gradle.kts_1.md
+graphify-out\Closed Mailbox Kill Switch Defence.md
+graphify-out\Closed Mailbox Rule (Kill Switch).md
+graphify-out\Closed Mailbox UI (ReceiverScreen toggle flow).md
+graphify-out\closeReceiverSession Kill Switch.md
+graphify-out\closeReceiverSession(uid).md
+graphify-out\cloud_firestore dependency (auth).md
+graphify-out\cloud_firestore dependency (encryption).md
+graphify-out\cloud_firestore dependency (notifications).md
+graphify-out\cloud_firestore dependency (transfer).md
+graphify-out\compute() Migration for generateAndStoreKeyPair().md
+graphify-out\Create().md
+graphify-out\CreateAndAttachConsole().md
+graphify-out\CrypTransfer Flutter App (README).md
+graphify-out\CrypTransfer Flutter Application.md
+graphify-out\CrypTransfer Project (CLAUDE.md).md
+graphify-out\Daily Report Command.md
+graphify-out\DecryptScreen Phase Enum (_Phase).md
+graphify-out\DecryptScreen.md
+graphify-out\Destroy().md
+graphify-out\DownloadConfirmScreen.md
+graphify-out\EnableFullDpiSupportIfAvailable().md
+graphify-out\encryptedAESKey Field Name Drift Fix.md
+graphify-out\Encryption Module.md
+graphify-out\EncryptionService.md
+graphify-out\EndSessionScreen.md
+graphify-out\Exception Hierarchy (AppException subclasses).md
+graphify-out\File Transfer Module.md
+graphify-out\firebase_auth dependency.md
+graphify-out\firebase_storage dependency.md
+graphify-out\Firestore User Document Schema (users{uid}).md
+graphify-out\first_frame_cb().md
+graphify-out\Flutter Default App Icon.md
+graphify-out\Flutter Logo Icon.md
+graphify-out\FlutterAppDelegate.md
+graphify-out\FlutterImplicitEngineDelegate.md
+graphify-out\FlutterSceneDelegate.md
+graphify-out\FlutterWindow().md
+graphify-out\flutter_lldb_helper.py.md
+graphify-out\flutter_secure_storage dependency (auth).md
+graphify-out\flutter_secure_storage dependency (encryption).md
+graphify-out\flutter_window.cpp.md
+graphify-out\flutter_window.h.md
+graphify-out\fl_register_plugins().md
+graphify-out\Full Transfer Flow (sender→receiver).md
+graphify-out\generateAndStoreKeyPair() (compute migration).md
+graphify-out\GeneratedPluginRegistrant.h.md
+graphify-out\GeneratedPluginRegistrant.java.md
+graphify-out\GeneratedPluginRegistrant.m.md
+graphify-out\GeneratedPluginRegistrant.md
+graphify-out\GeneratedPluginRegistrant.swift.md
+graphify-out\generated_plugin_registrant.cc.md
+graphify-out\generated_plugin_registrant.cc_1.md
+graphify-out\generated_plugin_registrant.h.md
+graphify-out\generated_plugin_registrant.h_1.md
+graphify-out\GetClientArea().md
+graphify-out\GetCommandLineArguments().md
+graphify-out\GetHandle().md
+graphify-out\GetThisFromHandle().md
+graphify-out\GetWindowClass().md
+graphify-out\Ghost Mailbox Attack Threat.md
+graphify-out\google_fonts dependency (Poppins).md
+graphify-out\Guardian Cycle (12PM–12PM).md
+graphify-out\handle_new_rx_page().md
+graphify-out\HomeScreen Recent Transfers Firestore Query.md
+graphify-out\HomeScreen.md
+graphify-out\Intercept NOTIFY_DEBUGGER_ABOUT_RX_PAGES and touch the pages..md
+graphify-out\iOS AppIcon Asset Set.md
+graphify-out\iOS Launch Screen Assets.md
+graphify-out\Key Lifecycle Diagram.md
+graphify-out\KeyRepository.md
+graphify-out\Legacy Isolate.run() Path in AuthRepository.md
+graphify-out\libcoreutilssecurity_lifecycle_mixin.dart (security).md
+graphify-out\libcoreutilssecurity_lifecycle_mixin.dart.md
+graphify-out\libdatarepositoriestransfer_repository.dart.md
+graphify-out\libdataservicesencryption_service.dart.md
+graphify-out\Linux CMakeLists.txt (root).md
+graphify-out\Linux Flutter CMakeLists.txt.md
+graphify-out\Linux Runner CMakeLists.txt.md
+graphify-out\local_auth dependency (biometric).md
+graphify-out\LoginScreen (auth).md
+graphify-out\main().md
+graphify-out\main.cc.md
+graphify-out\main.cpp.md
+graphify-out\MainActivity.kt.md
+graphify-out\MainActivity.md
+graphify-out\MainFlutterWindow.md
+graphify-out\MainFlutterWindow.swift.md
+graphify-out\MessageHandler().md
+graphify-out\MessageHandler()_1.md
+graphify-out\my_application.cc.md
+graphify-out\my_application.h.md
+graphify-out\my_application_activate().md
+graphify-out\my_application_class_init().md
+graphify-out\my_application_dispose().md
+graphify-out\my_application_init().md
+graphify-out\my_application_local_command_line().md
+graphify-out\my_application_new().md
+graphify-out\my_application_shutdown().md
+graphify-out\my_application_startup().md
+graphify-out\Navigation Model (pushAndRemoveUntil, pushReplacement).md
+graphify-out\Non-Repudiation receiverStatus Updates.md
+graphify-out\Notification Document Schema (notifications{docId}).md
+graphify-out\NotificationModel + NotificationType enum.md
+graphify-out\Notifications Module.md
+graphify-out\NotificationService.md
+graphify-out\NotificationsScreen.md
+graphify-out\NSWindow.md
+graphify-out\Obsidian Security Audit Report (scriptssecurity_audit_report.dart).md
+graphify-out\OnCreate().md
+graphify-out\OnCreate()_1.md
+graphify-out\OnDestroy().md
+graphify-out\OnDestroy()_1.md
+graphify-out\Overlay Notification Banner (_NotifBanner).md
+graphify-out\OWASP Mobile Top 10 Coverage.md
+graphify-out\participants Field Implementation Gap.md
+graphify-out\participants field in writeAuditLog().md
+graphify-out\path_provider dependency.md
+graphify-out\pointycastle dependency.md
+graphify-out\PWA Icon 192px.md
+graphify-out\PWA Icon 512px.md
+graphify-out\PWA Maskable Icon 192px.md
+graphify-out\PWA Maskable Icon 512px.md
+graphify-out\Radioactive Buffer Tracker.md
+graphify-out\Radioactive Variables.md
+graphify-out\Receiver Crypto Pipeline.md
+graphify-out\ReceiverScreen.md
+graphify-out\RegisterGeneratedPlugins().md
+graphify-out\RegisterPlugins().md
+graphify-out\RegisterScreen (auth).md
+graphify-out\resource.h.md
+graphify-out\RSA Key Manager Modal (_KeyManagerSheet).md
+graphify-out\RSA Key Transfer Document Schema (rsa_key_transfers{docId}).md
+graphify-out\RSA-2048-OAEP Key Wrapping.md
+graphify-out\Runner-Bridging-Header.h.md
+graphify-out\RunnerTests.md
+graphify-out\RunnerTests.swift.md
+graphify-out\RunnerTests.swift_1.md
+graphify-out\Scale().md
+graphify-out\SceneDelegate.md
+graphify-out\SceneDelegate.swift.md
+graphify-out\Screen Coverage Table.md
+graphify-out\scriptssecurity_audit_report.dart.md
+graphify-out\scriptssilent_guardian.ps1.md
+graphify-out\Security Audit Logging (_logSecurityEvent).md
+graphify-out\Security Module.md
+graphify-out\Security Protocol Core Rules.md
+graphify-out\SecurityLifecycleMixin API (registerBufferwipeAllonBuffersWiped).md
+graphify-out\SecurityLifecycleMixin.md
+graphify-out\Sender Crypto Pipeline.md
+graphify-out\SenderScreen.md
+graphify-out\Session Lock (_sessionLocked).md
+graphify-out\Session Wipe Test Suite (TC-WIPE-001 to TC-WIPE-006).md
+graphify-out\Session Wipe Tests (TC-WIPE-001 to TC-WIPE-006).md
+graphify-out\SetChildContent().md
+graphify-out\SetQuitOnClose().md
+graphify-out\settings.gradle.kts.md
+graphify-out\setupReceiverSession(uid).md
+graphify-out\Shared Widgets (StepCard, UserAvatar, StatusBanner, SecurityBadge).md
+graphify-out\Show().md
+graphify-out\SidebarDrawer.md
+graphify-out\Silent Guardian Kill Switch Scanner.md
+graphify-out\silent_guardian.ps1.md
+graphify-out\SplashScreen (auth).md
+graphify-out\Startup Session Wipe KeyRepository.wipeAllSessionKeys().md
+graphify-out\Stepper Pattern (StepCard sequential flow).md
+graphify-out\testsecuritykey_storage_audit_test.dart.md
+graphify-out\testsecuritysession_wipe_test.dart.md
+graphify-out\Threat Model.md
+graphify-out\Transfer Document Schema (transfers{transferId}).md
+graphify-out\TransferModel + TransferStatus enum.md
+graphify-out\TransferProgressScreen.md
+graphify-out\TransferRepository.md
+graphify-out\UIUX Module.md
+graphify-out\UnregisterWindowClass().md
+graphify-out\Update Status Command.md
+graphify-out\UpdateTheme().md
+graphify-out\update_status.ps1.md
+graphify-out\UserModel.md
+graphify-out\Utf8FromUtf16().md
+graphify-out\utils.cpp.md
+graphify-out\utils.h.md
+graphify-out\Web Favicon.md
+graphify-out\Web PWA Icon Set.md
+graphify-out\Win32Window().md
+graphify-out\win32_window.cpp.md
+graphify-out\win32_window.h.md
+graphify-out\WindowClassRegistrar.md
+graphify-out\Windows CMakeLists.txt (root).md
+graphify-out\Windows Flutter CMakeLists.txt.md
+graphify-out\Windows Runner CMakeLists.txt.md
+graphify-out\Wipe Pattern (fillRange zero).md
+graphify-out\WndProc().md
+graphify-out\Write-Log().md
+graphify-out\wWinMain().md
+graphify-out\XCTestCase.md
+graphify-out\_COMMUNITY_Agent Changelog.md
+graphify-out\_COMMUNITY_Android & iOS App Icons.md
+graphify-out\_COMMUNITY_Android App Gradle.md
+graphify-out\_COMMUNITY_Android Gradle Build.md
+graphify-out\_COMMUNITY_Android Icon (MDPI).md
+graphify-out\_COMMUNITY_Android MainActivity.md
+graphify-out\_COMMUNITY_Android Settings Gradle.md
+graphify-out\_COMMUNITY_Audit Log & Query Gap.md
+graphify-out\_COMMUNITY_Blank Splash Screen.md
+graphify-out\_COMMUNITY_CICD Automation.md
+graphify-out\_COMMUNITY_Crypto Algorithms.md
+graphify-out\_COMMUNITY_Encryption Service Core.md
+graphify-out\_COMMUNITY_Field Name Drift Fix.md
+graphify-out\_COMMUNITY_Firebase & Auth Stack.md
+graphify-out\_COMMUNITY_Full Transfer Flow.md
+graphify-out\_COMMUNITY_Google Fonts Dependency.md
+graphify-out\_COMMUNITY_Guardian PowerShell Script.md
+graphify-out\_COMMUNITY_iOS Bridging Header.md
+graphify-out\_COMMUNITY_iOS Launch Screen Assets.md
+graphify-out\_COMMUNITY_iOS Plugin Header.md
+graphify-out\_COMMUNITY_iOS Scene Delegate.md
+graphify-out\_COMMUNITY_iOS Test Suite.md
+graphify-out\_COMMUNITY_Linux App Entry Point.md
+graphify-out\_COMMUNITY_Linux App Header.md
+graphify-out\_COMMUNITY_Linux GTK App Layer.md
+graphify-out\_COMMUNITY_Linux Plugin Header.md
+graphify-out\_COMMUNITY_Linux Plugin Registration.md
+graphify-out\_COMMUNITY_LLDB Debug Helper.md
+graphify-out\_COMMUNITY_macOS App Delegate.md
+graphify-out\_COMMUNITY_macOS Window Setup.md
+graphify-out\_COMMUNITY_Plugin Registrant (Multi-platform).md
+graphify-out\_COMMUNITY_Project Overview & Build.md
+graphify-out\_COMMUNITY_Receiver Session & Crypto.md
+graphify-out\_COMMUNITY_Screen Security Mixin.md
+graphify-out\_COMMUNITY_Security Scanner & Reports.md
+graphify-out\_COMMUNITY_Security Testing & Audit.md
+graphify-out\_COMMUNITY_Session Lock State.md
+graphify-out\_COMMUNITY_Swift Plugin Registrant.md
+graphify-out\_COMMUNITY_Transfer & Repository Layer.md
+graphify-out\_COMMUNITY_Update Status Script.md
+graphify-out\_COMMUNITY_Web & PWA Icons.md
+graphify-out\_COMMUNITY_Windows App Entry.md
+graphify-out\_COMMUNITY_Windows Flutter Window.md
+graphify-out\_COMMUNITY_Windows Plugin Header.md
+graphify-out\_COMMUNITY_Windows Plugin Registration.md
+graphify-out\_COMMUNITY_Windows Resource Header.md
+graphify-out\_COMMUNITY_Windows Runner UI.md
+graphify-out\_COMMUNITY_Windows Utilities.md
+graphify-out\_COMMUNITY_Windows Utils Header.md
+graphify-out\_COMMUNITY_Windows Window Header.md
+graphify-out\__lldb_init_module().md
+graphify-out - Copy\GRAPH_REPORT.md

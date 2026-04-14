@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -10,9 +11,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:pointycastle/export.dart' hide State, Padding;
 
 import '../../core/utils/biometric_helper.dart';
-import '../../data/models/user_model.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/services/transfer_service.dart';
 import '../widgets/shared_widgets.dart';
 import 'transfer_progress_screen.dart';
 
@@ -41,10 +42,8 @@ class _SenderScreenState extends State<SenderScreen>
     with SecurityLifecycleMixin<SenderScreen> {
   final _connService = KeyRepository();
 
-  // Step 0 — Receiver selection
-  List<UserModel> _availableReceivers = [];
-  bool _loadingReceivers = true;
-  bool _loadReceiversFailed = false;
+  // Step 0 — Receiver-Authorized connection (reactive stream)
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _handshakeSub;
   String? _selectedReceiverPublicKeyJson;
 
   // Step 1 — File
@@ -72,51 +71,78 @@ class _SenderScreenState extends State<SenderScreen>
   @override
   void initState() {
     super.initState();
-    _loadAvailableReceivers();
+    _startHandshakeListener();
   }
 
-  // ─── Step 0: Load and select receiver ────────────────────────────────────
+  @override
+  void dispose() {
+    _handshakeSub?.cancel();
+    super.dispose(); // SecurityLifecycleMixin.dispose() → wipeAll()
+  }
 
-  Future<void> _loadAvailableReceivers() async {
-    setState(() {
-      _loadingReceivers = true;
-      _loadReceiversFailed = false;
-    });
-    try {
-      final receivers = await _connService.getAvailableReceivers();
-      if (mounted) {
-        setState(() {
-          _availableReceivers = receivers;
-          _loadingReceivers = false;
-        });
+  // ─── Step 0: Receiver-Authorized connection ───────────────────────────────
+
+  /// Subscribes to [rsa_key_transfers] docs where this sender is the
+  /// recipient and the status is `handshake_complete`.
+  ///
+  /// When a doc appears the receiver has explicitly authorized this sender
+  /// and published their RSA public key — the session unlocks automatically.
+  ///
+  /// When the doc disappears (receiver closes session / kill switch fires),
+  /// [_revertToWaiting] is called: sensitive data is wiped and the UI
+  /// reverts to the "Waiting for Secure Connection…" buffer.
+  void _startHandshakeListener() {
+    _handshakeSub =
+        _connService.streamHandshakesForSender().listen(_onHandshakeUpdate);
+  }
+
+  void _onHandshakeUpdate(
+      QuerySnapshot<Map<String, dynamic>> snap) {
+    if (!mounted) return;
+    if (snap.docs.isEmpty) {
+      final wasConnected = _receiverId != null;
+      _revertToWaiting();
+      if (wasConnected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Secure connection closed by receiver.'),
+            backgroundColor: Colors.orange.shade700,
+          ),
+        );
       }
-    } catch (_) {
-      if (mounted) {
+    } else {
+      final doc = snap.docs.first.data();
+      final fromUserId = doc['fromUserId'] as String? ?? '';
+      final fromUsername = doc['fromUsername'] as String? ?? 'Unknown';
+      final publicKey = doc['publicKey'] as String?;
+      if (publicKey != null &&
+          publicKey.isNotEmpty &&
+          fromUserId.isNotEmpty) {
         setState(() {
-          _loadingReceivers = false;
-          _loadReceiversFailed = true;
+          _receiverId = fromUserId;
+          _receiverUsername = fromUsername;
+          _selectedReceiverPublicKeyJson = publicKey;
         });
       }
     }
   }
 
-  void _selectReceiver(UserModel receiver) {
-    setState(() {
-      _receiverId = receiver.uid;
-      _receiverUsername = receiver.username;
-      _selectedReceiverPublicKeyJson = receiver.publicKey;
-      // Reset downstream crypto when receiver changes
-      _encryptedAESKey = null;
-    });
-  }
-
-  void _clearReceiver() {
-    setState(() {
-      _receiverId = null;
-      _receiverUsername = null;
-      _selectedReceiverPublicKeyJson = null;
-      _encryptedAESKey = null;
-    });
+  /// Wipes all in-progress sensitive data and reverts Step 0 to the waiting
+  /// buffer.  Called when the receiver closes their session or fires the kill
+  /// switch (stream emits an empty snapshot).
+  void _revertToWaiting() {
+    _wipeSensitiveData(); // zeroes aesKey/iv/encryptedBytes + wipeAll()
+    if (mounted) {
+      setState(() {
+        _receiverId = null;
+        _receiverUsername = null;
+        _selectedReceiverPublicKeyJson = null;
+        _file = null;
+        _encryptedAESKey = null;
+        _encrypting = false;
+        _encryptingKey = false;
+      });
+    }
   }
 
   // ─── Step 1: File picker ─────────────────────────────────────────────────
@@ -124,7 +150,7 @@ class _SenderScreenState extends State<SenderScreen>
   Future<void> _pickFile() async {
     _wipeSensitiveData();
     try {
-      final result = await FilePicker.platform.pickFiles(withData: true);
+      final result = await FilePicker.pickFiles(withData: true);
       if (result == null || result.files.isEmpty) return;
       setState(() {
         _file = result.files.first;
@@ -151,8 +177,38 @@ class _SenderScreenState extends State<SenderScreen>
       registerBuffer(key);
       registerBuffer(iv);
 
-      final encrypted = await compute(_runAesGcm, [file.bytes!, key, iv]);
+      // Kotlin sync: confirm FLAG_SECURE is active before sensitive bytes
+      // enter the Dart heap.  Fails open (returns true) on non-Android
+      // platforms and in test environments.
+      if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
+        if (mounted) {
+          _showError(
+            'Screen is not protected (FLAG_SECURE inactive). '
+            'Cannot process file on an unsecured window.',
+          );
+        }
+        return;
+      }
+
+      // Read in 64 KB chunks on mobile/desktop; fall back to in-memory bytes on web.
+      final plaintext = await TransferService.resolve(
+        filePath: file.path,
+        fallbackBytes: file.bytes,
+      );
+      // Register plaintext immediately so wipeAll/dispose zeroes it if anything
+      // throws before we reach the explicit wipe below.
+      registerBuffer(plaintext);
+
+      final encrypted = await compute(_runAesGcm, [plaintext, key, iv]);
       registerBuffer(encrypted);
+
+      // Explicit zero-wipe: erase the main-isolate plaintext buffer now that
+      // compute() has finished.  compute() serialised a copy into the child
+      // isolate — this zeroes the reference we still hold on the main heap.
+      // unregisterBuffer removes it from the wipeAll list so there is no
+      // redundant second pass over already-zero memory.
+      plaintext.fillRange(0, plaintext.length, 0);
+      unregisterBuffer(plaintext);
 
       if (mounted) {
         setState(() {
@@ -325,23 +381,14 @@ class _SenderScreenState extends State<SenderScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Step 0: Choose Receiver ─────────────────────────────────
+            // ── Step 0: Receiver-Authorized Connection ──────────────────
             StepCard(
               step: 0,
-              title: 'Choose Receiver',
+              title: 'Secure Connection',
               done: _receiverSelected,
               child: _receiverSelected
-                  ? _ReceiverSelectedBadge(
-                      username: _receiverUsername!,
-                      onClear: _clearReceiver,
-                    )
-                  : _ReceiverSelectBody(
-                      loading: _loadingReceivers,
-                      failed: _loadReceiversFailed,
-                      receivers: _availableReceivers,
-                      onSelect: _selectReceiver,
-                      onRefresh: _loadAvailableReceivers,
-                    ),
+                  ? _ConnectedBadge(username: _receiverUsername!)
+                  : const _WaitingForConnectionWidget(),
             ),
             const SizedBox(height: 16),
 
@@ -386,7 +433,7 @@ class _SenderScreenState extends State<SenderScreen>
                         ivBytes: _iv!.length,
                         ciphertextBytes: _encryptedBytes!.length,
                       )
-                    : FilledButton.icon(
+                    : CrypButton(
                         icon: _encrypting
                             ? const SizedBox(
                                 width: 18,
@@ -400,9 +447,8 @@ class _SenderScreenState extends State<SenderScreen>
                             : 'Generate AES Key & Encrypt'),
                         onPressed:
                             _fileSelected && !_encrypting ? _encryptFile : null,
-                        style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.secondary),
+                        color: Theme.of(context).colorScheme.secondary,
+                        disabledColor: Theme.of(context).colorScheme.secondary,
                       ),
               ),
             ),
@@ -418,7 +464,7 @@ class _SenderScreenState extends State<SenderScreen>
                 done: _readyToSend,
                 child: _readyToSend
                     ? _ReceiverBadge(username: _receiverUsername!)
-                    : FilledButton.icon(
+                    : CrypButton(
                         icon: _encryptingKey
                             ? const SizedBox(
                                 width: 18,
@@ -434,9 +480,8 @@ class _SenderScreenState extends State<SenderScreen>
                         onPressed: _fileEncrypted && !_encryptingKey
                             ? _encryptAesKey
                             : null,
-                        style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.tertiary),
+                        color: Theme.of(context).colorScheme.tertiary,
+                        disabledColor: Theme.of(context).colorScheme.tertiary,
                       ),
               ),
             ),
@@ -446,15 +491,12 @@ class _SenderScreenState extends State<SenderScreen>
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 350),
               child: _readyToSend
-                  ? FilledButton.icon(
+                  ? CrypButton(
                       key: const ValueKey('send-btn'),
                       icon: const Icon(Icons.send_rounded),
                       label: const Text('Send Encrypted File'),
                       onPressed: _send,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        minimumSize: const Size.fromHeight(50),
-                      ),
+                      color: Colors.green.shade600,
                     )
                   : const SizedBox.shrink(key: ValueKey('send-empty')),
             ),
@@ -466,171 +508,138 @@ class _SenderScreenState extends State<SenderScreen>
   }
 }
 
-// ─── Receiver select body (Step 0 — not yet chosen) ──────────────────────────
+// ─── Step 0: Waiting for receiver authorization ───────────────────────────────
+// Shown when no receiver has selected this sender yet.
 
-class _ReceiverSelectBody extends StatelessWidget {
-  final bool loading;
-  final bool failed;
-  final List<UserModel> receivers;
-  final void Function(UserModel) onSelect;
-  final VoidCallback onRefresh;
+class _WaitingForConnectionWidget extends StatefulWidget {
+  const _WaitingForConnectionWidget();
 
-  const _ReceiverSelectBody({
-    required this.loading,
-    required this.failed,
-    required this.receivers,
-    required this.onSelect,
-    required this.onRefresh,
-  });
+  @override
+  State<_WaitingForConnectionWidget> createState() =>
+      _WaitingForConnectionWidgetState();
+}
+
+class _WaitingForConnectionWidgetState
+    extends State<_WaitingForConnectionWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (loading) return const LinearProgressIndicator();
-    if (failed) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.error_outline, size: 16, color: cs.error),
-              const SizedBox(width: 8),
-              Text(
-                'Failed to load receivers.',
-                style: TextStyle(color: cs.error, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-            onPressed: onRefresh,
-          ),
-        ],
-      );
-    }
-    if (receivers.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Waiting for receiver to send their RSA public key first.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
-            onPressed: onRefresh,
-          ),
-        ],
-      );
-    }
     return Column(
       children: [
-        for (final r in receivers)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _ReceiverRow(receiver: r, onSelect: () => onSelect(r)),
+        const SizedBox(height: 8),
+        ScaleTransition(
+          scale: _scale,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: cs.primaryContainer.withValues(alpha: 0.6),
+            ),
+            child: Center(
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: cs.primary,
+                ),
+              ),
+            ),
           ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Waiting for Secure Connection…',
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600, fontSize: 14),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'A receiver must select you as their sender\nbefore file transfer can begin.',
+          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }
 }
 
-class _ReceiverRow extends StatelessWidget {
-  final UserModel receiver;
-  final VoidCallback onSelect;
+// ─── Step 0: Receiver connected badge ────────────────────────────────────────
+// Shown once a receiver has authorized this sender via the handshake.
 
-  const _ReceiverRow({required this.receiver, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final name =
-        receiver.username.isNotEmpty ? receiver.username : 'Unknown';
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: cs.primaryContainer,
-            child: Text(
-              name[0].toUpperCase(),
-              style: TextStyle(
-                  color: cs.onPrimaryContainer,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '@$name',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.deepPurple.shade600,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-            ),
-            onPressed: onSelect,
-            child: const Text('Select as Receiver'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Receiver selected badge (Step 0 — done state) ───────────────────────────
-
-class _ReceiverSelectedBadge extends StatelessWidget {
+class _ConnectedBadge extends StatelessWidget {
   final String username;
-  final VoidCallback onClear;
 
-  const _ReceiverSelectedBadge(
-      {required this.username, required this.onClear});
+  const _ConnectedBadge({required this.username});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.green.shade300),
       ),
       child: Row(
         children: [
-          Icon(Icons.person_rounded,
-              color: Colors.green.shade700, size: 18),
-          const SizedBox(width: 8),
-          Text('Sending to ',
-              style:
-                  TextStyle(fontSize: 13, color: Colors.green.shade700)),
-          Text('@$username',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.green.shade700)),
-          const Spacer(),
-          Icon(Icons.check_circle_rounded,
-              color: Colors.green.shade600, size: 18),
-          const SizedBox(width: 4),
-          GestureDetector(
-            onTap: onClear,
-            child: Icon(Icons.close_rounded,
-                color: Colors.green.shade400, size: 16),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.lock_open_rounded,
+                color: Colors.green.shade700, size: 20),
           ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Secure Channel Established',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Key received from @$username',
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.green.shade700),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.verified_rounded,
+              color: Colors.green.shade600, size: 22),
         ],
       ),
     );

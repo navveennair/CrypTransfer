@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "docs/modules/encryption.md",
+                "file": "CLAUDE.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "encryption"
+              "title": "CLAUDE"
             }
           }
         ]
@@ -74,7 +74,8 @@
               "title": "Bookmarks"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -180,36 +181,39 @@
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "gemini-scribe:Gemini Scribe: Agent Mode": false
     }
   },
   "active": "b0bd1c63d906dce8",
   "lastOpenFiles": [
+    "Skills",
+    "Prompts",
+    "Agent-Sessions",
+    "android/gradle/Skills",
+    "android/gradle/Prompts",
+    "android/gradle/Agent-Sessions",
+    "gemini-scribe/Prompts/example-expert.md",
+    "gemini-scribe/Skills",
+    "gemini-scribe/Prompts",
+    "gemini-scribe/Agent-Sessions",
+    "gemini-scribe",
+    "claude.md.md",
+    "docs/modules/encryption.md",
+    "graphify-out/cost.json",
     "docs/modules/file-transfer.md",
     "docs/modules/ui.md",
     "docs/modules/security.md",
     "docs/modules/notifications.md",
-    "docs/modules/encryption.md",
     "docs/modules/auth.md",
     "docs/modules/ui.md.md",
     "docs/modules/file-transfer.md.md",
     "docs/modules/encryption.md.md",
-    "build/test_cache/build/30a6a18c",
-    "test/security/session_wipe_test.dart",
     "claude.md",
-    "claude.md.md",
     "docs/modules/notifications.md.md",
     "docs/modules/auth.md.md",
-    "build/b8531b56",
-    "build/app/intermediates/compressed_assets/debug/compressDebugAssets/out/assets/flutter_assets/kernel_blob.bin.jar",
-    "build/app/intermediates/flutter/debug/flutter_assets/shaders/ink_sparkle.frag.spirv",
-    "build/app/intermediates/flutter/debug/flutter_assets/shaders/stretch_effect.frag.spirv",
-    "build/app/intermediates/flutter/debug/flutter_assets/ef618b7f",
-    "build/app/intermediates/flutter/debug/flutter_assets/2cbacf17",
     "README.md",
     "SECURITY_PROTOCOL.md",
-    "scripts/update_status.ps1",
-    "scripts/setup_guardian_task.ps1",
     "docs/agents/changelog.md.md",
     "auth.md.md",
     "docs/Untitled.md"

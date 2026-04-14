@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +8,7 @@ import 'package:pointycastle/export.dart' hide State, Padding;
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
+import '../../core/utils/session_state.dart';
 
 // ─── Top-level isolate functions ──────────────────────────────────────────────
 // These must be top-level (not instance methods) for Flutter's compute().
@@ -243,6 +245,9 @@ class EncryptionService {
         'isReadyToReceive': false,
         'sessionActive': false,
         'lastSessionClosed': FieldValue.serverTimestamp(),
+        // Clear the receiver-authorized sender so the sender's Firestore
+        // stream sees the doc disappear and reverts to the waiting buffer.
+        'selectedSenderUid': FieldValue.delete(),
       });
 
       // 2. Delete private key from secure storage.
@@ -290,6 +295,54 @@ class EncryptionService {
       _logSecurityEvent('closeReceiverSession_FAILED', uid, e.toString());
       rethrow;
     }
+  }
+
+  // ─── Session binding (reactive kill-switch) ──────────────────────────────
+
+  /// Binds [EncryptionService] to a [SessionManager]'s [stateStream].
+  ///
+  /// When [SessionState.terminated] is emitted — by [SessionManager.wipeSession]
+  /// or [SessionManager.handleLifecycleState] — this listener automatically
+  /// calls [closeReceiverSession], completing the crypto kill-switch without
+  /// any manual call chain from the UI layer.
+  ///
+  /// This creates the direct structural link between the State Machine and the
+  /// Crypto Pipeline:
+  ///
+  /// ```
+  /// SessionManager.stateStream  →  SessionState.terminated
+  ///                                       │
+  ///                                       ▼
+  ///                          EncryptionService.closeReceiverSession()
+  ///                             ├── Firestore: delete publicKey + selectedSenderUid
+  ///                             ├── SecureStorage: delete private key
+  ///                             ├── Batch-delete rsa_key_transfers
+  ///                             └── Batch-delete notifications
+  /// ```
+  ///
+  /// Call [unbindSession] when the receiver mailbox closes normally (toggle-off)
+  /// or on [ReceiverScreen.dispose] to prevent a dangling subscription.
+  static StreamSubscription<SessionState>? _sessionSub;
+
+  static void bindSession(Stream<SessionState> stateStream, String uid) {
+    _sessionSub?.cancel();
+    _sessionSub = stateStream.listen((state) {
+      if (state == SessionState.terminated) {
+        closeReceiverSession(uid).catchError((_) {});
+        _sessionSub?.cancel();
+        _sessionSub = null;
+      }
+    });
+  }
+
+  /// Cancels the active session binding.
+  ///
+  /// Call this when the mailbox is closed deliberately (via toggle) so the
+  /// subscription does not fire a redundant [closeReceiverSession] after the
+  /// screen has already performed its own cleanup.
+  static void unbindSession() {
+    _sessionSub?.cancel();
+    _sessionSub = null;
   }
 
   // ─── Security event logger ───────────────────────────────────────────────

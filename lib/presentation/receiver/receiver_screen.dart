@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../core/utils/session_manager.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
@@ -26,6 +27,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     with SecurityLifecycleMixin<ReceiverScreen>, WidgetsBindingObserver {
   final _authService = AuthRepository();
   final _connService = KeyRepository();
+  final _sessionManager = SessionManager();
 
   // ── Step 0: RSA keys ──────────────────────────────────────────────────────
   bool _hasPrivateKey = false;
@@ -36,64 +38,84 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   bool _loadingReadyState = true;
   bool _isTogglingReady = false;
 
-  // ── Step 2 & 3: Connections / key sending ─────────────────────────────────
+  // ── Step 2: Active sender + handshake state ───────────────────────────────
   List<UserModel> _connectedFriends = [];
   bool _loadingFriends = false;
-  Set<String> _keySentTo = {};
+  bool _handshaking = false;  // atomic batch write in progress
+  bool _handshakeDone = false; // true once selectSenderHandshake() commits
 
   // ── Session lock (active transfer in progress) ────────────────────────────
   bool _sessionLocked = false;
-  String? _activeTransferId;
 
-  // ── Incoming file banner ──────────────────────────────────────────────────
+  // ── Incoming transfer info (used for auto-navigation) ────────────────────
   String? _incomingTransferId;
   String? _incomingFileName;
-  String? _incomingSenderUsername;
 
-  StreamSubscription<QuerySnapshot>? _transferSub;
-  StreamSubscription<QuerySnapshot>? _keySub;
-  bool _initialLoadDone = false;
+  /// Stable Firestore stream for the active sender's pending transfers.
+  /// Initialised once in [_onSenderSelected] and fed to the [StreamBuilder]
+  /// in [_step3Content] — avoids re-subscription on every rebuild.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _transferStream;
 
   // ── Step completion ───────────────────────────────────────────────────────
   bool get _step0Done => _hasPrivateKey && _hasPublicKey;
   bool get _step1Done => _isReadyToReceive;
-  bool get _step2Done => _connectedFriends.isNotEmpty;
-  bool get _step3Done => _keySentTo.isNotEmpty;
-  bool get _allDone => _step0Done && _step1Done && _step2Done && _step3Done;
+  // Step 2 is done once sender is locked in AND the atomic handshake committed.
+  bool get _step2Done =>
+      _sessionManager.activeSenderUid != null && _handshakeDone;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sessionManager.stateNotifier.addListener(_onSessionStateChanged);
     _checkKeyStatus();
     _loadConnectedFriends();
     _loadReadyToReceiveState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startTransferListener();
-      _startKeyListener();
-    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _transferSub?.cancel();
-    _keySub?.cancel();
+    _sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
+    EncryptionService.unbindSession(); // cancel reactive kill-switch binding
+    _sessionManager.dispose();
     super.dispose();
+  }
+
+  void _onSessionStateChanged() {
+    if (!mounted) return;
+    setState(() {});
+    // Reactive navigation: the moment SessionManager enters decrypting state
+    // (triggered by _handleIncomingTransfer), auto-push to ReceiverTransferScreen.
+    if (_sessionManager.state == SessionState.decrypting &&
+        _incomingTransferId != null) {
+      _navigateToDecrypt();
+    }
+  }
+
+  void _navigateToDecrypt() {
+    final id = _incomingTransferId;
+    final name = _incomingFileName ?? 'file';
+    if (id == null) return;
+    setState(() {
+      _incomingTransferId = null;
+      _incomingFileName = null;
+    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReceiverTransferScreen(transferId: id, fileName: name),
+      ),
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      if (_isReadyToReceive) {
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null) {
-          // Fire-and-forget best-effort wipe when app goes to background.
-          EncryptionService.closeReceiverSession(uid).catchError((_) {});
-          wipeAll();
-        }
-      }
+    if (_isReadyToReceive) {
+      // Delegates to SessionManager — transitions state to terminated, emitting
+      // on stateStream so EncryptionService.bindSession reacts and purges keys.
+      // SecurityLifecycleMixin.wipeAll zeroes in-memory buffers immediately.
+      _sessionManager.handleLifecycleState(state, onBuffersWipe: wipeAll);
     }
   }
 
@@ -216,6 +238,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       if (value) {
         // ── OPEN MAILBOX: generate fresh keypair + publish public key ──────
         await EncryptionService.setupReceiverSession(uid);
+        // Bind the reactive kill-switch: EncryptionService now listens to
+        // SessionManager.stateStream and auto-calls closeReceiverSession
+        // when state transitions to terminated (lifecycle / back-nav).
+        EncryptionService.bindSession(_sessionManager.stateStream, uid);
         if (mounted) {
           setState(() {
             _isReadyToReceive = true;
@@ -236,17 +262,22 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           setState(() => _isTogglingReady = false);
           return;
         }
+        // Unbind before the imperative close so the reactive listener does
+        // not fire a redundant closeReceiverSession after we complete cleanup.
+        EncryptionService.unbindSession();
         await EncryptionService.closeReceiverSession(uid);
         wipeAll(); // zero any in-memory buffers via SecurityLifecycleMixin
+        _sessionManager.reset(); // clears activeSender + resets state to open
         if (mounted) {
           setState(() {
             _isReadyToReceive = false;
             _hasPrivateKey = false;
             _hasPublicKey = false;
             _sessionLocked = false;
-            _activeTransferId = null;
-            _keySentTo.clear();
+            _handshaking = false;
+            _handshakeDone = false;
             _connectedFriends.clear();
+            _transferStream = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -366,7 +397,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     }
   }
 
+  /// Opens the Find Sender sheet.  A session allows only one active sender;
+  /// if one is already selected this is a no-op.
   void _openFindSenderSheet() {
+    if (_sessionManager.activeSenderUid != null) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -378,75 +412,86 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         service: _connService,
         initialConnected: _connectedFriends,
         onConnectionMade: _loadConnectedFriends,
+        onSenderSelected: _onSenderSelected,
       ),
     );
   }
 
-  // ─── Step 3: Send RSA public key ──────────────────────────────────────────
+  // ─── Step 2 continuation: Atomic handshake after sender selection ────────
 
-  Future<void> _openSendKeySheet(UserModel sender) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _SendKeySheet(senderUsername: sender.username),
-    );
-    if (confirmed != true || !mounted) return;
+  /// Called when the receiver selects a sender from the Find Sender sheet.
+  ///
+  /// Performs the Receiver-Authorized Handshake as a single atomic operation:
+  /// 1. [SessionManager.selectSender] — locks the sender in-memory.
+  /// 2. Binds [_transferStream] to the new sender immediately.
+  /// 3. [KeyRepository.selectSenderHandshake] — WriteBatch commits:
+  ///    a. `users/{receiverUid}.selectedSenderUid = senderUid`
+  ///    b. `rsa_key_transfers` doc with `status: 'handshake_complete'`
+  ///
+  /// The 'Share Public Key' step (formerly Step 3) is now invisible — it
+  /// completes here without any user interaction.
+  Future<void> _onSenderSelected(UserModel sender) async {
+    _sessionManager.selectSender(sender.uid, sender.username);
+    // Bind stable transfer-watch stream immediately (fixes double-stream issue).
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _transferStream = FirebaseFirestore.instance
+        .collection(FirebaseConstants.transfers)
+        .where('receiverId', isEqualTo: myUid)
+        .where('senderId', isEqualTo: sender.uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+    setState(() => _handshaking = true);
     try {
-      await _connService.sendPublicKey(
-        toUserId: sender.uid,
-        toUsername: sender.username,
+      await _connService.selectSenderHandshake(
+        senderUid: sender.uid,
+        senderUsername: sender.username,
       );
       if (mounted) {
-        setState(() => _keySentTo.add(sender.uid));
+        setState(() {
+          _handshakeDone = true;
+          _handshaking = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('RSA Key sent to @${sender.username}'),
+            content: Text(
+                '🔑 Secure channel open — waiting for @${sender.username}'),
             backgroundColor: Colors.green.shade600,
           ),
         );
       }
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        setState(() => _handshaking = false);
+        _showError(e.toString());
+      }
     }
   }
 
-  // ─── Listeners ────────────────────────────────────────────────────────────
+  // ─── Incoming transfer handler (called from Step 3 StreamBuilder) ─────────
 
-  void _startTransferListener() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    _transferSub = FirebaseFirestore.instance
-        .collection('transfers')
-        .where('receiverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      if (!_initialLoadDone) {
-        _initialLoadDone = true;
-        return;
-      }
-      for (final change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          final data = change.doc.data() as Map<String, dynamic>;
-          _handleIncomingTransfer(change.doc.id, data);
-          break;
-        }
-      }
-    });
-  }
-
+  /// Called when the Firestore StreamBuilder in Step 3 detects a pending
+  /// transfer from [_sessionManager.activeSenderUid].
+  ///
+  /// Guards against re-entry with [_sessionLocked].  On first call:
+  /// 1. Locks the session (prevents mailbox close).
+  /// 2. Sets [SessionState.decrypting] — triggers [_onSessionStateChanged]
+  ///    which auto-pushes to [ReceiverTransferScreen].
   Future<void> _handleIncomingTransfer(
       String transferId, Map<String, dynamic> data) async {
+    // Re-entry guard — StreamBuilder may fire multiple times for the same doc.
+    if (_sessionLocked) return;
+
     final fileName = data['fileName'] as String? ?? 'file';
     final senderId = data['senderId'] as String?;
-    String? senderUsername;
-    if (senderId != null) {
+
+    // Session isolation: only process transfers from the active selected sender.
+    if (_sessionManager.activeSenderUid != null &&
+        senderId != _sessionManager.activeSenderUid) {
+      return;
+    }
+
+    String? senderUsername = _sessionManager.activeSenderUsername;
+    if (senderUsername == null && senderId != null) {
       try {
         final doc = await FirebaseFirestore.instance
             .collection('users')
@@ -455,55 +500,17 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         senderUsername = doc.data()?['username'] as String?;
       } catch (_) {}
     }
+
     if (mounted) {
       setState(() {
         _incomingTransferId = transferId;
         _incomingFileName = fileName;
-        _incomingSenderUsername = senderUsername;
         _sessionLocked = true;
-        _activeTransferId = transferId;
       });
-      _showSessionLockedBanner();
+      _sessionManager.lock();
+      // Triggers _onSessionStateChanged → _navigateToDecrypt().
+      _sessionManager.setDecrypting();
     }
-  }
-
-  void _showSessionLockedBanner() {
-    ScaffoldMessenger.of(context).showMaterialBanner(
-      MaterialBanner(
-        backgroundColor: Colors.orange.shade50,
-        leading: Icon(Icons.lock_rounded, color: Colors.orange.shade700),
-        content: Text(
-          '🔒 Active transfer: $_activeTransferId',
-          style: TextStyle(
-              fontWeight: FontWeight.w600, color: Colors.orange.shade900),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _startKeyListener() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    _keySub = FirebaseFirestore.instance
-        .collection(FirebaseConstants.rsaKeyTransfers)
-        .where('fromUserId', isEqualTo: uid)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      setState(() {
-        _keySentTo = snapshot.docs
-            .map((doc) => doc.data()['toUserId'] as String)
-            .toSet();
-      });
-    });
   }
 
   // ─── RSA Key Manager (biometric gated) ───────────────────────────────────
@@ -645,12 +652,13 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           ],
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
+        CrypButton(
           icon: const Icon(Icons.vpn_key_rounded),
           label: const Text('Generate RSA Keys'),
           onPressed: _generateKeys,
-          style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52)),
+          sessionState: _sessionManager.state != SessionState.open
+              ? _sessionManager.state
+              : null,
         ),
       ],
     );
@@ -729,17 +737,102 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   }
 
   Widget _step2Content() {
+    final cs = Theme.of(context).colorScheme;
+    final selectedUid = _sessionManager.activeSenderUid;
+    final selectedName = _sessionManager.activeSenderUsername;
+
+    // ── Sender locked in — show badge + inline handshake / transfer status ──
+    if (selectedUid != null && selectedName != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sender badge
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade300),
+            ),
+            child: Row(
+              children: [
+                UserAvatar(username: selectedName),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '@$selectedName',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      Text(
+                        'Active session sender',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.green.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                // Allow clearing only when session is open
+                if (_sessionManager.state == SessionState.open)
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => setState(() {
+                      _sessionManager.clearSender();
+                      _transferStream = null;
+                      _handshakeDone = false;
+                      _handshaking = false;
+                    }),
+                    tooltip: 'Change sender',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                const SizedBox(width: 6),
+                Icon(Icons.lock_rounded,
+                    color: Colors.green.shade600, size: 18),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Handshake status / transfer waiting — the 'Share Public Key'
+          // step is now invisible: it completes automatically above and
+          // this inline widget reflects the result.
+          _handshaking
+              ? const Row(
+                  children: [
+                    SizedBox(
+                        width: 16,
+                        height: 16,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 10),
+                    Text('Opening secure channel…',
+                        style: TextStyle(fontSize: 13)),
+                  ],
+                )
+              : _handshakeDone
+                  ? _transferStatusWidget(selectedUid, selectedName)
+                  : const SizedBox.shrink(),
+        ],
+      );
+    }
+
+    // ── No sender selected: show find button ─────────────────────────────────
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton.icon(
-          icon: const Icon(Icons.link_rounded),
-          label: const Text('🔗 Find & Connect with Sender'),
+        CrypButton(
+          icon: const Icon(Icons.search_rounded),
+          label: const Text('🔗 Find & Select Sender'),
           onPressed: _step1Done ? _openFindSenderSheet : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.green.shade600,
-            minimumSize: const Size.fromHeight(52),
-          ),
+          color: cs.secondary,
+          sessionState: _sessionManager.state != SessionState.open
+              ? _sessionManager.state
+              : null,
         ),
         if (_loadingFriends) ...[
           const SizedBox(height: 12),
@@ -751,7 +844,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: cs.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
@@ -765,35 +858,84 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     );
   }
 
-  Widget _step3Content() {
-    if (_loadingFriends) {
-      return const Center(
-        child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-    if (_connectedFriends.isEmpty) {
-      return Text(
-        'Connect with senders first (Step 2)',
-        style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 13),
-      );
-    }
-    return Column(
-      children: [
-        for (final f in _connectedFriends)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _SendKeyRow(
-              friend: f,
-              sent: _keySentTo.contains(f.uid),
-              onSendKey: () => _openSendKeySheet(f),
-            ),
+  /// Transfer waiting / incoming StreamBuilder — embedded in Step 2 done
+  /// state once the atomic handshake completes.  The 'Share Public Key' step
+  /// (formerly a separate Step 3 card) is now fully invisible.
+  Widget _transferStatusWidget(String senderUid, String senderName) {
+    final cs = Theme.of(context).colorScheme;
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _transferStream!,
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Text('Stream error: ${snap.error}',
+              style: TextStyle(fontSize: 12, color: cs.error));
+        }
+
+        final hasPending = snap.hasData && snap.data!.docs.isNotEmpty;
+
+        if (hasPending && !_sessionLocked) {
+          final doc = snap.data!.docs.first;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_sessionLocked) {
+              _handleIncomingTransfer(doc.id, doc.data());
+            }
+          });
+          return Row(
+            children: [
+              const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.5)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '🔐 Incoming file — preparing decrypt…',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, color: cs.primary),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
           ),
-      ],
+          child: Row(
+            children: [
+              Icon(Icons.inbox_rounded, color: cs.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Waiting for file from @$senderName',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Secure channel established ✅',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.green.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -803,13 +945,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
-      onPopInvokedWithResult: (didPop, _) async {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop && _isReadyToReceive) {
-          final uid = FirebaseAuth.instance.currentUser?.uid;
-          if (uid != null) {
-            await EncryptionService.closeReceiverSession(uid).catchError((_) {});
-          }
-          wipeAll();
+          // stateStream fires terminated → EncryptionService.bindSession
+          // reacts and calls closeReceiverSession asynchronously.
+          _sessionManager.wipeSession(onBuffersWipe: wipeAll);
         }
       },
       child: Scaffold(
@@ -830,32 +970,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Incoming file banner ────────────────────────────────────
-            if (_incomingTransferId != null)
-              StatusBanner(
-                message: _incomingSenderUsername != null
-                    ? '📁 Incoming file from @$_incomingSenderUsername!'
-                    : '📁 Incoming file: $_incomingFileName!',
-                onView: () {
-                  final id = _incomingTransferId!;
-                  final name = _incomingFileName ?? 'file';
-                  setState(() {
-                    _incomingTransferId = null;
-                    _incomingFileName = null;
-                    _incomingSenderUsername = null;
-                  });
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReceiverTransferScreen(
-                        transferId: id,
-                        fileName: name,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
             // ── Step 0: RSA Key Setup ───────────────────────────────────
             StepCard(
               step: 0,
@@ -889,30 +1003,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                 child: _step2Content(),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // ── Step 3: Share Public Key ────────────────────────────────
-            AnimatedOpacity(
-              opacity: _step2Done ? 1.0 : 0.4,
-              duration: const Duration(milliseconds: 300),
-              child: StepCard(
-                step: 3,
-                title: 'Share Public Key',
-                done: _step3Done,
-                child: _step3Content(),
-              ),
-            ),
             const SizedBox(height: 24),
-
-            // ── Ready button (all steps done) ───────────────────────────
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: _allDone
-                  ? _PulsingReadyButton(
-                      key: const ValueKey('ready-btn'))
-                  : const SizedBox.shrink(
-                      key: ValueKey('ready-empty')),
-            ),
           ],
         ),
       ),
@@ -986,130 +1077,21 @@ class _ConnectedRow extends StatelessWidget {
   }
 }
 
-class _SendKeyRow extends StatelessWidget {
-  final UserModel friend;
-  final bool sent;
-  final VoidCallback onSendKey;
-
-  const _SendKeyRow({
-    required this.friend,
-    required this.sent,
-    required this.onSendKey,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          UserAvatar(username: friend.username),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '@${friend.username}',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-          ),
-          if (sent)
-            Chip(
-              label: const Text('Sent ✅'),
-              backgroundColor:
-                  Colors.green.withValues(alpha: 0.12),
-              labelStyle: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12),
-              side: BorderSide.none,
-            )
-          else
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.deepPurple.shade600,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: onSendKey,
-              child: const Text('Send Key'),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Pulsing ready button ─────────────────────────────────────────────────────
-
-class _PulsingReadyButton extends StatefulWidget {
-  const _PulsingReadyButton({super.key});
-
-  @override
-  State<_PulsingReadyButton> createState() => _PulsingReadyButtonState();
-}
-
-class _PulsingReadyButtonState extends State<_PulsingReadyButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 1.0, end: 1.025).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scale,
-      child: FilledButton.icon(
-        icon: const Icon(Icons.inbox_rounded),
-        label: const Text('✅ Ready — Waiting for Files'),
-        onPressed: null,
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.green.shade600,
-          disabledBackgroundColor: Colors.green.shade600,
-          disabledForegroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
-          textStyle: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600, fontSize: 15),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Find Sender bottom sheet ─────────────────────────────────────────────────
 
 class _FindSenderSheet extends StatefulWidget {
   final KeyRepository service;
   final List<UserModel> initialConnected;
   final VoidCallback onConnectionMade;
+  /// Called when the user taps "Select" on a connected sender.
+  /// The sheet closes itself before calling this.
+  final void Function(UserModel) onSenderSelected;
 
   const _FindSenderSheet({
     required this.service,
     required this.initialConnected,
     required this.onConnectionMade,
+    required this.onSenderSelected,
   });
 
   @override
@@ -1318,14 +1300,14 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                       ),
                     ),
 
-                // Connected senders section
+                // Connected senders section — tap "Select" to lock in sender
                 if (_connectedList.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 4, vertical: 4),
                     child: Text(
-                      'Connected Senders',
+                      'Select Your Sender',
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -1343,175 +1325,31 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                           style: const TextStyle(
                               fontWeight: FontWeight.w600),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_rounded,
-                                color: Colors.green.shade600,
-                                size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Connected',
-                              style: TextStyle(
-                                  color: Colors.green.shade600,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12),
-                            ),
-                          ],
+                        subtitle: Text(
+                          'Tap Select to start session',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant),
+                        ),
+                        trailing: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            widget.onSenderSelected(f);
+                          },
+                          child: const Text('Select'),
                         ),
                       ),
                     ),
                 ],
                 const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Send Key confirmation bottom sheet ──────────────────────────────────────
-
-class _SendKeySheet extends StatelessWidget {
-  final String senderUsername;
-
-  const _SendKeySheet({required this.senderUsername});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const BottomSheetHandle(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Row(
-              children: [
-                Icon(Icons.vpn_key_rounded, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  '🔑 Send RSA Public Key',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 18),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Recipient
-                Row(
-                  children: [
-                    Text('To: ',
-                        style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 14)),
-                    Text(
-                      '@$senderUsername',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Info card
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded,
-                              size: 16, color: cs.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'How this works',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: cs.primary,
-                                fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Your public key will be sent securely via Firebase '
-                        'with TLS 1.3 encryption. The sender will use this '
-                        'to encrypt the AES key for your files.',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: cs.onSurfaceVariant,
-                            height: 1.5),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Warning
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('⚠️', style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Only share with trusted senders',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.orange.shade700,
-                            fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.pop(context, false),
-                        style: OutlinedButton.styleFrom(
-                            minimumSize:
-                                const Size.fromHeight(52)),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        icon: const Icon(Icons.vpn_key_rounded),
-                        label: const Text('Send Key 🔑'),
-                        onPressed: () =>
-                            Navigator.pop(context, true),
-                        style: FilledButton.styleFrom(
-                            minimumSize:
-                                const Size.fromHeight(52)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
               ],
             ),
           ),
