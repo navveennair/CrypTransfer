@@ -1,9 +1,13 @@
+import 'dart:ui';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../app_theme.dart';
 import '../home/home_screen.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../widgets/shared_widgets.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -56,7 +60,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Maps FirebaseAuthException codes to user-friendly messages.
   String _authError(String code) {
     switch (code) {
       case 'user-not-found':
@@ -74,22 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Maps non-Firebase exceptions (our own string codes) to messages.
   String _generalError(String raw) {
     if (raw.contains('username-not-found')) {
       return 'No account found with this username.';
-    }
-    if (raw.contains('firestore-permission-denied')) {
-      return 'Database permission error. Check Firestore security rules.';
-    }
-    if (raw.contains('account-data-corrupted')) {
-      return 'Account data is corrupted. Please re-register.';
-    }
-    if (raw.contains('firestore-error')) {
-      return 'Database error. Check your connection and try again.';
-    }
-    if (raw.contains('network')) {
-      return 'Network error. Check your connection.';
     }
     return 'Login failed. Please try again.';
   }
@@ -104,112 +94,189 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Logo & title ──────────────────────────────
-                Icon(Icons.lock_rounded, size: 72, color: cs.primary),
-                const SizedBox(height: 16),
-                Text(
-                  'CrypTransfer',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: cs.primary,
-                  ),
-                ),
-                Text(
-                  'Secure file sharing',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 40),
-
-                // ── Fields ────────────────────────────────────
-                TextField(
-                  controller: _usernameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _login(),
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // ── Error ─────────────────────────────────────
-                if (_errorMessage.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      _errorMessage,
-                      style: TextStyle(color: cs.error, fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                // ── Login button ──────────────────────────────
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Login'),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Register link ─────────────────────────────
-                Row(
+      body: Stack(
+        children: [
+          // ── Decorative Background ───────────────────────────
+          Positioned(
+            top: -size.height * 0.1,
+            right: -size.width * 0.2,
+            child: _BlurCircle(
+              size: 300,
+              color: cs.primary.withValues(alpha: 0.15),
+            ),
+          ),
+          Positioned(
+            bottom: -size.height * 0.05,
+            left: -size.width * 0.1,
+            child: _BlurCircle(
+              size: 250,
+              color: cs.secondary.withValues(alpha: 0.1),
+            ),
+          ),
+          
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Don't have an account?",
-                        style: TextStyle(color: cs.onSurfaceVariant)),
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const RegisterScreen()),
+                    // ── Logo & title ────────────────────────────
+                    Hero(
+                      tag: 'app_logo',
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+                        ),
+                        child: Icon(Icons.shield_rounded, size: 64, color: cs.primary),
                       ),
-                      child: const Text('Register'),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'CrypTransfer',
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                        color: AppTheme.textMain,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Secure, Encrypted, Professional',
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 14,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+
+                    // ── Login Form ──────────────────────────────
+                    GlassContainer(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Sign In',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _usernameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _login(),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined, size: 20),
+                                onPressed: () =>
+                                    setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          if (_errorMessage.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Text(
+                                _errorMessage,
+                                style: TextStyle(color: cs.error, fontSize: 13),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+
+                          _isLoading
+                            ? const Center(child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: CircularProgressIndicator(),
+                              ))
+                            : GlassButton(
+                                label: const Text('Login'),
+                                color: cs.primary,
+                                onPressed: _login,
+                              ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // ── Register link ───────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("New here?",
+                            style: TextStyle(color: cs.onSurfaceVariant)),
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterScreen()),
+                          ),
+                          child: Text(
+                            'Create Account',
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlurCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _BlurCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+        child: Container(color: Colors.transparent),
       ),
     );
   }

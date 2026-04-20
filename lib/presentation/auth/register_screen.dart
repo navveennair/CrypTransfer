@@ -1,12 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../widgets/shared_widgets.dart';
 import 'login_screen.dart';
-
-// ─── Field status ─────────────────────────────────────────────────────────────
 
 enum _FS { pristine, checking, valid, invalid }
 
@@ -29,7 +29,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
-  // ── Per-field validation state ────────────────────────────────────────────
   _FS _usernameStatus = _FS.pristine;
   String? _usernameError;
   Timer? _usernameDebounce;
@@ -45,8 +44,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   _FS _confirmStatus = _FS.pristine;
   String? _confirmError;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -68,8 +65,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _confirmController.dispose();
     super.dispose();
   }
-
-  // ── Real-time validators ──────────────────────────────────────────────────
 
   void _validateUsername() {
     final v = _usernameController.text.trim();
@@ -99,7 +94,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Format is valid — debounce Firestore uniqueness check
     setState(() {
       _usernameStatus = _FS.checking;
       _usernameError = null;
@@ -108,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
       final taken = await _authService.isUsernameTaken(v);
       if (!mounted) return;
-      if (_usernameController.text.trim() != v) return; // stale result
+      if (_usernameController.text.trim() != v) return;
       setState(() {
         if (taken) {
           _usernameStatus = _FS.invalid;
@@ -167,7 +161,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordError = ok ? null : 'At least 6 characters';
       });
     }
-    // Re-evaluate confirm when password changes
     if (_confirmController.text.isNotEmpty) _validateConfirm();
   }
 
@@ -187,8 +180,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  // ── Registration ──────────────────────────────────────────────────────────
-
   bool get _allValid =>
       _usernameStatus == _FS.valid &&
       _emailStatus == _FS.valid &&
@@ -197,7 +188,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _confirmStatus == _FS.valid;
 
   Future<void> _register() async {
-    // Trigger validation on any untouched field
     _touchAll();
     if (!_allValid) return;
 
@@ -214,17 +204,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Account created successfully!'),
-          backgroundColor: Colors.green.shade600,
-          duration: const Duration(seconds: 2),
+        const SnackBar(
+          content: Text('Account created successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
 
       await Future.delayed(const Duration(seconds: 2));
 
       if (mounted) {
-        // Replace the register screen with login (don't stack)
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -232,15 +221,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } on Exception catch (e) {
       if (!mounted) return;
-      final msg = e.toString();
-      _handleRegistrationError(msg);
+      _handleRegistrationError(e.toString());
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _handleRegistrationError(String raw) {
-    String snackMsg;
+    String snackMsg = 'Registration failed. Please try again.';
 
     if (raw.contains('email-already-in-use')) {
       setState(() {
@@ -254,22 +242,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _usernameError = 'Username already taken';
       });
       snackMsg = 'Username already taken.';
-    } else if (raw.contains('weak-password')) {
-      setState(() {
-        _passwordStatus = _FS.invalid;
-        _passwordError = 'Password is too weak';
-      });
-      snackMsg = 'Password is too weak. Use at least 6 characters.';
-    } else if (raw.contains('invalid-email')) {
-      setState(() {
-        _emailStatus = _FS.invalid;
-        _emailError = 'Invalid email address';
-      });
-      snackMsg = 'Please enter a valid email address.';
-    } else if (raw.contains('network')) {
-      snackMsg = 'Network error. Check your connection.';
-    } else {
-      snackMsg = 'Registration failed. Please try again.';
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -280,7 +252,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  /// Force-validates all empty fields so errors show on submit tap.
   void _touchAll() {
     if (_usernameController.text.trim().isEmpty) {
       setState(() {
@@ -314,186 +285,219 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // ── UI helpers ────────────────────────────────────────────────────────────
-
   Widget? _statusIcon(_FS status) {
     switch (status) {
       case _FS.checking:
         return const Padding(
           padding: EdgeInsets.all(12),
           child: SizedBox(
-            width: 20,
-            height: 20,
+            width: 18,
+            height: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         );
       case _FS.valid:
-        return const Icon(Icons.check_circle, color: Colors.green);
+        return const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20);
       case _FS.invalid:
-        return Icon(Icons.cancel,
-            color: Theme.of(context).colorScheme.error);
+        return Icon(Icons.cancel_rounded,
+            color: Theme.of(context).colorScheme.error, size: 20);
       case _FS.pristine:
         return null;
     }
   }
 
-  /// Suffix for password/confirm fields — status icon + visibility toggle.
   Widget _passwordSuffix(_FS status, bool obscure, VoidCallback toggle) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (status == _FS.valid)
-          const Padding(
-            padding: EdgeInsets.only(right: 4),
-            child: Icon(Icons.check_circle, color: Colors.green, size: 20),
-          )
+          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20)
         else if (status == _FS.invalid)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Icon(Icons.cancel,
+          Icon(Icons.cancel_rounded,
                 color: Theme.of(context).colorScheme.error, size: 20),
-          ),
         IconButton(
           icon: Icon(obscure
               ? Icons.visibility_off_outlined
-              : Icons.visibility_outlined),
+              : Icons.visibility_outlined, size: 20),
           onPressed: toggle,
         ),
       ],
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Create Account', style: GoogleFonts.poppins()),
-        centerTitle: true,
+        title: Text('Create Account', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.transparent,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(Icons.person_add_rounded, size: 56, color: cs.primary),
-              const SizedBox(height: 8),
-              Text(
-                'Join CrypTransfer',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: cs.primary,
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // ── Username ────────────────────────────────────
-              TextField(
-                controller: _usernameController,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: const Icon(Icons.alternate_email),
-                  suffixIcon: _statusIcon(_usernameStatus),
-                  errorText: _usernameError,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── Email ───────────────────────────────────────
-              TextField(
-                controller: _emailController,
-                textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  suffixIcon: _statusIcon(_emailStatus),
-                  errorText: _emailError,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── Phone ───────────────────────────────────────
-              TextField(
-                controller: _phoneController,
-                textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  prefixIcon: const Icon(Icons.phone_outlined),
-                  suffixIcon: _statusIcon(_phoneStatus),
-                  errorText: _phoneError,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── Password ─────────────────────────────────────
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.next,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: _passwordSuffix(
-                    _passwordStatus,
-                    _obscurePassword,
-                    () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  errorText: _passwordError,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── Confirm password ──────────────────────────────
-              TextField(
-                controller: _confirmController,
-                obscureText: _obscureConfirm,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _register(),
-                decoration: InputDecoration(
-                  labelText: 'Confirm Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: _passwordSuffix(
-                    _confirmStatus,
-                    _obscureConfirm,
-                    () => setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                  errorText: _confirmError,
-                ),
-              ),
-              const SizedBox(height: 22),
-
-              // ── Register button ───────────────────────────────
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : FilledButton(
-                      onPressed: _register,
-                      child: const Text('Create Account'),
-                    ),
-
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: Stack(
+        children: [
+          Positioned(
+            top: -size.height * 0.1,
+            left: -size.width * 0.2,
+            child: _BlurCircle(
+              size: 300,
+              color: cs.secondary.withValues(alpha: 0.1),
+            ),
+          ),
+          Positioned(
+            bottom: -size.height * 0.1,
+            right: -size.width * 0.1,
+            child: _BlurCircle(
+              size: 250,
+              color: cs.primary.withValues(alpha: 0.1),
+            ),
+          ),
+          
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Already have an account?',
-                      style: TextStyle(color: cs.onSurfaceVariant)),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Login'),
+                  const SizedBox(height: 20),
+                  Hero(
+                    tag: 'app_logo',
+                    child: Icon(Icons.person_add_rounded, size: 64, color: cs.primary),
+                  ),
+                  const SizedBox(height: 24),
+
+                  GlassContainer(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _usernameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                            suffixIcon: _statusIcon(_usernameStatus),
+                            errorText: _usernameError,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _emailController,
+                          textInputAction: TextInputAction.next,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                            suffixIcon: _statusIcon(_emailStatus),
+                            errorText: _emailError,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _phoneController,
+                          textInputAction: TextInputAction.next,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'Phone Number',
+                            prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                            suffixIcon: _statusIcon(_phoneStatus),
+                            errorText: _phoneError,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                            suffixIcon: _passwordSuffix(
+                              _passwordStatus,
+                              _obscurePassword,
+                              () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                            errorText: _passwordError,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _confirmController,
+                          obscureText: _obscureConfirm,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _register(),
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                            suffixIcon: _passwordSuffix(
+                              _confirmStatus,
+                              _obscureConfirm,
+                              () => setState(() => _obscureConfirm = !_obscureConfirm),
+                            ),
+                            errorText: _confirmError,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        
+                        _isLoading
+                            ? const CircularProgressIndicator()
+                            : GlassButton(
+                                label: const Text('Create Account'),
+                                color: cs.primary,
+                                onPressed: _register,
+                              ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Already have an account?',
+                          style: TextStyle(color: cs.onSurfaceVariant)),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlurCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _BlurCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+        child: Container(color: Colors.transparent),
       ),
     );
   }

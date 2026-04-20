@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pointycastle/export.dart' hide State, Padding;
 
+import '../../app_theme.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
@@ -18,7 +19,6 @@ import '../widgets/shared_widgets.dart';
 import 'transfer_progress_screen.dart';
 
 // ─── Isolate-safe AES-256-GCM encrypt ────────────────────────────────────────
-// Must be a top-level function for Flutter compute().
 
 Uint8List _runAesGcm(List<Uint8List> args) {
   final plaintext = args[0];
@@ -42,24 +42,19 @@ class _SenderScreenState extends State<SenderScreen>
     with SecurityLifecycleMixin<SenderScreen> {
   final _connService = KeyRepository();
 
-  // Step 0 — Receiver-Authorized connection (reactive stream)
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _handshakeSub;
   String? _selectedReceiverPublicKeyJson;
 
-  // Step 1 — File
   PlatformFile? _file;
 
-  // Step 2 — Crypto
   Uint8List? _encryptedBytes;
   Uint8List? _aesKey;
   Uint8List? _iv;
 
-  // Step 3 — Receiver + RSA-encrypted AES key
   String? _receiverId;
   String? _receiverUsername;
   Uint8List? _encryptedAESKey;
 
-  // UI flags
   bool _encrypting = false;
   bool _encryptingKey = false;
 
@@ -77,20 +72,9 @@ class _SenderScreenState extends State<SenderScreen>
   @override
   void dispose() {
     _handshakeSub?.cancel();
-    super.dispose(); // SecurityLifecycleMixin.dispose() → wipeAll()
+    super.dispose();
   }
 
-  // ─── Step 0: Receiver-Authorized connection ───────────────────────────────
-
-  /// Subscribes to [rsa_key_transfers] docs where this sender is the
-  /// recipient and the status is `handshake_complete`.
-  ///
-  /// When a doc appears the receiver has explicitly authorized this sender
-  /// and published their RSA public key — the session unlocks automatically.
-  ///
-  /// When the doc disappears (receiver closes session / kill switch fires),
-  /// [_revertToWaiting] is called: sensitive data is wiped and the UI
-  /// reverts to the "Waiting for Secure Connection…" buffer.
   void _startHandshakeListener() {
     _handshakeSub =
         _connService.streamHandshakesForSender().listen(_onHandshakeUpdate);
@@ -104,9 +88,9 @@ class _SenderScreenState extends State<SenderScreen>
       _revertToWaiting();
       if (wasConnected) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Secure connection closed by receiver.'),
-            backgroundColor: Colors.orange.shade700,
+          const SnackBar(
+            content: Text('Secure connection closed by receiver.'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -127,11 +111,8 @@ class _SenderScreenState extends State<SenderScreen>
     }
   }
 
-  /// Wipes all in-progress sensitive data and reverts Step 0 to the waiting
-  /// buffer.  Called when the receiver closes their session or fires the kill
-  /// switch (stream emits an empty snapshot).
   void _revertToWaiting() {
-    _wipeSensitiveData(); // zeroes aesKey/iv/encryptedBytes + wipeAll()
+    _wipeSensitiveData();
     if (mounted) {
       setState(() {
         _receiverId = null;
@@ -144,8 +125,6 @@ class _SenderScreenState extends State<SenderScreen>
       });
     }
   }
-
-  // ─── Step 1: File picker ─────────────────────────────────────────────────
 
   Future<void> _pickFile() async {
     _wipeSensitiveData();
@@ -175,52 +154,36 @@ class _SenderScreenState extends State<SenderScreen>
     }
   }
 
-  // ─── Step 2: AES-256-GCM encrypt ─────────────────────────────────────────
-
   Future<void> _encryptFile() async {
     final file = _file;
     if (file == null) return;
-    // TransferService.resolve handles null bytes on mobile (uses file.path).
     setState(() => _encrypting = true);
 
-    // Kotlin sync: confirm FLAG_SECURE is active BEFORE any sensitive bytes
-    // enter the Dart heap.  Checked outside the try block so an early return
-    // here leaves no registered buffers behind.  Fails open (returns true) on
-    // non-Android platforms and in test environments.
     if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
       if (mounted) {
         setState(() => _encrypting = false);
         _showError(
-          'Screen is not protected (FLAG_SECURE inactive). '
-          'Cannot process file on an unsecured window.',
+          'Screen is not protected. Cannot process file on an unsecured window.',
         );
       }
       return;
     }
 
     try {
-      final key = _secureBytes(32); // 256-bit AES key
-      final iv = _secureBytes(12);  // 96-bit GCM nonce
+      final key = _secureBytes(32);
+      final iv = _secureBytes(12);
       registerBuffer(key);
       registerBuffer(iv);
 
-      // Read in 64 KB chunks on mobile/desktop; fall back to in-memory bytes on web.
       final plaintext = await TransferService.resolve(
         filePath: file.path,
         fallbackBytes: file.bytes,
       );
-      // Register plaintext immediately so wipeAll/dispose zeroes it if anything
-      // throws before we reach the explicit wipe below.
       registerBuffer(plaintext);
 
       final encrypted = await compute(_runAesGcm, [plaintext, key, iv]);
       registerBuffer(encrypted);
 
-      // Explicit zero-wipe: erase the main-isolate plaintext buffer now that
-      // compute() has finished.  compute() serialised a copy into the child
-      // isolate — this zeroes the reference we still hold on the main heap.
-      // unregisterBuffer removes it from the wipeAll list so there is no
-      // redundant second pass over already-zero memory.
       plaintext.fillRange(0, plaintext.length, 0);
       unregisterBuffer(plaintext);
 
@@ -245,8 +208,6 @@ class _SenderScreenState extends State<SenderScreen>
     final rng = Random.secure();
     return Uint8List.fromList(List.generate(length, (_) => rng.nextInt(256)));
   }
-
-  // ─── Step 3: RSA-OAEP encrypt AES key ────────────────────────────────────
 
   Future<void> _encryptAesKey() async {
     final aesKey = _aesKey;
@@ -298,8 +259,6 @@ class _SenderScreenState extends State<SenderScreen>
     return cipher.process(data);
   }
 
-  // ─── Step 4: Send ─────────────────────────────────────────────────────────
-
   void _send() {
     final file = _file;
     final encryptedBytes = _encryptedBytes;
@@ -322,13 +281,10 @@ class _SenderScreenState extends State<SenderScreen>
     final transferId =
         FirebaseFirestore.instance.collection('transfers').doc().id;
 
-    // Encode b64 strings before the wipe — once wiped these are unreadable.
     final encryptedAESKeyB64 = base64Encode(encryptedAESKey);
     final ivB64 = base64Encode(iv);
-    // Defensive copy so TransferProgressScreen owns its own buffer.
     final encryptedBytesCopy = Uint8List.fromList(encryptedBytes);
 
-    // Wipe all originals now — sender screen no longer holds key material.
     _wipeSensitiveData();
 
     Navigator.push(
@@ -344,15 +300,12 @@ class _SenderScreenState extends State<SenderScreen>
           senderId: senderId,
           encryptedAESKeyB64: encryptedAESKeyB64,
           ivB64: ivB64,
-          // aesKey intentionally omitted — already wiped above.
         ),
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
     );
   }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   void _wipeSensitiveData() {
     _aesKey?.fillRange(0, _aesKey!.length, 0);
@@ -361,8 +314,7 @@ class _SenderScreenState extends State<SenderScreen>
     _aesKey = null;
     _iv = null;
     _encryptedBytes = null;
-
-    // Unregister old buffers and clear
+    _encryptedAESKey = null;
     wipeAll();
   }
 
@@ -375,10 +327,10 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return PopScope(
       canPop: !_encrypting && !_encryptingKey,
       onPopInvokedWithResult: (didPop, _) {
@@ -386,12 +338,11 @@ class _SenderScreenState extends State<SenderScreen>
       },
       child: Scaffold(
       appBar: AppBar(
-        title: Text('Send File',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: const Text('Send File'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -417,14 +368,14 @@ class _SenderScreenState extends State<SenderScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: Text(
-                          _file == null ? 'Browse Files' : 'Change File'),
+                    GlassButton(
+                      icon: const Icon(Icons.folder_open_rounded, size: 20),
+                      label: Text(_file == null ? 'Browse Files' : 'Change File'),
                       onPressed: _receiverSelected ? _pickFile : null,
+                      color: cs.primary,
                     ),
                     if (_file != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _FileCard(file: _file!),
                     ],
                   ],
@@ -439,7 +390,7 @@ class _SenderScreenState extends State<SenderScreen>
               duration: const Duration(milliseconds: 300),
               child: StepCard(
                 step: 2,
-                title: 'Encrypt File (AES-256-GCM)',
+                title: 'AES-256-GCM Encryption',
                 done: _fileEncrypted,
                 child: _fileEncrypted
                     ? _EncryptedBadge(
@@ -447,7 +398,7 @@ class _SenderScreenState extends State<SenderScreen>
                         ivBytes: _iv!.length,
                         ciphertextBytes: _encryptedBytes!.length,
                       )
-                    : CrypButton(
+                    : GlassButton(
                         icon: _encrypting
                             ? const SizedBox(
                                 width: 18,
@@ -455,30 +406,29 @@ class _SenderScreenState extends State<SenderScreen>
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white),
                               )
-                            : const Icon(Icons.lock_rounded),
+                            : const Icon(Icons.lock_rounded, size: 20),
                         label: Text(_encrypting
                             ? 'Encrypting…'
-                            : 'Generate AES Key & Encrypt'),
+                            : 'Encrypt with AES Key'),
                         onPressed:
                             _fileSelected && !_encrypting ? _encryptFile : null,
-                        color: Theme.of(context).colorScheme.secondary,
-                        disabledColor: Theme.of(context).colorScheme.secondary,
+                        color: Colors.amber.shade700,
                       ),
               ),
             ),
             const SizedBox(height: 16),
 
-            // ── Step 3: RSA Key Manager ─────────────────────────────────
+            // ── Step 3: RSA Handshake ──────────────────────────────────
             AnimatedOpacity(
               opacity: _fileEncrypted ? 1.0 : 0.4,
               duration: const Duration(milliseconds: 300),
               child: StepCard(
                 step: 3,
-                title: 'RSA Key Manager',
+                title: 'RSA Key Handshake',
                 done: _readyToSend,
                 child: _readyToSend
                     ? _ReceiverBadge(username: _receiverUsername!)
-                    : CrypButton(
+                    : GlassButton(
                         icon: _encryptingKey
                             ? const SizedBox(
                                 width: 18,
@@ -486,44 +436,40 @@ class _SenderScreenState extends State<SenderScreen>
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white),
                               )
-                            : const Icon(Icons.manage_accounts_rounded),
+                            : const Icon(Icons.security_rounded, size: 20),
                         label: Text(_encryptingKey
                             ? 'Encrypting key…'
-                            : 'Encrypt AES Key for '
-                                '@${_receiverUsername ?? "receiver"}'),
+                            : 'Encrypt Key for @${_receiverUsername ?? "receiver"}'),
                         onPressed: _fileEncrypted && !_encryptingKey
                             ? _encryptAesKey
                             : null,
-                        color: Theme.of(context).colorScheme.tertiary,
-                        disabledColor: Theme.of(context).colorScheme.tertiary,
+                        color: cs.secondary,
                       ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // ── Step 4: Send ────────────────────────────────────────────
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 400),
               child: _readyToSend
-                  ? CrypButton(
+                  ? GlassButton(
                       key: const ValueKey('send-btn'),
-                      icon: const Icon(Icons.send_rounded),
-                      label: const Text('Send Encrypted File'),
+                      icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+                      label: const Text('Send Encrypted File', style: TextStyle(color: Colors.white)),
                       onPressed: _send,
-                      color: Colors.green.shade600,
+                      color: Colors.green.shade500,
                     )
                   : const SizedBox.shrink(key: ValueKey('send-empty')),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
-      ), // closes Scaffold
-    ); // closes PopScope
+      ),
+    );
   }
 }
-
-// ─── Step 0: Waiting for receiver authorization ───────────────────────────────
-// Shown when no receiver has selected this sender yet.
 
 class _WaitingForConnectionWidget extends StatefulWidget {
   const _WaitingForConnectionWidget();
@@ -536,75 +482,72 @@ class _WaitingForConnectionWidget extends StatefulWidget {
 class _WaitingForConnectionWidgetState
     extends State<_WaitingForConnectionWidget>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
+  late final AnimationController _ctrl;
   late final Animation<double> _scale;
+  late final Animation<double> _fade;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    _scale = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+    _fade = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        ScaleTransition(
-          scale: _scale,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: cs.primaryContainer.withValues(alpha: 0.6),
-            ),
-            child: Center(
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: cs.primary,
+    return Center(
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          ScaleTransition(
+            scale: _scale,
+            child: FadeTransition(
+              opacity: _fade,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.primary.withValues(alpha: 0.1),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 2),
                 ),
+                child: Icon(Icons.wifi_tethering_rounded, color: cs.primary, size: 32),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Waiting for Secure Connection…',
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'A receiver must select you as their sender\nbefore file transfer can begin.',
-          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-      ],
+          const SizedBox(height: 20),
+          Text(
+            'Waiting for Secure Connection…',
+            style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'A receiver must authorize you to begin.',
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
     );
   }
 }
-
-// ─── Step 0: Receiver connected badge ────────────────────────────────────────
-// Shown once a receiver has authorized this sender via the handshake.
 
 class _ConnectedBadge extends StatelessWidget {
   final String username;
@@ -613,54 +556,48 @@ class _ConnectedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade300),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      color: Colors.green.withValues(alpha: 0.1),
+      borderColor: Colors.green.withValues(alpha: 0.2),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.15),
+              color: Colors.green.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.lock_open_rounded,
-                color: Colors.green.shade700, size: 20),
+            child: const Icon(Icons.verified_user_rounded,
+                color: Colors.green, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Secure Channel Established',
+                const Text(
+                  'Connection Verified',
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.green.shade800),
+                      color: Colors.green),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Key received from @$username',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.green.shade700),
+                  'Secure channel open with @$username',
+                  style: const TextStyle(
+                      fontSize: 12, color: Colors.green),
                 ),
               ],
             ),
           ),
-          Icon(Icons.verified_rounded,
-              color: Colors.green.shade600, size: 22),
+          const Icon(Icons.lock_rounded, color: Colors.green, size: 18),
         ],
       ),
     );
   }
 }
-
-// ─── File card ────────────────────────────────────────────────────────────────
 
 class _FileCard extends StatelessWidget {
   final PlatformFile file;
@@ -672,23 +609,20 @@ class _FileCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final ext = (file.extension ?? '').toLowerCase();
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.all(14),
+      color: cs.surface.withValues(alpha: 0.05),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _extColor(ext).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(_extIcon(ext), color: _extColor(ext), size: 28),
+            child: Icon(_extIcon(ext), color: _extColor(ext), size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,34 +648,19 @@ class _FileCard extends StatelessWidget {
   }
 
   IconData _extIcon(String ext) {
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext)) {
-      return Icons.image_rounded;
-    }
-    if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) {
-      return Icons.video_file_rounded;
-    }
-    if (['mp3', 'wav', 'flac', 'aac', 'm4a'].contains(ext)) {
-      return Icons.audio_file_rounded;
-    }
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) return Icons.image_rounded;
+    if (['mp4', 'mov', 'avi'].contains(ext)) return Icons.video_file_rounded;
+    if (['mp3', 'wav', 'flac'].contains(ext)) return Icons.audio_file_rounded;
     if (ext == 'pdf') return Icons.picture_as_pdf_rounded;
-    if (['doc', 'docx'].contains(ext)) return Icons.description_rounded;
-    if (['xls', 'xlsx'].contains(ext)) return Icons.table_chart_rounded;
-    if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) {
-      return Icons.folder_zip_rounded;
-    }
+    if (['zip', 'rar', '7z'].contains(ext)) return Icons.folder_zip_rounded;
     return Icons.insert_drive_file_rounded;
   }
 
   Color _extColor(String ext) {
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
-      return Colors.blue;
-    }
-    if (['mp4', 'mov', 'avi', 'mkv'].contains(ext)) return Colors.purple;
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) return Colors.blue;
+    if (['mp4', 'mov', 'avi'].contains(ext)) return Colors.purple;
     if (['mp3', 'wav', 'flac'].contains(ext)) return Colors.orange;
     if (ext == 'pdf') return Colors.red;
-    if (['doc', 'docx'].contains(ext)) return Colors.blue.shade700;
-    if (['xls', 'xlsx'].contains(ext)) return Colors.green;
-    if (['zip', 'rar', '7z'].contains(ext)) return Colors.brown;
     return Colors.grey;
   }
 
@@ -751,8 +670,6 @@ class _FileCard extends StatelessWidget {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
-
-// ─── Encrypted badge ──────────────────────────────────────────────────────────
 
 class _EncryptedBadge extends StatelessWidget {
   final int keyBits;
@@ -767,30 +684,28 @@ class _EncryptedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.green.shade300),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      color: Colors.amber.withValues(alpha: 0.08),
+      borderColor: Colors.amber.withValues(alpha: 0.2),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.check_circle_rounded,
-                  color: Colors.green.shade700, size: 18),
-              const SizedBox(width: 8),
-              Text('AES-256-GCM encrypted',
-                  style: TextStyle(
+              const Icon(Icons.enhanced_encryption_rounded,
+                  color: Colors.amber, size: 20),
+              const SizedBox(width: 10),
+              Text('AES-256-GCM Locked',
+                  style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
-                      color: Colors.green.shade800)),
+                      color: Colors.amber.shade200)),
             ],
           ),
-          const SizedBox(height: 8),
-          _Row('Key', '$keyBits bits'),
-          _Row('IV (nonce)', '$ivBytes bytes'),
-          _Row('Ciphertext', '${_fmtSize(ciphertextBytes)} + 16 B auth tag'),
+          const SizedBox(height: 12),
+          _Row('Algorithm', 'AES-256-GCM'),
+          _Row('Key Size', '$keyBits bits'),
+          _Row('IV Size', '$ivBytes bytes'),
+          _Row('Payload', _fmtSize(ciphertextBytes)),
         ],
       ),
     );
@@ -812,23 +727,20 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style:
-                  TextStyle(fontSize: 12, color: Colors.green.shade700)),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           Text(value,
               style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w500)),
+                  fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textMain)),
         ],
       ),
     );
   }
 }
-
-// ─── Receiver badge (Step 3 done state) ──────────────────────────────────────
 
 class _ReceiverBadge extends StatelessWidget {
   final String username;
@@ -837,29 +749,27 @@ class _ReceiverBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.deepPurple.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.deepPurple.shade200),
-      ),
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      color: Colors.indigo.withValues(alpha: 0.1),
+      borderColor: Colors.indigo.withValues(alpha: 0.2),
       child: Row(
         children: [
-          Icon(Icons.person_rounded,
-              color: Colors.deepPurple.shade700, size: 18),
-          const SizedBox(width: 8),
-          Text('Encrypting for ',
-              style:
-                  TextStyle(fontSize: 13, color: Colors.deepPurple.shade700)),
-          Text('@$username',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.deepPurple.shade700)),
-          const Spacer(),
-          Icon(Icons.check_circle_rounded,
-              color: Colors.deepPurple.shade600, size: 18),
+          const Icon(Icons.person_pin_rounded,
+              color: Colors.indigoAccent, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'Encrypted for ', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                  TextSpan(text: '@$username', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+          const Icon(Icons.check_circle_rounded,
+              color: Colors.green, size: 20),
         ],
       ),
     );
