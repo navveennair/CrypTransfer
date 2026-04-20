@@ -6,6 +6,8 @@ class UserModel {
   final String email;
   final String phone;
   final String? publicKey;
+  final bool isAdmin;
+  final bool isActive;
   final DateTime? createdAt;
 
   const UserModel({
@@ -14,6 +16,8 @@ class UserModel {
     required this.email,
     required this.phone,
     this.publicKey,
+    this.isAdmin = false,
+    this.isActive = true,
     this.createdAt,
   });
 
@@ -25,6 +29,8 @@ class UserModel {
       email: data['email'] as String? ?? '',
       phone: data['phone'] as String? ?? '',
       publicKey: data['publicKey'] as String?,
+      isAdmin: data['isAdmin'] as bool? ?? false,
+      isActive: data['isActive'] as bool? ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -36,6 +42,8 @@ class UserModel {
       email: data['email'] as String? ?? '',
       phone: data['phone'] as String? ?? '',
       publicKey: data['publicKey'] as String?,
+      isAdmin: data['isAdmin'] as bool? ?? false,
+      isActive: data['isActive'] as bool? ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -44,6 +52,8 @@ class UserModel {
         'username': username,
         'email': email,
         'phone': phone,
+        'isAdmin': isAdmin,
+        'isActive': isActive,
         if (publicKey != null) 'publicKey': publicKey,
       };
 

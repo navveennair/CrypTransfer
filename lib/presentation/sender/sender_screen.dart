@@ -112,15 +112,15 @@ class _SenderScreenState extends State<SenderScreen>
       }
     } else {
       final doc = snap.docs.first.data();
-      final fromUserId = doc['fromUserId'] as String? ?? '';
-      final fromUsername = doc['fromUsername'] as String? ?? 'Unknown';
+      final receiverId = doc['receiverId'] as String? ?? '';
+      final receiverUsername = doc['receiverUsername'] as String? ?? 'Unknown';
       final publicKey = doc['publicKey'] as String?;
       if (publicKey != null &&
           publicKey.isNotEmpty &&
-          fromUserId.isNotEmpty) {
+          receiverId.isNotEmpty) {
         setState(() {
-          _receiverId = fromUserId;
-          _receiverUsername = fromUsername;
+          _receiverId = receiverId;
+          _receiverUsername = receiverUsername;
           _selectedReceiverPublicKeyJson = publicKey;
         });
       }

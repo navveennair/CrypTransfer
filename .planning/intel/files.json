@@ -1,0 +1,503 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-19T15:42:17.676Z",
+    "version": 2
+  },
+  "entries": {
+    "lib/main.dart": {
+      "exports": [
+        "CrypTransferApp"
+      ],
+      "imports": [
+        "firebase_core",
+        "provider",
+        "app_theme.dart",
+        "firebase_options.dart",
+        "splash_screen.dart",
+        "admin_dashboard.dart",
+        "theme_service.dart"
+      ],
+      "type": "entry-point"
+    },
+    "lib/app_theme.dart": {
+      "exports": [
+        "AppTheme"
+      ],
+      "imports": [
+        "flutter/material.dart",
+        "google_fonts"
+      ],
+      "type": "config"
+    },
+    "lib/firebase_options.dart": {
+      "exports": [
+        "DefaultFirebaseOptions"
+      ],
+      "imports": [
+        "firebase_core"
+      ],
+      "type": "config"
+    },
+    "lib/core/constants/firebase_constants.dart": {
+      "exports": [
+        "FirebaseConstants"
+      ],
+      "imports": [],
+      "type": "config"
+    },
+    "lib/core/utils/session_state.dart": {
+      "exports": [
+        "SessionState"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "lib/core/utils/session_manager.dart": {
+      "exports": [
+        "SessionManager",
+        "SessionState"
+      ],
+      "imports": [
+        "session_state.dart"
+      ],
+      "type": "module"
+    },
+    "lib/core/utils/security_lifecycle_mixin.dart": {
+      "exports": [
+        "SecurityLifecycleMixin"
+      ],
+      "imports": [
+        "flutter/material.dart",
+        "flutter/services.dart"
+      ],
+      "type": "module"
+    },
+    "lib/core/utils/biometric_helper.dart": {
+      "exports": [
+        "BiometricHelper"
+      ],
+      "imports": [
+        "local_auth"
+      ],
+      "type": "module"
+    },
+    "lib/core/utils/notification_service.dart": {
+      "exports": [
+        "NotificationService"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_constants.dart"
+      ],
+      "type": "module"
+    },
+    "lib/core/utils/theme_service.dart": {
+      "exports": [
+        "ThemeService"
+      ],
+      "imports": [
+        "flutter/material.dart",
+        "shared_preferences"
+      ],
+      "type": "module"
+    },
+    "lib/core/utils/file_utils.dart": {
+      "exports": [
+        "FileUtils"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "lib/core/errors/app_exceptions.dart": {
+      "exports": [
+        "AppException",
+        "AuthException",
+        "NetworkException",
+        "CryptoException",
+        "TransferException",
+        "KeyNotFoundException"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "lib/data/services/encryption_service.dart": {
+      "exports": [
+        "EncryptionService",
+        "AesEncryptResult"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "flutter_secure_storage",
+        "pointycastle",
+        "firebase_constants.dart",
+        "app_exceptions.dart",
+        "session_state.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/services/transfer_service.dart": {
+      "exports": [
+        "TransferService"
+      ],
+      "imports": [
+        "dart:io",
+        "dart:typed_data"
+      ],
+      "type": "module"
+    },
+    "lib/data/services/transfer_log_service.dart": {
+      "exports": [
+        "TransferLogService"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_constants.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/repositories/auth_repository.dart": {
+      "exports": [
+        "AuthRepository"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "flutter_secure_storage",
+        "pointycastle",
+        "firebase_constants.dart",
+        "app_exceptions.dart",
+        "user_model.dart",
+        "encryption_service.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/repositories/key_repository.dart": {
+      "exports": [
+        "KeyRepository"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "flutter_secure_storage",
+        "firebase_constants.dart",
+        "app_exceptions.dart",
+        "user_model.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/repositories/transfer_repository.dart": {
+      "exports": [
+        "TransferRepository"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_storage",
+        "firebase_constants.dart",
+        "app_exceptions.dart",
+        "transfer_model.dart",
+        "notification_model.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/repositories/admin_repository.dart": {
+      "exports": [
+        "AdminRepository"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "firebase_constants.dart"
+      ],
+      "type": "module"
+    },
+    "lib/data/models/user_model.dart": {
+      "exports": [
+        "UserModel"
+      ],
+      "imports": [
+        "cloud_firestore"
+      ],
+      "type": "type-def"
+    },
+    "lib/data/models/transfer_model.dart": {
+      "exports": [
+        "TransferModel",
+        "TransferStatus"
+      ],
+      "imports": [
+        "cloud_firestore"
+      ],
+      "type": "type-def"
+    },
+    "lib/data/models/notification_model.dart": {
+      "exports": [
+        "NotificationModel",
+        "NotificationType"
+      ],
+      "imports": [
+        "cloud_firestore"
+      ],
+      "type": "type-def"
+    },
+    "lib/presentation/auth/splash_screen.dart": {
+      "exports": [
+        "SplashScreen"
+      ],
+      "imports": [
+        "firebase_auth",
+        "auth_repository.dart",
+        "key_repository.dart",
+        "login_screen.dart",
+        "home_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/auth/login_screen.dart": {
+      "exports": [
+        "LoginScreen"
+      ],
+      "imports": [
+        "auth_repository.dart",
+        "register_screen.dart",
+        "home_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/auth/register_screen.dart": {
+      "exports": [
+        "RegisterScreen"
+      ],
+      "imports": [
+        "auth_repository.dart",
+        "login_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/home/home_screen.dart": {
+      "exports": [
+        "HomeScreen"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "notification_service.dart",
+        "receiver_screen.dart",
+        "sender_screen.dart",
+        "sidebar_drawer.dart",
+        "notifications_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/home/sidebar_drawer.dart": {
+      "exports": [
+        "SidebarDrawer"
+      ],
+      "imports": [
+        "firebase_auth",
+        "auth_repository.dart",
+        "settings_screen.dart",
+        "find_friends_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/home/notifications_screen.dart": {
+      "exports": [
+        "NotificationsScreen"
+      ],
+      "imports": [
+        "firebase_auth",
+        "notification_service.dart",
+        "key_repository.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/home/find_friends_screen.dart": {
+      "exports": [
+        "FindFriendsScreen"
+      ],
+      "imports": [
+        "key_repository.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/sender/sender_screen.dart": {
+      "exports": [
+        "SenderScreen"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "file_picker",
+        "firebase_auth",
+        "pointycastle",
+        "security_lifecycle_mixin.dart",
+        "transfer_service.dart",
+        "key_repository.dart",
+        "shared_widgets.dart",
+        "transfer_progress_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/sender/transfer_progress_screen.dart": {
+      "exports": [
+        "TransferProgressScreen"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "security_lifecycle_mixin.dart",
+        "transfer_repository.dart",
+        "shared_widgets.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/receiver/receiver_screen.dart": {
+      "exports": [
+        "ReceiverScreen"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "security_lifecycle_mixin.dart",
+        "session_manager.dart",
+        "key_repository.dart",
+        "encryption_service.dart",
+        "shared_widgets.dart",
+        "receiver_transfer_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/receiver/receiver_transfer_screen.dart": {
+      "exports": [
+        "ReceiverTransferScreen"
+      ],
+      "imports": [
+        "transfer_repository.dart",
+        "security_lifecycle_mixin.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/receiver/decrypt_screen.dart": {
+      "exports": [
+        "DecryptScreen"
+      ],
+      "imports": [
+        "security_lifecycle_mixin.dart",
+        "encryption_service.dart",
+        "transfer_repository.dart",
+        "shared_widgets.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/receiver/download_confirm_screen.dart": {
+      "exports": [
+        "DownloadConfirmScreen"
+      ],
+      "imports": [
+        "security_lifecycle_mixin.dart",
+        "shared_widgets.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/session/end_session_screen.dart": {
+      "exports": [
+        "EndSessionScreen"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "firebase_auth",
+        "security_lifecycle_mixin.dart",
+        "transfer_repository.dart",
+        "shared_widgets.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/widgets/shared_widgets.dart": {
+      "exports": [
+        "CrypButton"
+      ],
+      "imports": [
+        "session_state.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/settings/settings_screen.dart": {
+      "exports": [
+        "SettingsScreen"
+      ],
+      "imports": [
+        "theme_service.dart",
+        "auth_repository.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/admin_dashboard.dart": {
+      "exports": [
+        "AdminDashboard"
+      ],
+      "imports": [
+        "firebase_auth",
+        "admin_dashboard_screen.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/admin_dashboard_screen.dart": {
+      "exports": [
+        "AdminDashboardScreen"
+      ],
+      "imports": [
+        "admin_repository.dart",
+        "connection_node_map.dart",
+        "security_pulse_feed.dart",
+        "transfer_volume_chart.dart",
+        "user_management_list.dart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/widgets/connection_node_map.dart": {
+      "exports": [
+        "ConnectionNodeMap"
+      ],
+      "imports": [
+        "cloud_firestore"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/widgets/security_pulse_feed.dart": {
+      "exports": [
+        "SecurityPulseFeed"
+      ],
+      "imports": [
+        "cloud_firestore"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/widgets/transfer_volume_chart.dart": {
+      "exports": [
+        "TransferVolumeChart"
+      ],
+      "imports": [
+        "cloud_firestore",
+        "fl_chart"
+      ],
+      "type": "module"
+    },
+    "lib/presentation/admin/widgets/user_management_list.dart": {
+      "exports": [
+        "UserManagementList"
+      ],
+      "imports": [
+        "admin_repository.dart"
+      ],
+      "type": "module"
+    },
+    "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt": {
+      "exports": [
+        "MainActivity"
+      ],
+      "imports": [
+        "io.flutter.embedding.android.FlutterActivity"
+      ],
+      "type": "module"
+    }
+  }
+}

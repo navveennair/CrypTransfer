@@ -29,20 +29,21 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   final _connService = KeyRepository();
   final _sessionManager = SessionManager();
 
-  // ── Step 0: RSA keys ──────────────────────────────────────────────────────
+  // ── Step 1: Key Gen ──────────────────────────────────────────────────────
   bool _hasPrivateKey = false;
   bool _hasPublicKey = false;
   bool _checkingStatus = true;
-  // ── Step 1: Ready to receive ──────────────────────────────────────────────
+  
+  // ── Step 2: Ready State ──────────────────────────────────────────────────
   bool _isReadyToReceive = false;
   bool _loadingReadyState = true;
   bool _isTogglingReady = false;
 
-  // ── Step 2: Active sender + handshake state ───────────────────────────────
+  // ── Step 3: The Connect ──────────────────────────────────────────────────
   List<UserModel> _connectedFriends = [];
   bool _loadingFriends = false;
-  bool _handshaking = false;  // atomic batch write in progress
-  bool _handshakeDone = false; // true once selectSenderHandshake() commits
+  bool _handshaking = false;
+  bool _handshakeDone = false;
 
   // ── Session lock (active transfer in progress) ────────────────────────────
   bool _sessionLocked = false;
@@ -51,16 +52,12 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   String? _incomingTransferId;
   String? _incomingFileName;
 
-  /// Stable Firestore stream for the active sender's pending transfers.
-  /// Initialised once in [_onSenderSelected] and fed to the [StreamBuilder]
-  /// in [_step3Content] — avoids re-subscription on every rebuild.
   Stream<QuerySnapshot<Map<String, dynamic>>>? _transferStream;
 
   // ── Step completion ───────────────────────────────────────────────────────
-  bool get _step0Done => _hasPrivateKey && _hasPublicKey;
-  bool get _step1Done => _isReadyToReceive;
-  // Step 2 is done once sender is locked in AND the atomic handshake committed.
-  bool get _step2Done =>
+  bool get _step1Done => _hasPrivateKey && _hasPublicKey;
+  bool get _step2Done => _isReadyToReceive;
+  bool get _step3Done =>
       _sessionManager.activeSenderUid != null && _handshakeDone;
 
   @override
@@ -205,7 +202,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     setState(() => _loadingReadyState = true);
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('users')
+          .collection(FirebaseConstants.users)
           .doc(uid)
           .get();
       if (mounted) {
@@ -494,7 +491,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     if (senderUsername == null && senderId != null) {
       try {
         final doc = await FirebaseFirestore.instance
-            .collection('users')
+            .collection(FirebaseConstants.users)
             .doc(senderId)
             .get();
         senderUsername = doc.data()?['username'] as String?;
@@ -565,11 +562,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
   // ─── Step content builders ────────────────────────────────────────────────
 
-  Widget _step0Content() {
+  Widget _step1Content() {
     if (_checkingStatus) {
       return const LinearProgressIndicator();
     }
-    if (_step0Done) {
+    if (_step1Done) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -664,7 +661,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     );
   }
 
-  Widget _step1Content() {
+  Widget _step2Content() {
     if (_loadingReadyState) {
       return const Center(
         child: SizedBox(
@@ -674,7 +671,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       );
     }
     return GestureDetector(
-      onTap: _step0Done ? () => _onToggleReady(!_isReadyToReceive) : null,
+      onTap: _step1Done ? () => _onToggleReady(!_isReadyToReceive) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -727,7 +724,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                         CircularProgressIndicator(strokeWidth: 2.5))
                 : Switch(
                     value: _isReadyToReceive,
-                    onChanged: _step0Done ? _onToggleReady : null,
+                    onChanged: _step1Done ? _onToggleReady : null,
                     activeThumbColor: Colors.green,
                   ),
           ],
@@ -736,7 +733,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     );
   }
 
-  Widget _step2Content() {
+  Widget _step3Content() {
     final cs = Theme.of(context).colorScheme;
     final selectedUid = _sessionManager.activeSenderUid;
     final selectedName = _sessionManager.activeSenderUsername;
@@ -828,7 +825,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         CrypButton(
           icon: const Icon(Icons.search_rounded),
           label: const Text('🔗 Find & Select Sender'),
-          onPressed: _step1Done ? _openFindSenderSheet : null,
+          onPressed: _step2Done ? _openFindSenderSheet : null,
           color: cs.secondary,
           sessionState: _sessionManager.state != SessionState.open
               ? _sessionManager.state
@@ -947,68 +944,68 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop && _isReadyToReceive) {
-          // stateStream fires terminated → EncryptionService.bindSession
-          // reacts and calls closeReceiverSession asynchronously.
           _sessionManager.wipeSession(onBuffersWipe: wipeAll);
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text('Receive File',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.lock_outline_rounded),
-            tooltip: 'RSA Key Manager',
-            onPressed: _openKeyManager,
+        appBar: AppBar(
+          title: Text(
+            'Receive File',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Step 0: RSA Key Setup ───────────────────────────────────
-            StepCard(
-              step: 0,
-              title: 'RSA Key Setup',
-              done: _step0Done,
-              child: _step0Content(),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.lock_outline_rounded),
+              tooltip: 'RSA Key Manager',
+              onPressed: _openKeyManager,
             ),
-            const SizedBox(height: 16),
-
-            // ── Step 1: Ready to Receive ────────────────────────────────
-            AnimatedOpacity(
-              opacity: _step0Done ? 1.0 : 0.4,
-              duration: const Duration(milliseconds: 300),
-              child: StepCard(
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Step 1: Key Generation ──────────────────────────────────
+              StepCard(
                 step: 1,
-                title: 'Ready to Receive',
+                title: 'Key Generation',
                 done: _step1Done,
                 child: _step1Content(),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // ── Step 2: Connect with Sender ─────────────────────────────
-            AnimatedOpacity(
-              opacity: _step1Done ? 1.0 : 0.4,
-              duration: const Duration(milliseconds: 300),
-              child: StepCard(
-                step: 2,
-                title: 'Connect with Sender',
-                done: _step2Done,
-                child: _step2Content(),
+              // ── Step 2: Ready State ─────────────────────────────────────
+              AnimatedOpacity(
+                opacity: _step1Done ? 1.0 : 0.4,
+                duration: const Duration(milliseconds: 300),
+                child: StepCard(
+                  step: 2,
+                  title: 'Ready State',
+                  done: _step2Done,
+                  child: _step2Content(),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 16),
+
+              // ── Step 3: The Connect ─────────────────────────────────────
+              AnimatedOpacity(
+                opacity: _step2Done ? 1.0 : 0.4,
+                duration: const Duration(milliseconds: 300),
+                child: StepCard(
+                  step: 3,
+                  title: 'The Connect',
+                  done: _step3Done,
+                  child: _step3Content(),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
-      ), // closes PopScope child: Scaffold
-    ); // closes PopScope
+    );
   }
 }
 

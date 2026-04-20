@@ -1,4 +1,29 @@
 
+## Architecture & Design
+
+### UI Framework
+- **Core**: Flutter with Material 3 enabled.
+- **Theme**: Custom **GitHub Dark** palette.
+  - Background: `#0D1117` (`githubDarkBg`)
+  - Surface: `#161B22` (`githubDarkSurface`)
+  - Primary: `#58A6FF` (`githubDarkPrimary`)
+- **Rendering**: **Impeller Backend** (OpenGLES) used for enhanced performance and security against UI-layer side-channel attacks.
+
+### Admin Dashboard
+The system includes an Admin Dashboard (`lib/presentation/admin/`) for platform oversight:
+- **Connection Node Map**: Real-time visualization of active transfer nodes.
+- **User Management**: Privilege control via the `isAdmin` Firestore field.
+- **Audit Integration**: Direct connection to the top-level `transfers_log` collection for global activity monitoring.
+
+### Data Model (Graphify Data Nodes)
+Main data entities as identified by the system graph:
+- **Handshakes (`rsa_key_transfers`)**: Stores ephemeral RSA public keys and handshake status (`handshake_complete`) for secure AES key exchange.
+- **Transfers (`transfers`)**: Tracks active file transfer metadata, initialization vectors (IV), and encrypted AES keys.
+- **User Audit (`transfers_log`)**: Immutable record of transfer events, including `participants` and security lifecycle events.
+- **User Profiles (`users`)**: Identity documents containing `publicKey`, `isReadyToReceive` status, and `isAdmin` flags.
+
+---
+
 ## Project Structure
 
 ### Layer Architecture

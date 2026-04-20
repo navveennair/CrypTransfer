@@ -109,12 +109,12 @@ void main() {
 
     // ── TC036 ──────────────────────────────────────────────────────────────
     test('TC036 - RSA keys wiped after session ends', () async {
-      // Seed rsa_key_transfers and a notification
+      // Seed handshakes and a notification
       await fakeDb
-          .collection(FirebaseConstants.rsaKeyTransfers)
+          .collection(FirebaseConstants.handshakes)
           .add({
-        'fromUserId': senderId,
-        'toUserId': receiverId,
+        'senderId': senderId,
+        'receiverId': receiverId,
         'publicKey': 'pubKeyData',
         'sentAt': FieldValue.serverTimestamp(),
       });
@@ -125,15 +125,13 @@ void main() {
 
       // Firestore key transfers removed
       final snap = await fakeDb
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: senderId)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: senderId)
           .get();
       expect(snap.docs, isEmpty,
-          reason: 'rsa_key_transfers must be cleared after wipe');
+          reason: 'handshakes must be cleared after wipe');
 
       // Secure storage rsa entries removed
-      // (wipeAllSessionKeys deletes keys with rsa_private_key_* prefix;
-      //  'rsa_private_key' stored by AuthRepository is checked separately)
       final allKeys = await fakeStorage.readAll();
       final rsaKeys = allKeys.keys
           .where((k) =>
@@ -145,17 +143,17 @@ void main() {
     });
 
     // ── TC037 ──────────────────────────────────────────────────────────────
-    test('TC037 - Audit log written to transfers_log on completion', () async {
+    test('TC037 - Audit log written to transfer_logs on completion', () async {
       await transferRepo.writeAuditLog(
         senderId: senderId,
         receiverId: receiverId,
         fileName: 'final.pdf',
-        transferDate: '2026-04-05',
-        transferTime: '15:00:00',
+        fileSize: 1024,
+        status: 'completed',
       );
 
       final logs = await fakeDb
-          .collection(FirebaseConstants.transfersLog)
+          .collection(FirebaseConstants.transferLogs)
           .get();
 
       expect(logs.docs, isNotEmpty);

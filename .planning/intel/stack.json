@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-19T15:42:17.544Z",
+    "version": 2
+  },
+  "languages": [
+    "Dart",
+    "Kotlin"
+  ],
+  "frameworks": [
+    "Flutter",
+    "Firebase"
+  ],
+  "tools": [
+    "flutter_lints",
+    "build_runner",
+    "mockito",
+    "fake_cloud_firestore"
+  ],
+  "build_system": "Flutter / Gradle (Kotlin DSL)",
+  "test_framework": "flutter_test",
+  "package_manager": "pub (Flutter)",
+  "platform_targets": [
+    "Android",
+    "iOS",
+    "Web (fallback)"
+  ],
+  "content_formats": [
+    "Dart (application source, services, models)",
+    "YAML (pubspec.yaml — dependencies + Flutter config)",
+    "Kotlin (Android MainActivity — FLAG_SECURE + MethodChannel)",
+    "Groovy/Kotlin DSL (Gradle build files)",
+    "Markdown (CLAUDE.md project docs, README)"
+  ],
+  "key_libraries": {
+    "firebase_core": "^4.6.0",
+    "firebase_auth": "^6.3.0",
+    "cloud_firestore": "^6.2.0",
+    "firebase_storage": "^13.2.0",
+    "pointycastle": "^4.0.0",
+    "flutter_secure_storage": "^10.0.0",
+    "file_picker": "^11.0.2",
+    "provider": "^6.1.5+1",
+    "local_auth": "^3.0.1",
+    "google_fonts": "^8.0.2"
+  },
+  "security_model": "Hybrid RSA-2048-OAEP + AES-256-GCM, kill-switch session lifecycle, FLAG_SECURE, R8 minification"
+}

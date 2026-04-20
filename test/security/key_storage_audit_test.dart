@@ -45,10 +45,10 @@ void main() {
           reason: 'publicKey must be present in users collection');
     });
 
-    test('TC-SEC-002: Private key NOT in rsa_key_transfers', () async {
-      await db.collection(FirebaseConstants.rsaKeyTransfers).add({
-        'fromUserId': 'uid-001',
-        'toUserId': 'uid-002',
+    test('TC-SEC-002: Private key NOT in handshakes', () async {
+      await db.collection(FirebaseConstants.handshakes).add({
+        'senderId': 'uid-001',
+        'receiverId': 'uid-002',
         'publicKey': 'encodedPublicKeyJSON',
         'sentAt': FieldValue.serverTimestamp(),
         'status': 'pending',
@@ -56,11 +56,11 @@ void main() {
       });
 
       final snap =
-          await db.collection(FirebaseConstants.rsaKeyTransfers).get();
+          await db.collection(FirebaseConstants.handshakes).get();
       for (final doc in snap.docs) {
         expect(doc.data().containsKey('privateKey'), isFalse,
             reason:
-                'SECURITY: privateKey must never appear in rsa_key_transfers');
+                'SECURITY: privateKey must never appear in handshakes');
       }
     });
 
@@ -156,21 +156,20 @@ void main() {
       }
     });
 
-    test('TC-SEC-006: transfers_log contains NO key material', () async {
+    test('TC-SEC-006: transfer_logs contains NO key material', () async {
       // Simulate what TransferRepository.writeAuditLog writes
-      await db.collection(FirebaseConstants.transfersLog).add({
+      await db.collection(FirebaseConstants.transferLogs).add({
         'senderId': 'uid-001',
         'receiverId': 'uid-002',
         'fileName': 'file.pdf',
-        'transferDate': '2026-04-05',
-        'transferTime': '14:00:00',
+        'fileSize': 1024,
         'status': 'completed',
         'loggedAt': FieldValue.serverTimestamp(),
         // No key fields
       });
 
       final snap =
-          await db.collection(FirebaseConstants.transfersLog).get();
+          await db.collection(FirebaseConstants.transferLogs).get();
 
       for (final doc in snap.docs) {
         final data = doc.data();
@@ -183,7 +182,7 @@ void main() {
         ]) {
           expect(data.containsKey(forbidden), isFalse,
               reason:
-                  'SECURITY: transfers_log must not contain $forbidden field');
+                  'SECURITY: transfer_logs must not contain $forbidden field');
         }
       }
     });
@@ -278,30 +277,29 @@ void main() {
         'iv': base64Encode(Uint8List(12)),
         'status': 'pending',
       });
-      await db.collection(FirebaseConstants.transfersLog).doc('l1').set({
+      await db.collection(FirebaseConstants.transferLogs).doc('l1').set({
         'senderId': 'u1',
         'receiverId': 'u2',
         'fileName': 'file.pdf',
         'status': 'completed',
       });
-      await db.collection(FirebaseConstants.rsaKeyTransfers).doc('k1').set({
-        'fromUserId': 'u1',
-        'toUserId': 'u2',
+      await db.collection(FirebaseConstants.handshakes).doc('k1').set({
+        'senderId': 'u1',
+        'receiverId': 'u2',
         'publicKey': 'encodedPubKey',
       });
-      await db.collection(FirebaseConstants.notifications).doc('n1').set({
-        'toUserId': 'u2',
+      await db.collection(FirebaseConstants.users).doc('u2').collection(FirebaseConstants.notifications).doc('n1').set({
         'fromUsername': 'alice',
         'type': 'file_received',
         'message': 'alice sent you a file',
       });
       await db
-          .collection(FirebaseConstants.friendRequests)
-          .doc('f1')
+          .collection(FirebaseConstants.users)
+          .doc('u1')
+          .collection(FirebaseConstants.connections)
+          .doc('u2')
           .set({
-        'senderId': 'u1',
-        'receiverId': 'u2',
-        'status': 'accepted',
+        'status': 'connected',
       });
     });
 
@@ -309,8 +307,8 @@ void main() {
       final collections = [
         FirebaseConstants.users,
         FirebaseConstants.transfers,
-        FirebaseConstants.transfersLog,
-        FirebaseConstants.rsaKeyTransfers,
+        FirebaseConstants.transferLogs,
+        FirebaseConstants.handshakes,
         FirebaseConstants.notifications,
         FirebaseConstants.friendRequests,
       ];

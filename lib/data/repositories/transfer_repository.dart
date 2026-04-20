@@ -98,6 +98,8 @@ class TransferRepository {
         read: false,
       );
       await _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
           .collection(FirebaseConstants.notifications)
           .add(notif.toCreateMap());
     } catch (_) {
@@ -181,17 +183,18 @@ class TransferRepository {
     required String senderId,
     required String receiverId,
     required String fileName,
-    required String transferDate,
-    required String transferTime,
+    required int fileSize,
+    required String status,
   }) async {
-    await _db.collection(FirebaseConstants.transfersLog).add({
+    await _db
+        .collection(FirebaseConstants.transferLogs)
+        .add({
       'senderId': senderId,
       'receiverId': receiverId,
       'participants': [senderId, receiverId],
       'fileName': fileName,
-      'transferDate': transferDate,
-      'transferTime': transferTime,
-      'status': 'completed',
+      'fileSize': fileSize,
+      'status': status,
       'loggedAt': FieldValue.serverTimestamp(),
     });
   }

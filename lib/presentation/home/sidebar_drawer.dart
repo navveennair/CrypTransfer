@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../../data/models/user_model.dart';
 import '../auth/login_screen.dart';
+import '../settings/settings_screen.dart';
+import 'find_friends_screen.dart';
 
 class SidebarDrawer extends StatelessWidget {
   const SidebarDrawer({super.key});
@@ -78,8 +81,9 @@ class SidebarDrawer extends StatelessWidget {
             title: const Text('Find Friends'),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Find Friends — coming soon')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FindFriendsScreen()),
               );
             },
           ),
@@ -91,6 +95,37 @@ class SidebarDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               _showKeyGenDialog(context);
+            },
+          ),
+
+          if (user != null)
+            StreamBuilder<UserModel?>(
+              stream: AuthRepository().streamUserProfile(user.uid),
+              builder: (context, snapshot) {
+                final isAdmin = snapshot.data?.isAdmin ?? false;
+                if (!isAdmin) return const SizedBox.shrink();
+                
+                return ListTile(
+                  leading: Icon(Icons.admin_panel_settings_outlined, color: cs.tertiary),
+                  title: const Text('Admin Dashboard'),
+                  subtitle: const Text('System analytics & security'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/admin-dashboard');
+                  },
+                );
+              },
+            ),
+
+          ListTile(
+            leading: Icon(Icons.settings_outlined, color: cs.primary),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
             },
           ),
 

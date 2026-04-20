@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/notification_service.dart';
 import 'notifications_screen.dart';
 import '../receiver/receiver_screen.dart';
@@ -62,12 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
         onDismiss: () {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
-          NotificationService.markRead(docId);
+          NotificationService.markRead(FirebaseAuth.instance.currentUser!.uid, docId);
         },
         onTap: () {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
-          NotificationService.markRead(docId);
+          NotificationService.markRead(FirebaseAuth.instance.currentUser!.uid, docId);
           if (!mounted) return;
           if (type == 'rsa_key_received') {
             Navigator.push(context,
@@ -166,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('transfers_log')
+                    .collection(FirebaseConstants.transferLogs)
                     .where('participants',
                         arrayContains:
                             FirebaseAuth.instance.currentUser?.uid ?? '')

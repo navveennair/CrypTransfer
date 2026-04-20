@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../session/end_session_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -175,7 +176,11 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       try {
         final senderUsername =
             FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
-        await FirebaseFirestore.instance.collection('notifications').add({
+        await FirebaseFirestore.instance
+            .collection(FirebaseConstants.users)
+            .doc(widget.receiverId)
+            .collection(FirebaseConstants.notifications)
+            .add({
           'toUserId': widget.receiverId,
           'fromUsername': senderUsername,
           'type': 'file_received',

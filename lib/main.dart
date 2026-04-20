@@ -4,13 +4,21 @@ import 'package:firebase_core/firebase_core.dart';
 import 'app_theme.dart';
 import 'firebase_options.dart';
 import 'presentation/auth/splash_screen.dart';
+import 'presentation/admin/admin_dashboard.dart';
+import 'package:provider/provider.dart';
+import 'core/utils/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const CrypTransferApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeService(),
+      child: const CrypTransferApp(),
+    ),
+  );
 }
 
 class CrypTransferApp extends StatelessWidget {
@@ -18,11 +26,17 @@ class CrypTransferApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = context.watch<ThemeService>();
     return MaterialApp(
       title: 'CrypTransfer',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeService.themeMode,
       home: const SplashScreen(),
+      routes: {
+        '/admin-dashboard': (context) => const AdminDashboard(),
+      },
     );
   }
 }

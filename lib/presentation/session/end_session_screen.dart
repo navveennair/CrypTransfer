@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -136,13 +137,14 @@ class _EndSessionScreenState extends State<EndSessionScreen>
 
       // ── Step 2: Write minimal audit log ──────────────────────────────
       await tick(2);
-      await FirebaseFirestore.instance.collection('transfers_log').add({
+      await FirebaseFirestore.instance
+          .collection(FirebaseConstants.transferLogs)
+          .add({
         'senderId': widget.senderId,
         'receiverId': widget.receiverId,
         'participants': [widget.senderId, widget.receiverId],
         'fileName': widget.fileName,
-        'transferDate': _fmtDate(widget.transferredAt),
-        'transferTime': _fmtTime(widget.transferredAt),
+        'fileSize': widget.fileSize,
         'status': 'completed',
         'loggedAt': FieldValue.serverTimestamp(),
       });

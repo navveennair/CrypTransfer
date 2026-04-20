@@ -1,0 +1,201 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-19T15:42:17.973Z",
+    "version": 2
+  },
+  "entries": {
+    "flutter": {
+      "version": "sdk",
+      "type": "production",
+      "invocation": "implicit",
+      "used_by": [
+        "lib/main.dart",
+        "lib/presentation/"
+      ]
+    },
+    "firebase_core": {
+      "version": "^4.6.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/main.dart",
+        "lib/firebase_options.dart"
+      ]
+    },
+    "firebase_auth": {
+      "version": "^6.3.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/data/repositories/auth_repository.dart",
+        "lib/data/repositories/key_repository.dart",
+        "lib/presentation/auth/splash_screen.dart"
+      ]
+    },
+    "cloud_firestore": {
+      "version": "^6.2.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/data/repositories/auth_repository.dart",
+        "lib/data/repositories/key_repository.dart",
+        "lib/data/repositories/transfer_repository.dart",
+        "lib/data/services/encryption_service.dart"
+      ]
+    },
+    "firebase_storage": {
+      "version": "^13.2.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/data/repositories/transfer_repository.dart"
+      ]
+    },
+    "pointycastle": {
+      "version": "^4.0.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/data/services/encryption_service.dart",
+        "lib/data/repositories/auth_repository.dart",
+        "lib/presentation/sender/sender_screen.dart"
+      ]
+    },
+    "flutter_secure_storage": {
+      "version": "^10.0.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/data/services/encryption_service.dart",
+        "lib/data/repositories/auth_repository.dart",
+        "lib/data/repositories/key_repository.dart"
+      ]
+    },
+    "file_picker": {
+      "version": "^11.0.2",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/presentation/sender/sender_screen.dart"
+      ]
+    },
+    "path_provider": {
+      "version": "^2.1.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/presentation/receiver/decrypt_screen.dart"
+      ]
+    },
+    "google_fonts": {
+      "version": "^8.0.2",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/app_theme.dart",
+        "lib/presentation/home/home_screen.dart",
+        "lib/presentation/sender/sender_screen.dart",
+        "lib/presentation/receiver/receiver_screen.dart"
+      ]
+    },
+    "fl_chart": {
+      "version": "^0.70.2",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/presentation/admin/widgets/transfer_volume_chart.dart"
+      ]
+    },
+    "intl": {
+      "version": "^0.19.0",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/presentation/home/home_screen.dart"
+      ]
+    },
+    "local_auth": {
+      "version": "^3.0.1",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/core/utils/biometric_helper.dart"
+      ]
+    },
+    "shared_preferences": {
+      "version": "^2.5.5",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/core/utils/theme_service.dart"
+      ]
+    },
+    "provider": {
+      "version": "^6.1.5+1",
+      "type": "production",
+      "invocation": "require",
+      "used_by": [
+        "lib/main.dart",
+        "lib/core/utils/theme_service.dart"
+      ]
+    },
+    "cupertino_icons": {
+      "version": "^1.0.8",
+      "type": "production",
+      "invocation": "implicit",
+      "used_by": [
+        "lib/"
+      ]
+    },
+    "flutter_test": {
+      "version": "sdk",
+      "type": "development",
+      "invocation": "flutter test",
+      "used_by": [
+        "test/"
+      ]
+    },
+    "flutter_lints": {
+      "version": "^6.0.0",
+      "type": "development",
+      "invocation": "flutter analyze",
+      "used_by": [
+        "analysis_options.yaml"
+      ]
+    },
+    "fake_cloud_firestore": {
+      "version": "^4.1.0+1",
+      "type": "development",
+      "invocation": "flutter test",
+      "used_by": [
+        "test/module_tests/",
+        "test/security/"
+      ]
+    },
+    "firebase_auth_mocks": {
+      "version": "^0.15.1",
+      "type": "development",
+      "invocation": "flutter test",
+      "used_by": [
+        "test/module_tests/",
+        "test/security/"
+      ]
+    },
+    "mockito": {
+      "version": "^5.4.0",
+      "type": "development",
+      "invocation": "flutter test",
+      "used_by": [
+        "test/"
+      ]
+    },
+    "build_runner": {
+      "version": "^2.4.0",
+      "type": "development",
+      "invocation": "flutter pub run build_runner build",
+      "used_by": [
+        "test/"
+      ]
+    }
+  }
+}

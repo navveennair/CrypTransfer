@@ -52,18 +52,34 @@ class KeyRepository {
 
   Future<String?> getConnectionStatus(String otherUserId) async {
     try {
-      for (final field in ['senderId', 'receiverId']) {
-        final other = field == 'senderId' ? 'receiverId' : 'senderId';
-        final snap = await _db
-            .collection(FirebaseConstants.friendRequests)
-            .where(field, isEqualTo: _uid)
-            .where(other, isEqualTo: otherUserId)
-            .limit(1)
-            .get();
-        if (snap.docs.isNotEmpty) {
-          return snap.docs.first.data()['status'] as String?;
-        }
-      }
+      final snap = await _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.connections)
+          .doc(otherUserId)
+          .get();
+      if (snap.exists) return 'accepted';
+
+      // Check for outgoing request
+      final outgoing = await _db
+          .collection(FirebaseConstants.users)
+          .doc(otherUserId)
+          .collection(FirebaseConstants.friendRequests)
+          .where('senderId', isEqualTo: _uid)
+          .limit(1)
+          .get();
+      if (outgoing.docs.isNotEmpty) return 'pending_sent';
+
+      // Check for incoming request
+      final incoming = await _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.friendRequests)
+          .where('senderId', isEqualTo: otherUserId)
+          .limit(1)
+          .get();
+      if (incoming.docs.isNotEmpty) return 'pending_received';
+
       return null;
     } on FirebaseException catch (e) {
       throw NetworkException(
@@ -75,47 +91,110 @@ class KeyRepository {
     try {
       final status = await getConnectionStatus(targetUserId);
       if (status != null) return;
-      await _db.collection(FirebaseConstants.friendRequests).add({
+
+      final userDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
+      final senderUsername = userDoc.data()?['username'] as String? ?? 'Unknown';
+
+      final payload = {
         'senderId': _uid,
-        'receiverId': targetUserId,
-        'participants': [_uid, targetUserId],
-        'status': 'accepted',
+        'senderUsername': senderUsername,
         'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // Write request to the target user's incoming requests sub-collection
+      await _db
+          .collection(FirebaseConstants.users)
+          .doc(targetUserId)
+          .collection(FirebaseConstants.friendRequests)
+          .doc(_uid)
+          .set(payload);
+
+      // Notify the receiver
+      await _db
+          .collection(FirebaseConstants.users)
+          .doc(targetUserId)
+          .collection(FirebaseConstants.notifications)
+          .add({
+        'toUserId': targetUserId,
+        'fromUsername': senderUsername,
+        'type': 'friend_request',
+        'message': '👋 $senderUsername wants to connect with you.',
+        'createdAt': FieldValue.serverTimestamp(),
+        'read': false,
       });
-      await _writePublicKeyTo(targetUserId);
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Connection request failed: ${e.message ?? e.code}');
     }
   }
 
+  Future<List<Map<String, dynamic>>> getPendingRequests() async {
+    try {
+      final snap = await _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.friendRequests)
+          .get();
+
+      return snap.docs.map((doc) => {
+        'docId': doc.id,
+        ...doc.data(),
+      }).toList();
+    } on FirebaseException catch (e) {
+      throw NetworkException('Could not load pending requests: ${e.message ?? e.code}');
+    }
+  }
+
+  Future<void> acceptConnectionRequest(String docId, String senderId) async {
+    try {
+      final batch = _db.batch();
+
+      final myDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
+      final senderDoc = await _db.collection(FirebaseConstants.users).doc(senderId).get();
+
+      final myData = myDoc.data()!;
+      final senderData = senderDoc.data()!;
+
+      // 1. Create connection in MY sub-collection
+      batch.set(
+        _db.collection(FirebaseConstants.users).doc(_uid).collection(FirebaseConstants.connections).doc(senderId),
+        {
+          'uid': senderId,
+          'username': senderData['username'],
+          'email': senderData['email'],
+          'createdAt': FieldValue.serverTimestamp(),
+        }
+      );
+
+      // 2. Create connection in SENDER'S sub-collection
+      batch.set(
+        _db.collection(FirebaseConstants.users).doc(senderId).collection(FirebaseConstants.connections).doc(_uid),
+        {
+          'uid': _uid,
+          'username': myData['username'],
+          'email': myData['email'],
+          'createdAt': FieldValue.serverTimestamp(),
+        }
+      );
+
+      // 3. Delete the friend request
+      batch.delete(_db.collection(FirebaseConstants.users).doc(_uid).collection(FirebaseConstants.friendRequests).doc(docId));
+
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw NetworkException('Failed to accept connection: ${e.message ?? e.code}');
+    }
+  }
+
   Future<List<UserModel>> getConnectedFriends() async {
     try {
-      final sent = await _db
-          .collection(FirebaseConstants.friendRequests)
-          .where('senderId', isEqualTo: _uid)
-          .where('status', isEqualTo: 'accepted')
-          .get();
-      final received = await _db
-          .collection(FirebaseConstants.friendRequests)
-          .where('receiverId', isEqualTo: _uid)
-          .where('status', isEqualTo: 'accepted')
+      final snap = await _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.connections)
           .get();
 
-      final otherUids = <String>{};
-      for (final doc in sent.docs) {
-        otherUids.add(doc.data()['receiverId'] as String);
-      }
-      for (final doc in received.docs) {
-        otherUids.add(doc.data()['senderId'] as String);
-      }
-
-      final friends = <UserModel>[];
-      for (final uid in otherUids) {
-        final doc = await _db.collection(FirebaseConstants.users).doc(uid).get();
-        if (doc.exists) friends.add(UserModel.fromDoc(doc));
-      }
-      return friends;
+      return snap.docs.map((doc) => UserModel.fromMap(doc.id, doc.data())).toList();
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Could not load connections: ${e.message ?? e.code}');
@@ -158,13 +237,17 @@ class KeyRepository {
           'Unknown';
 
       await _upsertKeyTransfer(
-        toUserId: toUserId,
+        senderId: toUserId,
         publicKey: publicKey,
         fromUsername: fromUsername,
         status: isHandshake ? 'handshake_complete' : 'pending',
       );
 
-      await _db.collection(FirebaseConstants.notifications).add({
+      await _db
+          .collection(FirebaseConstants.users)
+          .doc(toUserId)
+          .collection(FirebaseConstants.notifications)
+          .add({
         'toUserId': toUserId,
         'fromUsername': fromUsername,
         'type': 'rsa_key_received',
@@ -179,12 +262,12 @@ class KeyRepository {
     }
   }
 
-  Future<String?> getPublicKeyFor(String fromUserId) async {
+  Future<String?> getPublicKeyFor(String senderId) async {
     try {
       final result = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: fromUserId)
-          .where('toUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: senderId)
+          .where('receiverId', isEqualTo: _uid)
           .limit(1)
           .get();
       if (result.docs.isEmpty) return null;
@@ -198,16 +281,16 @@ class KeyRepository {
   Future<List<Map<String, dynamic>>> getSentKeyTransfers() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('receiverId', isEqualTo: _uid)
           .get();
 
       final transfers = <Map<String, dynamic>>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final toUserId = data['toUserId'] as String;
+        final senderId = data['senderId'] as String;
         final userDoc =
-            await _db.collection(FirebaseConstants.users).doc(toUserId).get();
+            await _db.collection(FirebaseConstants.users).doc(senderId).get();
         transfers.add({
           'docId': doc.id,
           ...data,
@@ -232,17 +315,17 @@ class KeyRepository {
   Future<List<Map<String, dynamic>>> getReceivedKeys() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('toUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: _uid)
           .get();
 
       final keys = <Map<String, dynamic>>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final fromUserId = data['fromUserId'] as String;
+        final receiverId = data['receiverId'] as String;
         final userDoc = await _db
             .collection(FirebaseConstants.users)
-            .doc(fromUserId)
+            .doc(receiverId)
             .get();
         keys.add({
           'docId': doc.id,
@@ -291,9 +374,9 @@ class KeyRepository {
   Future<bool> hasReceivedKeyFrom(String fromUserId) async {
     try {
       final result = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: fromUserId)
-          .where('toUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: fromUserId)
+          .where('receiverId', isEqualTo: _uid)
           .limit(1)
           .get();
       return result.docs.isNotEmpty;
@@ -304,39 +387,39 @@ class KeyRepository {
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
-  Future<void> _writePublicKeyTo(String toUserId) async {
+  Future<void> _writePublicKeyTo(String senderId) async {
     final userDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
     final publicKey = userDoc.data()?['publicKey'] as String?;
     if (publicKey == null || publicKey.isEmpty) return;
-    await _upsertKeyTransfer(toUserId: toUserId, publicKey: publicKey, status: 'pending');
+    await _upsertKeyTransfer(senderId: senderId, publicKey: publicKey, status: 'pending');
   }
 
   Future<void> _upsertKeyTransfer({
-    required String toUserId,
+    required String senderId,
     required String publicKey,
     String? fromUsername,
     String status = 'pending',
   }) async {
     final existing = await _db
-        .collection(FirebaseConstants.rsaKeyTransfers)
-        .where('fromUserId', isEqualTo: _uid)
-        .where('toUserId', isEqualTo: toUserId)
+        .collection(FirebaseConstants.handshakes)
+        .where('receiverId', isEqualTo: _uid)
+        .where('senderId', isEqualTo: senderId)
         .limit(1)
         .get();
 
     final update = <String, dynamic>{
       'publicKey': publicKey,
       'sentAt': FieldValue.serverTimestamp(),
-      'fromUsername': ?fromUsername,
+      'fromUsername': fromUsername,
       'status': status,
     };
 
     if (existing.docs.isNotEmpty) {
       await existing.docs.first.reference.update(update);
     } else {
-      await _db.collection(FirebaseConstants.rsaKeyTransfers).add({
-        'fromUserId': _uid,
-        'toUserId': toUserId,
+      await _db.collection(FirebaseConstants.handshakes).add({
+        'receiverId': _uid,
+        'senderId': senderId,
         ...update,
       });
     }
@@ -349,28 +432,29 @@ class KeyRepository {
   Future<List<UserModel>> getAvailableReceivers() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('toUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: _uid)
           .get();
 
       final receivers = <UserModel>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final fromUserId = data['fromUserId'] as String;
+        final receiverId = data['receiverId'] as String;
         final publicKey = data['publicKey'] as String?;
         if (publicKey == null || publicKey.isEmpty) continue;
         final userDoc = await _db
             .collection(FirebaseConstants.users)
-            .doc(fromUserId)
+            .doc(receiverId)
             .get();
         if (!userDoc.exists) continue;
         final userData = userDoc.data()!;
         receivers.add(UserModel(
-          uid: fromUserId,
+          uid: receiverId,
           username: userData['username'] as String? ?? 'Unknown',
           email: userData['email'] as String? ?? '',
           phone: userData['phone'] as String? ?? '',
           publicKey: publicKey,
+          isAdmin: userData['isAdmin'] as bool? ?? false,
         ));
       }
       return receivers;
@@ -389,7 +473,7 @@ class KeyRepository {
   /// 1. `users/{receiverUid}.selectedSenderUid = senderUid` — persists the
   ///    authorization so the sender side can verify it came from this receiver.
   ///
-  /// 2. `rsa_key_transfers` — upserts the receiver's RSA public key addressed
+  /// 2. `handshakes` — upserts the receiver's RSA public key addressed
   ///    to [senderUid] with `status: 'handshake_complete'`, signalling the
   ///    sender's Firestore stream that the secure channel is open.
   ///
@@ -413,9 +497,9 @@ class KeyRepository {
 
       // Find existing key-transfer doc to reuse its reference in the batch.
       final existing = await _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: _uid)
-          .where('toUserId', isEqualTo: senderUid)
+          .collection(FirebaseConstants.handshakes)
+          .where('receiverId', isEqualTo: _uid)
+          .where('senderId', isEqualTo: senderUid)
           .limit(1)
           .get();
 
@@ -439,10 +523,10 @@ class KeyRepository {
       if (existing.docs.isNotEmpty) {
         batch.update(existing.docs.first.reference, keyPayload);
       } else {
-        final newRef = _db.collection(FirebaseConstants.rsaKeyTransfers).doc();
+        final newRef = _db.collection(FirebaseConstants.handshakes).doc();
         batch.set(newRef, {
-          'fromUserId': _uid,
-          'toUserId': senderUid,
+          'receiverId': _uid,
+          'senderId': senderUid,
           ...keyPayload,
         });
       }
@@ -450,7 +534,11 @@ class KeyRepository {
       await batch.commit();
 
       // Notification — best-effort, not part of the atomic batch.
-      await _db.collection(FirebaseConstants.notifications).add({
+      await _db
+          .collection(FirebaseConstants.users)
+          .doc(senderUid)
+          .collection(FirebaseConstants.notifications)
+          .add({
         'toUserId': senderUid,
         'fromUsername': fromUsername,
         'type': 'rsa_key_received',
@@ -465,7 +553,7 @@ class KeyRepository {
     }
   }
 
-  /// Real-time stream of [rsa_key_transfers] docs where the current user is
+  /// Real-time stream of [handshakes] docs where the current user is
   /// the intended recipient and the status is `handshake_complete`.
   ///
   /// Used by [SenderScreen] to detect when a receiver has explicitly chosen
@@ -475,8 +563,8 @@ class KeyRepository {
   /// reverts to the waiting buffer.
   Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() =>
       _db
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('toUserId', isEqualTo: _uid)
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: _uid)
           .where('status', isEqualTo: 'handshake_complete')
           .snapshots();
 
@@ -495,7 +583,7 @@ class KeyRepository {
 
   /// Wipes all RSA session data for [uid] on app startup:
   /// - Secure storage entries with rsa_private_key_* / rsa_public_key_* prefixes
-  /// - All rsa_key_transfers documents where fromUserId or toUserId == uid
+  /// - All handshakes documents where receiverId or senderId == uid
   /// - All rsa_key_received notifications for uid
   Future<void> wipeAllSessionKeys(String uid) async {
     // Wipe secure storage
@@ -507,28 +595,29 @@ class KeyRepository {
       }
     }
 
-    // Wipe rsa_key_transfers sent by uid
+    // Wipe handshakes initiated by uid (as receiver)
     final sent = await _db
-        .collection(FirebaseConstants.rsaKeyTransfers)
-        .where('fromUserId', isEqualTo: uid)
+        .collection(FirebaseConstants.handshakes)
+        .where('receiverId', isEqualTo: uid)
         .get();
     for (final doc in sent.docs) {
       await doc.reference.delete();
     }
 
-    // Wipe rsa_key_transfers received by uid
+    // Wipe handshakes received by uid (as sender)
     final received = await _db
-        .collection(FirebaseConstants.rsaKeyTransfers)
-        .where('toUserId', isEqualTo: uid)
+        .collection(FirebaseConstants.handshakes)
+        .where('senderId', isEqualTo: uid)
         .get();
     for (final doc in received.docs) {
       await doc.reference.delete();
     }
 
-    // Wipe rsa_key_received notifications
+    // Wipe rsa_key_received notifications from this user's inbox
     final notifs = await _db
+        .collection(FirebaseConstants.users)
+        .doc(uid)
         .collection(FirebaseConstants.notifications)
-        .where('toUserId', isEqualTo: uid)
         .where('type', isEqualTo: 'rsa_key_received')
         .get();
     for (final doc in notifs.docs) {

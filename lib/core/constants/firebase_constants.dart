@@ -4,10 +4,12 @@ abstract class FirebaseConstants {
   // ─── Firestore collections ─────────────────────────────────────────────────
   static const String users = 'users';
   static const String transfers = 'transfers';
-  static const String transfersLog = 'transfers_log';
+  static const String transferLogs = 'transfer_logs';
   static const String notifications = 'notifications';
   static const String friendRequests = 'friend_requests';
-  static const String rsaKeyTransfers = 'rsa_key_transfers';
+  static const String connections = 'connections';
+  static const String handshakes = 'handshakes';
+  static const String securityAuditLog = 'security_audit_log';
 
   // ─── Firebase Storage paths ────────────────────────────────────────────────
   static const String transfersStorageRoot = 'transfers';

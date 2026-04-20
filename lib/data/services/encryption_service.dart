@@ -254,26 +254,25 @@ class EncryptionService {
       const storage = FlutterSecureStorage();
       await storage.delete(key: FirebaseConstants.privateKeyStorageKey);
 
-      // 3. Delete all rsa_key_transfers sent by this user.
-      final transfers = await FirebaseFirestore.instance
-          .collection(FirebaseConstants.rsaKeyTransfers)
-          .where('fromUserId', isEqualTo: uid)
+      // 3. Delete all handshakes initiated by this user (as receiver).
+      final handshakes = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.handshakes)
+          .where('receiverId', isEqualTo: uid)
           .get();
 
-      if (transfers.docs.isNotEmpty) {
+      if (handshakes.docs.isNotEmpty) {
         final batch = FirebaseFirestore.instance.batch();
-        for (final doc in transfers.docs) {
+        for (final doc in handshakes.docs) {
           batch.delete(doc.reference);
         }
         await batch.commit();
       }
 
-      // 4. Delete rsa_key_received notifications sent by this user.
-      // Note: notification docs store fromUsername, not fromUserId; this query
-      // is a best-effort cleanup and returns empty if the field is absent.
+      // 4. Delete rsa_key_received notifications from this user's inbox (best-effort).
       final notifications = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.users)
+          .doc(uid)
           .collection(FirebaseConstants.notifications)
-          .where('fromUserId', isEqualTo: uid)
           .where('type', isEqualTo: 'rsa_key_received')
           .get();
 

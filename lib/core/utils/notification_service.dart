@@ -1,27 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Read-only helper for the [notifications] Firestore collection.
-/// Notification documents are written by [ConnectionService] and
-/// [TransferProgressScreen] directly to Firestore.
+import '../constants/firebase_constants.dart';
+
+/// Read-only helper for the per-user notifications sub-collection.
 class NotificationService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  static CollectionReference<Map<String, dynamic>> _notifs(String uid) =>
+      _db.collection(FirebaseConstants.users).doc(uid).collection(FirebaseConstants.notifications);
 
   // ─── Streams ──────────────────────────────────────────────────────────────
 
   /// Count of unread notifications for [uid].
-  static Stream<int> unreadCountStream(String uid) => _db
-      .collection('notifications')
-      .where('toUserId', isEqualTo: uid)
+  static Stream<int> unreadCountStream(String uid) => _notifs(uid)
       .where('read', isEqualTo: false)
       .snapshots()
       .map((s) => s.size);
 
   /// All notifications for [uid], newest first (client-side sort).
-  static Stream<List<Map<String, dynamic>>> allStream(String uid) => _db
-      .collection('notifications')
-      .where('toUserId', isEqualTo: uid)
-      .snapshots()
-      .map((s) {
+  static Stream<List<Map<String, dynamic>>> allStream(String uid) =>
+      _notifs(uid).snapshots().map((s) {
         final list =
             s.docs.map((d) => {'docId': d.id, ...d.data()}).toList();
         list.sort((a, b) {
@@ -36,12 +34,8 @@ class NotificationService {
       });
 
   /// Latest single unread notification for [uid] (for banner display).
-  static Stream<Map<String, dynamic>?> latestUnreadStream(String uid) => _db
-      .collection('notifications')
-      .where('toUserId', isEqualTo: uid)
-      .where('read', isEqualTo: false)
-      .snapshots()
-      .map((s) {
+  static Stream<Map<String, dynamic>?> latestUnreadStream(String uid) =>
+      _notifs(uid).where('read', isEqualTo: false).snapshots().map((s) {
         if (s.docs.isEmpty) return null;
         final sorted = s.docs.toList()
           ..sort((a, b) {
@@ -58,20 +52,16 @@ class NotificationService {
   // ─── Mutations ────────────────────────────────────────────────────────────
 
   /// Mark a single notification as read.
-  static Future<void> markRead(String docId) async {
+  static Future<void> markRead(String uid, String docId) async {
     try {
-      await _db.collection('notifications').doc(docId).update({'read': true});
+      await _notifs(uid).doc(docId).update({'read': true});
     } catch (_) {}
   }
 
   /// Mark all unread notifications for [uid] as read.
   static Future<void> markAllRead(String uid) async {
     try {
-      final snap = await _db
-          .collection('notifications')
-          .where('toUserId', isEqualTo: uid)
-          .where('read', isEqualTo: false)
-          .get();
+      final snap = await _notifs(uid).where('read', isEqualTo: false).get();
       final batch = _db.batch();
       for (final doc in snap.docs) {
         batch.update(doc.reference, {'read': true});

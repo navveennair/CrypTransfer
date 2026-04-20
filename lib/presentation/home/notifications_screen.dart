@@ -52,7 +52,7 @@ class NotificationsScreen extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             itemCount: items.length,
-            itemBuilder: (_, i) => _NotificationTile(item: items[i]),
+            itemBuilder: (_, i) => _NotificationTile(uid: uid, item: items[i]),
           );
         },
       ),
@@ -63,8 +63,9 @@ class NotificationsScreen extends StatelessWidget {
 // ─── Notification tile ────────────────────────────────────────────────────────
 
 class _NotificationTile extends StatelessWidget {
+  final String uid;
   final Map<String, dynamic> item;
-  const _NotificationTile({required this.item});
+  const _NotificationTile({required this.uid, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +116,7 @@ class _NotificationTile extends StatelessWidget {
                     color: Colors.deepPurple, shape: BoxShape.circle),
               ),
         onTap: () async {
-          if (!isRead) await NotificationService.markRead(docId);
+          if (!isRead) await NotificationService.markRead(uid, docId);
           if (!context.mounted) return;
           final nav = Navigator.of(context);
           nav.pop();

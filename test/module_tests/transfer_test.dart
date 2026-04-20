@@ -132,8 +132,9 @@ void main() {
       );
 
       final notifs = await fakeDb
+          .collection(FirebaseConstants.users)
+          .doc('receiver-uid')
           .collection(FirebaseConstants.notifications)
-          .where('toUserId', isEqualTo: 'receiver-uid')
           .get();
 
       expect(notifs.docs, isNotEmpty);
@@ -214,12 +215,12 @@ void main() {
         senderId: 'sender-uid',
         receiverId: 'receiver-uid',
         fileName: 'final.pdf',
-        transferDate: '2026-04-05',
-        transferTime: '14:30:00',
+        fileSize: 1024,
+        status: 'completed',
       );
 
       final logs = await fakeDb
-          .collection(FirebaseConstants.transfersLog)
+          .collection(FirebaseConstants.transferLogs)
           .where('senderId', isEqualTo: 'sender-uid')
           .get();
 

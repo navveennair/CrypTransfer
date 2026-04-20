@@ -59,6 +59,7 @@ class AuthRepository {
       'email': email,
       'phone': phone,
       'publicKey': null,
+      'isAdmin': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -158,6 +159,14 @@ class AuthRepository {
     final doc = await _db.collection(FirebaseConstants.users).doc(uid).get();
     if (!doc.exists) return null;
     return UserModel.fromDoc(doc);
+  }
+
+  Stream<UserModel?> streamUserProfile(String uid) {
+    return _db
+        .collection(FirebaseConstants.users)
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists ? UserModel.fromDoc(doc) : null);
   }
 }
 

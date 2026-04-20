@@ -1,0 +1,176 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-19T15:42:17.853Z",
+    "version": 2
+  },
+  "entries": {
+    "Firestore:users/{uid}:update:openMailbox": {
+      "method": "Firestore.update",
+      "path": "users/{uid}",
+      "params": [
+        "publicKey",
+        "publicKeyUploadedAt",
+        "isReadyToReceive",
+        "sessionActive"
+      ],
+      "file": "lib/data/services/encryption_service.dart",
+      "description": "Opens receiver mailbox — publishes RSA public key and marks user ready"
+    },
+    "Firestore:users/{uid}:update:closeMailbox": {
+      "method": "Firestore.update",
+      "path": "users/{uid}",
+      "params": [
+        "publicKey:delete",
+        "isReadyToReceive",
+        "sessionActive",
+        "lastSessionClosed",
+        "selectedSenderUid:delete"
+      ],
+      "file": "lib/data/services/encryption_service.dart",
+      "description": "Closes receiver mailbox (kill switch) — removes public key and authorization"
+    },
+    "Firestore:handshakes:batch:selectSenderHandshake": {
+      "method": "Firestore.batch",
+      "path": "handshakes + users/{uid}",
+      "params": [
+        "senderUid",
+        "senderUsername",
+        "publicKey",
+        "status:handshake_complete",
+        "selectedSenderUid"
+      ],
+      "file": "lib/data/repositories/key_repository.dart",
+      "description": "Atomic WriteBatch: sets selectedSenderUid on receiver doc + upserts handshake doc with handshake_complete status"
+    },
+    "Firestore:handshakes:stream:streamHandshakesForSender": {
+      "method": "Firestore.snapshots",
+      "path": "handshakes WHERE senderId==uid AND status==handshake_complete",
+      "params": [
+        "senderId"
+      ],
+      "file": "lib/data/repositories/key_repository.dart",
+      "description": "Real-time stream used by SenderScreen to detect receiver authorization"
+    },
+    "Firestore:transfers:uploadAndCreate": {
+      "method": "Storage.putData + Firestore.set",
+      "path": "transfers/{transferId} + Storage:transfers/{transferId}/encrypted_file",
+      "params": [
+        "transferId",
+        "encryptedBytes",
+        "fileName",
+        "fileSize",
+        "senderId",
+        "receiverId",
+        "encryptedAESKeyB64",
+        "ivB64"
+      ],
+      "file": "lib/data/repositories/transfer_repository.dart",
+      "description": "Uploads encrypted file to Storage then writes transfer document; yields progress stream 0.0→1.0"
+    },
+    "Firestore:transfers:stream:watchPendingTransfers": {
+      "method": "Firestore.snapshots",
+      "path": "transfers WHERE receiverId==uid AND status==pending",
+      "params": [
+        "receiverId"
+      ],
+      "file": "lib/data/repositories/transfer_repository.dart",
+      "description": "Real-time stream used by ReceiverScreen to detect incoming file transfers"
+    },
+    "Firestore:transfers:update:updateReceiverStatus": {
+      "method": "Firestore.update",
+      "path": "transfers/{transferId}",
+      "params": [
+        "transferId",
+        "status",
+        "receiverStatusUpdatedAt"
+      ],
+      "file": "lib/data/repositories/transfer_repository.dart",
+      "description": "Updates receiver-side status field for non-repudiation tracking"
+    },
+    "Firestore:transfer_logs:writeAuditLog": {
+      "method": "Firestore.add",
+      "path": "transfer_logs",
+      "params": [
+        "senderId",
+        "receiverId",
+        "participants",
+        "fileName",
+        "fileSize",
+        "status"
+      ],
+      "file": "lib/data/repositories/transfer_repository.dart",
+      "description": "Writes immutable audit log entry for each completed transfer"
+    },
+    "Firestore:users/{uid}/notifications:add": {
+      "method": "Firestore.add",
+      "path": "users/{uid}/notifications",
+      "params": [
+        "toUserId",
+        "fromUsername",
+        "type",
+        "message",
+        "createdAt",
+        "read"
+      ],
+      "file": "lib/data/repositories/key_repository.dart",
+      "description": "Sends RSA key / file received / friend request notifications to user inbox"
+    },
+    "Firestore:users:searchUsers": {
+      "method": "Firestore.where",
+      "path": "users WHERE username >= query AND username <= query+\\uf8ff LIMIT 10",
+      "params": [
+        "query"
+      ],
+      "file": "lib/data/repositories/key_repository.dart",
+      "description": "Username prefix search for finding connections"
+    },
+    "Firestore:users/connections:acceptConnectionRequest": {
+      "method": "Firestore.batch",
+      "path": "users/{uid}/connections + users/{senderId}/connections",
+      "params": [
+        "docId",
+        "senderId"
+      ],
+      "file": "lib/data/repositories/key_repository.dart",
+      "description": "Accepts friend request — atomic batch writes connection to both user docs"
+    },
+    "Storage:transfers/{id}:download": {
+      "method": "Storage.getData",
+      "path": "transfers/{transferId}/encrypted_file",
+      "params": [
+        "transferId"
+      ],
+      "file": "lib/data/repositories/transfer_repository.dart",
+      "description": "Downloads encrypted file bytes for decryption; max 100 MB"
+    },
+    "MethodChannel:isFlagSecureActive": {
+      "method": "MethodChannel.invokeMethod",
+      "path": "com.example.cryptransfer/security",
+      "params": [],
+      "file": "lib/core/utils/security_lifecycle_mixin.dart",
+      "description": "Queries Kotlin MainActivity to verify FLAG_SECURE is active before 64 KB chunk reads"
+    },
+    "Auth:register": {
+      "method": "FirebaseAuth.createUserWithEmailAndPassword",
+      "path": "auth + users/{uid}",
+      "params": [
+        "username",
+        "email",
+        "phone",
+        "password"
+      ],
+      "file": "lib/data/repositories/auth_repository.dart",
+      "description": "Creates Firebase Auth account + Firestore user document"
+    },
+    "Auth:loginWithUsername": {
+      "method": "FirebaseAuth.signInWithEmailAndPassword",
+      "path": "users WHERE username==username LIMIT 1",
+      "params": [
+        "username",
+        "password"
+      ],
+      "file": "lib/data/repositories/auth_repository.dart",
+      "description": "Username-based login — resolves email from Firestore then signs in"
+    }
+  }
+}
