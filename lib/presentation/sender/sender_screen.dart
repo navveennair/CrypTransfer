@@ -150,7 +150,7 @@ class _SenderScreenState extends State<SenderScreen>
   Future<void> _pickFile() async {
     _wipeSensitiveData();
     try {
-      final result = await FilePicker.pickFiles(withData: true);
+      final result = await FilePicker.pickFiles(withData: kIsWeb);
       if (result == null || result.files.isEmpty) return;
       setState(() {
         _file = result.files.first;
@@ -168,27 +168,30 @@ class _SenderScreenState extends State<SenderScreen>
 
   Future<void> _encryptFile() async {
     final file = _file;
-    if (file == null || file.bytes == null) return;
+    if (file == null) return;
+    // TransferService.resolve handles null bytes on mobile (uses file.path).
     setState(() => _encrypting = true);
+
+    // Kotlin sync: confirm FLAG_SECURE is active BEFORE any sensitive bytes
+    // enter the Dart heap.  Checked outside the try block so an early return
+    // here leaves no registered buffers behind.  Fails open (returns true) on
+    // non-Android platforms and in test environments.
+    if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
+      if (mounted) {
+        setState(() => _encrypting = false);
+        _showError(
+          'Screen is not protected (FLAG_SECURE inactive). '
+          'Cannot process file on an unsecured window.',
+        );
+      }
+      return;
+    }
 
     try {
       final key = _secureBytes(32); // 256-bit AES key
       final iv = _secureBytes(12);  // 96-bit GCM nonce
       registerBuffer(key);
       registerBuffer(iv);
-
-      // Kotlin sync: confirm FLAG_SECURE is active before sensitive bytes
-      // enter the Dart heap.  Fails open (returns true) on non-Android
-      // platforms and in test environments.
-      if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
-        if (mounted) {
-          _showError(
-            'Screen is not protected (FLAG_SECURE inactive). '
-            'Cannot process file on an unsecured window.',
-          );
-        }
-        return;
-      }
 
       // Read in 64 KB chunks on mobile/desktop; fall back to in-memory bytes on web.
       final plaintext = await TransferService.resolve(
