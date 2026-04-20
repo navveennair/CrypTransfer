@@ -152,8 +152,19 @@ class _SenderScreenState extends State<SenderScreen>
     try {
       final result = await FilePicker.pickFiles(withData: kIsWeb);
       if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      if (!kIsWeb && file.path == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("This file type isn't supported — try saving it locally first."),
+            ),
+          );
+        }
+        return;
+      }
       setState(() {
-        _file = result.files.first;
+        _file = file;
         _encryptedBytes = null;
         _aesKey = null;
         _iv = null;
