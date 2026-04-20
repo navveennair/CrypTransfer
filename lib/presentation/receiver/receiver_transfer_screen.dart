@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../core/utils/session_manager.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import 'decrypt_screen.dart';
@@ -14,11 +16,13 @@ import 'decrypt_screen.dart';
 class ReceiverTransferScreen extends StatefulWidget {
   final String transferId;
   final String fileName; // passed immediately from Firestore change doc
+  final SessionManager sessionManager; // kill-switch propagation
 
   const ReceiverTransferScreen({
     super.key,
     required this.transferId,
     required this.fileName,
+    required this.sessionManager,
   });
 
   @override
@@ -38,7 +42,7 @@ class _StatusStep {
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SecurityLifecycleMixin<ReceiverTransferScreen> {
   final _repo = TransferRepository();
   final _auth = AuthRepository();
 
@@ -51,6 +55,15 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   bool _metadataLoaded = false;
 
   bool _allStepsDone = false;
+
+  /// Set to true in [dispose] so that pending [Future.delayed] chains in
+  /// [_runSteps] abort cleanly without touching a disposed widget or
+  /// animation controller.
+  bool _disposed = false;
+
+  /// Set to true when [SessionState.terminated] fires mid-screen; blocks
+  /// further UI progression and triggers immediate navigation away.
+  bool _cancelled = false;
 
   late final List<_StatusStep> _steps = [
     _StatusStep('📡  Establishing secure connection…'),
@@ -71,14 +84,29 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeInOut),
     );
 
+    // Wire up kill-switch: pop immediately if SessionManager fires terminated.
+    widget.sessionManager.stateNotifier.addListener(_onSessionStateChanged);
+
     _loadMetadata();
     _runSteps();
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    widget.sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     _bounceCtrl.dispose();
-    super.dispose();
+    super.dispose(); // SecurityLifecycleMixin.dispose() → wipeAll()
+  }
+
+  // ─── Kill-switch handler ─────────────────────────────────────────────────
+
+  void _onSessionStateChanged() {
+    if (widget.sessionManager.state == SessionState.terminated && mounted) {
+      _cancelled = true;
+      wipeAll();
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   // ─── Load transfer metadata ──────────────────────────────────────────────
@@ -105,11 +133,11 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   Future<void> _runSteps() async {
     for (int i = 0; i < _steps.length; i++) {
       await Future.delayed(const Duration(milliseconds: 400));
-      if (!mounted) return;
+      if (!mounted || _disposed || _cancelled) return;
       setState(() => _steps[i].active = true);
 
       await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
+      if (!mounted || _disposed || _cancelled) return;
       setState(() {
         _steps[i].active = false;
         _steps[i].done = true;
@@ -117,7 +145,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     }
 
     await Future.delayed(const Duration(milliseconds: 200));
-    if (mounted) setState(() => _allStepsDone = true);
+    if (mounted && !_disposed && !_cancelled) setState(() => _allStepsDone = true);
   }
 
   // ─── Navigate to DecryptScreen ───────────────────────────────────────────
@@ -147,6 +175,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
 
     return PopScope(
       canPop: _allStepsDone,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) wipeAll(); // SecurityLifecycleMixin already applied (CR-01)
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text('Incoming File',

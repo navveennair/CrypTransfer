@@ -101,7 +101,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReceiverTransferScreen(transferId: id, fileName: name),
+        builder: (_) => ReceiverTransferScreen(
+          transferId: id,
+          fileName: name,
+          sessionManager: _sessionManager,
+        ),
       ),
     );
   }
