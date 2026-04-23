@@ -23,6 +23,18 @@ mixin SecurityLifecycleMixin<T extends StatefulWidget> on State<T> {
   static final _securityChannel =
       const MethodChannel('com.example.cryptransfer/security');
 
+  /// Sends a best-effort `clearSession` call to the Kotlin layer, triggering
+  /// a GC pressure hint after a receiver session ends.
+  ///
+  /// No RSA/AES key material is held natively — all crypto runs in Dart
+  /// `compute()` isolates.  This call only hints the Android GC to release any
+  /// residual native heap allocations.  Failures are silently swallowed.
+  static Future<void> requestNativeClear() async {
+    try {
+      await _securityChannel.invokeMethod<void>('clearSession');
+    } catch (_) {}
+  }
+
   /// Returns `true` when Android `FLAG_SECURE` is confirmed active on the host
   /// window — verified via a synchronous Kotlin query on the same channel that
   /// sets the flag in `MainActivity.onCreate`.

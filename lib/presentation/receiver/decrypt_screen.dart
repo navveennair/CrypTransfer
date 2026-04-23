@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:open_file_plus/open_file_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/firebase_constants.dart';
@@ -44,6 +46,8 @@ class DecryptScreen extends StatefulWidget {
 
 class _DecryptScreenState extends State<DecryptScreen>
     with SecurityLifecycleMixin<DecryptScreen> {
+  static const _fileChannel = MethodChannel('com.example.cryptransfer/file');
+
   final _repo = TransferRepository();
   final _auth = AuthRepository();
 
@@ -53,14 +57,25 @@ class _DecryptScreenState extends State<DecryptScreen>
   late TransferModel _transfer;
   String _senderUsername = '';
 
-  // Radioactive buffers — zeroed by SecurityLifecycleMixin on dispose.
+  // Radioactive buffer — zeroed by SecurityLifecycleMixin on dispose.
   Uint8List? _decryptedBytes;
+
+  // Temp file path for preview; deleted on wipe, pop, or dispose.
+  String? _tempFilePath;
+
   bool _saving = false;
+  bool _previewing = false;
 
   @override
   void initState() {
     super.initState();
     _loadTransfer();
+  }
+
+  // Zero remanence: delete temp file whenever buffers are wiped.
+  @override
+  void onBuffersWiped() {
+    _deleteTempFile();
   }
 
   // ─── Step: load transfer metadata ────────────────────────────────────────
@@ -69,7 +84,6 @@ class _DecryptScreenState extends State<DecryptScreen>
     try {
       final transfer = await _repo.getTransfer(widget.transferId);
 
-      // Sender username is not stored in TransferModel — fetch from users.
       final results = await Future.wait([
         _auth.getUserProfile(transfer.senderId),
         _repo.markReceived(widget.transferId),
@@ -99,14 +113,11 @@ class _DecryptScreenState extends State<DecryptScreen>
     setState(() => _phase = _Phase.decrypting);
 
     try {
-      // Signal to sender that download has begun.
       await _repo.updateReceiverStatus(widget.transferId, 'downloading');
 
-      // Download encrypted file bytes from Firebase Storage.
       final encryptedBytes =
           await _repo.downloadEncryptedFile(widget.transferId);
 
-      // Read RSA private key from secure storage.
       const storage = FlutterSecureStorage();
       final privateKeyJson =
           await storage.read(key: FirebaseConstants.privateKeyStorageKey);
@@ -114,22 +125,15 @@ class _DecryptScreenState extends State<DecryptScreen>
         throw Exception('Private RSA key not found on this device');
       }
 
-      // RSA-OAEP decrypt the AES key in a background isolate.
-      // compute() serialises args — the isolate receives its own copy.
       final encryptedAESKeyBytes = base64Decode(_transfer.encryptedAESKey);
-      final decryptFuture = compute(
+      final aesKey = await compute(
         _decryptAesKeyIsolate,
         [privateKeyJson, encryptedAESKeyBytes],
       );
-      final aesKey = await decryptFuture;
-
-      // Register AES key as radioactive — zeroed on dispose or wipeAll().
       registerBuffer(aesKey);
 
-      // Signal to sender that AES decryption is beginning.
       await _repo.updateReceiverStatus(widget.transferId, 'decrypting');
 
-      // AES-256-GCM decrypt the file payload.
       final ivBuffer = Uint8List.fromList(base64Decode(_transfer.iv));
       registerBuffer(ivBuffer);
 
@@ -138,22 +142,21 @@ class _DecryptScreenState extends State<DecryptScreen>
         aesKey,
         ivBuffer,
       );
-
-      // Register decrypted bytes as radioactive.
       registerBuffer(decryptedBytes);
 
-      // Signal to sender that decryption succeeded.
       await _repo.updateReceiverStatus(widget.transferId, 'decrypted');
 
-      // Store for the save step — do NOT navigate yet.
-      // aesKey is already tracked by registerBuffer; no separate field needed.
       _decryptedBytes = decryptedBytes;
+
+      // Write to temp dir so the file is available for preview immediately.
+      final tempDir = await getTemporaryDirectory();
+      _tempFilePath = '${tempDir.path}/${_transfer.fileName}';
+      await File(_tempFilePath!).writeAsBytes(_decryptedBytes!);
 
       if (mounted) {
         setState(() => _phase = _Phase.done);
       }
     } catch (e) {
-      // Wipe everything before surfacing the error.
       wipeAll();
       if (mounted) {
         setState(() {
@@ -164,23 +167,51 @@ class _DecryptScreenState extends State<DecryptScreen>
     }
   }
 
-  // ─── Step: save then suicide ──────────────────────────────────────────────
+  // ─── Step: preview ────────────────────────────────────────────────────────
+
+  Future<void> _preview() async {
+    if (_tempFilePath == null) return;
+    setState(() => _previewing = true);
+    try {
+      final result = await OpenFile.open(_tempFilePath!);
+      if (result.type == ResultType.noAppToOpen && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No app found to open this file type')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _previewing = false);
+    }
+  }
+
+  // ─── Step: save then navigate ─────────────────────────────────────────────
 
   Future<void> _saveAndWipe() async {
     setState(() => _saving = true);
     try {
-      final savedPath = await _saveFile();
+      // Native channel writes to public Downloads via MediaStore (Android 10+)
+      // or direct FileOutputStream (Android <10).
+      await _fileChannel.invokeMethod<String>('saveToDownloads', {
+        'fileName': _transfer.fileName,
+        'bytes': _decryptedBytes!,
+      });
 
-      // Signal to sender that the file has been saved to disk.
       await _repo.updateReceiverStatus(widget.transferId, 'saved');
 
-      // Immediately wipe decrypted buffer.
+      // Eagerly wipe decrypted bytes before navigating.
       _decryptedBytes?.fillRange(0, _decryptedBytes!.length, 0);
       _decryptedBytes = null;
-      wipeAll(); // zero all registered buffers
+      _deleteTempFile();
+      wipeAll();
 
-      // One-way navigation — no back button to this screen.
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('File saved to Downloads'),
+            backgroundColor: Colors.green.shade600,
+            duration: const Duration(seconds: 3),
+          ),
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -191,9 +222,7 @@ class _DecryptScreenState extends State<DecryptScreen>
               senderUsername: _senderUsername,
               senderId: _transfer.senderId,
               receiverId: _transfer.receiverId,
-              savedPath: savedPath,
-              // decryptedBytes intentionally omitted — already saved & wiped.
-              // aesKey intentionally omitted — already wiped.
+              savedPath: 'Downloads/${_transfer.fileName}',
               transferredAt: DateTime.now(),
             ),
           ),
@@ -209,22 +238,15 @@ class _DecryptScreenState extends State<DecryptScreen>
     }
   }
 
-  // ─── Save decrypted bytes to the Downloads directory ─────────────────────
+  // ─── Delete temp file (fire-and-forget, zero-remanence) ──────────────────
 
-  Future<String> _saveFile() async {
-    final Directory saveDir;
-    if (Platform.isAndroid) {
-      final androidDownloads = Directory('/storage/emulated/0/Download');
-      saveDir = await androidDownloads.exists()
-          ? androidDownloads
-          : await getApplicationDocumentsDirectory();
-    } else {
-      saveDir = await getDownloadsDirectory() ??
-          await getApplicationDocumentsDirectory();
-    }
-    final path = '${saveDir.path}/${_transfer.fileName}';
-    await File(path).writeAsBytes(_decryptedBytes!);
-    return path;
+  void _deleteTempFile() {
+    final path = _tempFilePath;
+    _tempFilePath = null;
+    if (path == null) return;
+    File(path).exists().then((exists) {
+      if (exists) File(path).delete().ignore();
+    }).ignore();
   }
 
   String _fmtSize(int bytes) {
@@ -378,6 +400,7 @@ class _DecryptScreenState extends State<DecryptScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Success header ────────────────────────────────────────────────
         Center(
           child: Container(
             width: 72,
@@ -414,26 +437,67 @@ class _DecryptScreenState extends State<DecryptScreen>
           style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
           textAlign: TextAlign.center,
         ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.errorContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text('Save failed: $_error',
-                style: TextStyle(fontSize: 13, color: cs.error)),
+
+        // ── Status line ───────────────────────────────────────────────────
+        const SizedBox(height: 16),
+        if (_error != null)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 14, color: cs.error),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Save failed: $_error',
+                  style: TextStyle(fontSize: 12, color: cs.error),
+                ),
+              ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline,
+                  size: 14, color: Colors.green.shade600),
+              const SizedBox(width: 6),
+              Text(
+                'Ready to save',
+                style: TextStyle(
+                    fontSize: 12, color: Colors.green.shade600),
+              ),
+            ],
           ),
-        ],
+
         const Spacer(),
+
+        // ── Preview button ────────────────────────────────────────────────
+        OutlinedButton.icon(
+          icon: _previewing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.visibility_rounded),
+          label: Text(_previewing ? 'Opening…' : 'Preview File'),
+          onPressed: (_previewing || _saving || _tempFilePath == null)
+              ? null
+              : _preview,
+          style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50)),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ── Save & Continue button ─────────────────────────────────────────
         FilledButton.icon(
           icon: _saving
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child:
-                      CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.save_alt_rounded),
           label: Text(_saving ? 'Saving…' : 'Save & Continue'),

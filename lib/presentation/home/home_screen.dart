@@ -203,10 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
             
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection(FirebaseConstants.transferLogs)
-                  .where('participants',
-                      arrayContains:
-                          FirebaseAuth.instance.currentUser?.uid ?? '')
+                  .collection(FirebaseConstants.users)
+                  .doc(FirebaseAuth.instance.currentUser?.uid ?? '')
+                  .collection(FirebaseConstants.auditLogs)
                   .orderBy('loggedAt', descending: true)
                   .limit(10)
                   .snapshots(),
@@ -250,10 +249,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     final isSender = data['senderId'] == uid;
                     final fileName =
                         data['fileName'] as String? ?? 'file';
-                    final date =
-                        data['transferDate'] as String? ?? '';
-                    final time =
-                        data['transferTime'] as String? ?? '';
+                    final ts = data['loggedAt'] as Timestamp?;
+                    final dt = ts?.toDate().toLocal();
+                    final date = dt != null
+                        ? '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}'
+                        : '';
+                    final time = dt != null
+                        ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+                        : '';
+                    final senderUsername =
+                        data['senderUsername'] as String?;
+                    final receiverUsername =
+                        data['receiverUsername'] as String?;
+                    final peer =
+                        isSender ? receiverUsername : senderUsername;
                     return GlassContainer(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 14),
@@ -289,12 +298,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
-                                  '$date • $time',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: cs.onSurfaceVariant),
-                                ),
+                                if (peer != null)
+                                  Text(
+                                    '${isSender ? "→" : "←"} @$peer',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (date.isNotEmpty)
+                                  Text(
+                                    '$date • $time',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: cs.onSurfaceVariant),
+                                  ),
                               ],
                             ),
                           ),

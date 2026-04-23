@@ -266,6 +266,16 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
   - `EncryptionService.unbindSession()` cancels the subscription (called on deliberate toggle-off and `dispose()`)
   - `SessionManager.wipeSession()` simplified: transitions state + calls `onBuffersWipe()`; `uid` param removed (crypto cleanup is now reactive)
   - Graph impact: `Encryption Module Documentation` betweenness dropped 0.041 → 0.035; direct EXTRACTED edge `SessionManager.stateStream → EncryptionService.bindSession` now exists
+- [x] **Handshake is now a user-triggered event with reactive UI feedback** — `_FindSenderSheet` search results show `'Friend'` (green text) for connected users alongside a `GlassButton` labeled `'Send'`; tapping enters a per-user loading state (spinner replaces button), writes the receiver's RSA public key to Firestore via `KeyRepository.publishRSAPublicKey()`, then transforms the button into a green checkmark on success; on Firestore failure the button resets and a red `SnackBar` surfaces the error for retry
+  - `publishRSAPublicKey(targetUserId)` uses a deterministic doc ID `${receiverUid}_${senderUid}` in the `handshakes/` collection — idempotent re-sends produce no duplicates; `streamHandshakesForSender()` on the sender side picks up the write immediately and transitions the sender out of the "Waiting for Connection" state
+  - `SecurityLifecycleMixin.requestNativeClear()` static method added — invokes `clearSession` on the `com.example.cryptransfer/security` MethodChannel; `EncryptionService.closeReceiverSession()` calls it as step 7 after all Firestore/storage wipes complete
+  - `MainActivity.kt` `clearSession` handler: no key material is held natively (all RSA/AES runs in Dart `compute()` isolates), so the handler calls `System.gc()` as a best-effort Kotlin heap-release hint
+
+## ✅ Static Analysis
+
+`flutter analyze` passes with **No issues found** as of 2026-04-20. Fixed in final quality pass:
+- `unnecessary_underscores` — replaced `__`/`___` with `_` in `PageRouteBuilder` callbacks (`splash_screen.dart`)
+- Deprecation — replaced `Switch.activeColor` with `activeThumbColor` (Material 3) (`receiver_screen.dart`)
 
 ## 🔲 Known Open Issues
 

@@ -69,8 +69,10 @@ class _EndSessionScreenState extends State<EndSessionScreen>
   late final List<_Step> _steps = [
     _Step(icon: Icons.memory_rounded,        label: 'Zero AES key from memory'),
     _Step(icon: Icons.cloud_off_rounded,     label: 'Delete encrypted file from storage'),
-    _Step(icon: Icons.receipt_long_rounded,  label: 'Write audit log'),
+    _Step(icon: Icons.receipt_long_rounded,  label: 'Write immutable audit log'),
     _Step(icon: Icons.delete_forever_rounded,label: 'Delete transfer record'),
+    _Step(icon: Icons.handshake_rounded,     label: 'Purge handshake record'),
+    _Step(icon: Icons.person_off_rounded,    label: 'Clear receiver authorization'),
   ];
 
   @override
@@ -135,19 +137,44 @@ class _EndSessionScreenState extends State<EndSessionScreen>
       }
       await done(1);
 
-      // ── Step 2: Write minimal audit log ──────────────────────────────
+      // ── Step 2: Write immutable audit log to each user's sub-collection ─
+      // Written atomically to both users/{senderId}/audit_logs and
+      // users/{receiverId}/audit_logs so each participant owns an immutable
+      // personal copy. No shared top-level collection needed.
       await tick(2);
-      await FirebaseFirestore.instance
-          .collection(FirebaseConstants.transferLogs)
-          .add({
+      final auditPayload = <String, dynamic>{
         'senderId': widget.senderId,
         'receiverId': widget.receiverId,
-        'participants': [widget.senderId, widget.receiverId],
+        'senderUsername': widget.senderUsername,
+        'receiverUsername': widget.receiverUsername,
         'fileName': widget.fileName,
         'fileSize': widget.fileSize,
         'status': 'completed',
+        // 'timestamp' is the canonical spec field.
+        // 'loggedAt' is kept for backward-compatible home-screen sort.
+        'timestamp': FieldValue.serverTimestamp(),
         'loggedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      final auditBatch = FirebaseFirestore.instance.batch();
+      // Sender's personal audit record
+      auditBatch.set(
+        FirebaseFirestore.instance
+            .collection(FirebaseConstants.users)
+            .doc(widget.senderId)
+            .collection(FirebaseConstants.auditLogs)
+            .doc(),
+        auditPayload,
+      );
+      // Receiver's personal audit record
+      auditBatch.set(
+        FirebaseFirestore.instance
+            .collection(FirebaseConstants.users)
+            .doc(widget.receiverId)
+            .collection(FirebaseConstants.auditLogs)
+            .doc(),
+        auditPayload,
+      );
+      await auditBatch.commit();
       await done(2);
 
       // ── Step 3: Delete Firestore transfer document ───────────────────
@@ -157,6 +184,41 @@ class _EndSessionScreenState extends State<EndSessionScreen>
           .doc(widget.transferId)
           .delete();
       await done(3);
+
+      // ── Step 4: Purge handshake document ─────────────────────────────
+      await tick(4);
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection(FirebaseConstants.handshakes)
+            .where('receiverId', isEqualTo: widget.receiverId)
+            .where('senderId', isEqualTo: widget.senderId)
+            .get();
+        if (snap.docs.isNotEmpty) {
+          final batch = FirebaseFirestore.instance.batch();
+          for (final doc in snap.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
+        }
+      } on FirebaseException catch (_) {
+        // Best-effort — handshake purge failure must not block cleanup
+      }
+      await done(4);
+
+      // ── Step 5: Clear receiver authorization (Zero Remanence) ────────
+      // Remove selectedSenderUid from the receiver's Firestore user doc.
+      // Without this, the receiver's Firestore document retains a permanent
+      // authorization artifact that could allow stale transfer creation.
+      await tick(5);
+      try {
+        await FirebaseFirestore.instance
+            .collection(FirebaseConstants.users)
+            .doc(widget.receiverId)
+            .update({'selectedSenderUid': FieldValue.delete()});
+      } on FirebaseException catch (_) {
+        // Best-effort — field may already be absent
+      }
+      await done(5);
 
       // ── All done ──────────────────────────────────────────────────────
       await Future.delayed(const Duration(milliseconds: 300));

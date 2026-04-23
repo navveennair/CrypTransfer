@@ -1,13 +1,115 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../app_theme.dart';
 import '../../core/utils/session_manager.dart';
 
+// ─── GlassContainer ───────────────────────────────────────────────────────────
+class GlassContainer extends StatelessWidget {
+  final Widget child;
+  final double? width;
+  final double? height;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double borderRadius;
+  final double blur;
+  final Color? color;
+  final Color? borderColor;
+
+  const GlassContainer({
+    super.key,
+    required this.child,
+    this.width,
+    this.height,
+    this.padding,
+    this.margin,
+    this.borderRadius = 16,
+    this.blur = AppTheme.glassBlur,
+    this.color,
+    this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      width: width,
+      height: height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: color ?? AppTheme.glassBg,
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(
+                color: borderColor ?? AppTheme.glassBorder,
+                width: 1.5,
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── GlassButton ──────────────────────────────────────────────────────────────
+class GlassButton extends StatelessWidget {
+  final Widget label;
+  final Widget? icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+  final double borderRadius;
+
+  const GlassButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.icon,
+    this.color,
+    this.borderRadius = 14,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: onPressed == null ? 0.5 : 1.0,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: GlassContainer(
+          borderRadius: borderRadius,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          color: color?.withValues(alpha: 0.15) ?? AppTheme.glassBg,
+          borderColor: color?.withValues(alpha: 0.3) ?? AppTheme.glassBorder,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                icon!,
+                const SizedBox(width: 10),
+              ],
+              DefaultTextStyle(
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: color ?? AppTheme.textMain,
+                ),
+                child: label,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── StepCard ─────────────────────────────────────────────────────────────────
-// Shared step card used by SenderScreen and ReceiverScreen.
-// Completed step → green border + green checkmark circle.
-// Active step    → purple border + purple number circle.
-// Locked step    → grey border + grey number circle.
 
 class StepCard extends StatelessWidget {
   final int step;
@@ -29,16 +131,16 @@ class StepCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: done ? Colors.green.shade400 : cs.outlineVariant,
+          color: done ? Colors.green.shade400 : cs.outline,
           width: done ? 1.5 : 1.0,
         ),
         color: done
             ? Colors.green.withValues(alpha: 0.05)
-            : cs.surfaceContainerLow,
+            : cs.surface,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -46,34 +148,41 @@ class StepCard extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: done ? Colors.green.shade600 : cs.primary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (done ? Colors.green : cs.primary).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: done
-                      ? const Icon(Icons.check, color: Colors.white, size: 16)
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
                       : Text(
                           '$step',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Text(
                 title,
                 style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600, fontSize: 14),
+                    fontWeight: FontWeight.w600, fontSize: 15),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           child,
         ],
       ),
@@ -96,15 +205,21 @@ class UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: cs.primaryContainer,
-      child: Text(
-        username.isNotEmpty ? username[0].toUpperCase() : '?',
-        style: TextStyle(
-          color: cs.onPrimaryContainer,
-          fontWeight: FontWeight.bold,
-          fontSize: radius * 0.85,
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: cs.primary.withValues(alpha: 0.3), width: 2),
+      ),
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: cs.primary.withValues(alpha: 0.1),
+        child: Text(
+          username.isNotEmpty ? username[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: cs.primary,
+            fontWeight: FontWeight.bold,
+            fontSize: radius * 0.85,
+          ),
         ),
       ),
     );
@@ -131,7 +246,6 @@ class BottomSheetHandle extends StatelessWidget {
 }
 
 // ─── StatusBanner ─────────────────────────────────────────────────────────────
-// Animated fade-in banner for incoming file / session events.
 
 class StatusBanner extends StatefulWidget {
   final String message;
@@ -167,14 +281,11 @@ class _StatusBannerState extends State<StatusBanner>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _fade,
-      child: Container(
+      child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 16),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.deepPurple.shade700,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: Colors.deepPurple.withValues(alpha: 0.2),
+        borderColor: Colors.deepPurple.withValues(alpha: 0.3),
         child: Row(
           children: [
             const Icon(Icons.file_download_rounded,
@@ -194,7 +305,7 @@ class _StatusBannerState extends State<StatusBanner>
               TextButton(
                 onPressed: widget.onView,
                 style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70),
+                    foregroundColor: Colors.white),
                 child: const Text('View'),
               ),
           ],
@@ -214,41 +325,34 @@ class SecurityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.lock_outline_rounded,
-            size: 13, color: Colors.green),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.green,
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lock_outline_rounded,
+              size: 13, color: Colors.green),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.green,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 // ─── CrypButton ───────────────────────────────────────────────────────────────
-// Full-width primary action button with a pressed 3-D depth effect.
-// Use in place of FilledButton / FilledButton.icon for all primary CTAs.
-//
-// Parameters:
-//   color         — face colour when enabled (defaults to cs.primary)
-//   disabledColor — face colour when onPressed == null but the button should
-//                   remain coloured (e.g. loading spinners). Omit for the
-//                   standard grey disabled appearance.
-//   depth         — height of the 3-D shadow layer in logical pixels (default 4)
-//   height        — total face height (default 52, matching Size.fromHeight(52))
-//   sessionState  — when non-null (and != SessionState.open), overrides the
-//                   button colour + content to reflect the live session state:
-//                     locked     → amber  + lock icon
-//                     decrypting → primary + spinner (no label)
-//                     terminated → error   + block icon
 
 class CrypButton extends StatefulWidget {
   final Widget label;
@@ -305,7 +409,6 @@ class _CrypButtonState extends State<CrypButton> {
     final cs = Theme.of(context).colorScheme;
     final enabled = widget.onPressed != null;
 
-    // A non-open session state suppresses interaction regardless of onPressed.
     final sessionActive = widget.sessionState != null &&
         widget.sessionState != SessionState.open;
     final effectivelyEnabled = enabled && !sessionActive;
@@ -328,8 +431,6 @@ class _CrypButtonState extends State<CrypButton> {
       fg = cs.onSurface.withValues(alpha: 0.38);
     }
 
-    // Session-state colour overrides — applied after base colours so they
-    // always win, even when the button has a custom [color].
     if (sessionActive) {
       switch (widget.sessionState!) {
         case SessionState.locked:
@@ -353,7 +454,6 @@ class _CrypButtonState extends State<CrypButton> {
     final h = widget.height;
     final shift = (_pressed && effectivelyEnabled) ? d : 0.0;
 
-    // Content varies by session state.
     final Widget stateContent;
     switch (widget.sessionState) {
       case SessionState.decrypting:
@@ -402,7 +502,6 @@ class _CrypButtonState extends State<CrypButton> {
         height: h + d,
         child: Stack(
           children: [
-            // ── Shadow layer (stationary) ─────────────────────────────────
             Positioned(
               left: 0,
               right: 0,
@@ -411,11 +510,10 @@ class _CrypButtonState extends State<CrypButton> {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: shadow,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
             ),
-            // ── Face layer (slides down on press) ─────────────────────────
             AnimatedPositioned(
               duration: const Duration(milliseconds: 70),
               curve: Curves.easeOut,
@@ -426,7 +524,7 @@ class _CrypButtonState extends State<CrypButton> {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: face,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Center(
                   child: DefaultTextStyle.merge(

@@ -5,6 +5,7 @@ abstract class FirebaseConstants {
   static const String users = 'users';
   static const String transfers = 'transfers';
   static const String transferLogs = 'transfer_logs';
+  static const String auditLogs = 'audit_logs';
   static const String notifications = 'notifications';
   static const String friendRequests = 'friend_requests';
   static const String connections = 'connections';

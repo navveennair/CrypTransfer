@@ -45,6 +45,7 @@ dependencies:
   # File handling
   file_picker: ^11.0.2
   path_provider: ^2.1.0
+  open_file_plus: ^3.4.1
 
   # UI
   google_fonts: ^8.0.2

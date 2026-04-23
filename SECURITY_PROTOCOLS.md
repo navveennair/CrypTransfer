@@ -79,3 +79,57 @@ _secureBytes(32) ──► registerBuffer() ──► use ──► navigate ─
                                                      │
                                                 wipeAll() on error
 ```
+
+---
+
+## Risk Register
+
+### RISK-03: Handshake Dependency (Deliberate Constraint)
+
+**Status**: Accepted by design  
+**Category**: Availability / Usability trade-off
+
+**Description**: No file transfer can be initiated unless the receiver has explicitly performed the Sender Handshake (Step 3 on the Receiver screen). The receiver must be online, have RSA keys generated, and actively select a sender. There is no "auto-connect" or "accept all" mode.
+
+**Why this is deliberate**:  
+This constraint is the primary access-control gate for the entire transfer pipeline. The Firestore `transfers` collection create rule checks `selectedSenderUid == auth.uid` — if this field is absent (because the handshake never happened or was purged), the sender **cannot** create a transfer document, even if the two users are socially connected. This prevents unsolicited file delivery and enforces receiver-led session initiation.
+
+**Residual Risk**: A receiver who completes a handshake but never receives a file will retain a `selectedSenderUid` authorization on their Firestore user document until the session ends. This is mitigated by Step 5 of the Zero Remanence Purge (see below).
+
+---
+
+## Audit-Purge Lifecycle
+
+Every CrypTransfer session terminates through a deterministic 6-step sequence executed by `EndSessionScreen._endSession()`. This sequence is the enforcement point for both Zero Remanence and accountability.
+
+### The 6-Step Sequence
+
+| Step | Action | Failure Mode |
+|------|--------|-------------|
+| 0 | **Zero AES key** — `fillRange(0)` on in-memory `Uint8List` | Fatal — blocks remaining steps |
+| 1 | **Delete Storage file** — removes encrypted bytes from Firebase Storage | `object-not-found` is tolerated |
+| 2 | **Write audit log** — append-only record to `audit_logs` collection | Fatal — blocks remaining steps |
+| 3 | **Delete transfer document** — removes `transfers/{id}` from Firestore | Fatal — blocks remaining steps |
+| 4 | **Purge handshake document** — removes `handshakes/{id}` from Firestore | Best-effort (non-fatal) |
+| 5 | **Clear `selectedSenderUid`** — deletes the authorization field from receiver's user doc | Best-effort (non-fatal) |
+
+Steps 4 and 5 are best-effort because their failure does not compromise confidentiality — the encrypted file and AES key are already gone by that point. The worst case is a stale authorization artifact that prevents another transfer until the receiver toggles their Ready state.
+
+### Audit Log Immutability
+
+The `audit_logs` Firestore collection is governed by a strict rule:
+```
+allow update: if false;  // IMMUTABLE
+allow delete: if isAdmin();  // Emergency admin-only purge
+```
+
+Every record contains:
+- `senderId` / `receiverId` — participant UIDs
+- `participants` — array for array-contains queries (enforced by rules)
+- `senderUsername` / `receiverUsername` — display names at time of transfer
+- `fileName` / `fileSize` — transfer metadata
+- `status` — always `'completed'` at session end
+- `timestamp` / `loggedAt` — server-authoritative write time
+
+The `transfer_logs` collection records transfer-start events (created by `TransferLogService`) and is separate from the session-end `audit_logs`. Both are append-only and participant-readable.
+

@@ -8,6 +8,7 @@ import 'package:pointycastle/export.dart' hide State, Padding;
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_state.dart';
 
 // ─── Top-level isolate functions ──────────────────────────────────────────────
@@ -236,6 +237,13 @@ class EncryptionService {
   /// and purges all related key-transfer and notification records.
   static Future<void> closeReceiverSession(String uid) async {
     try {
+      // 0. Read user doc to capture selectedSenderUid for audit log before clearing it.
+      final userSnap = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .get();
+      final selectedSenderUid = userSnap.data()?['selectedSenderUid'] as String?;
+
       // 1. Remove public key from Firestore and mark user unavailable.
       await FirebaseFirestore.instance
           .collection(FirebaseConstants.users)
@@ -254,7 +262,20 @@ class EncryptionService {
       const storage = FlutterSecureStorage();
       await storage.delete(key: FirebaseConstants.privateKeyStorageKey);
 
-      // 3. Delete all handshakes initiated by this user (as receiver).
+      // 3. Write kill-switch audit log if an active session existed.
+      if (selectedSenderUid != null && selectedSenderUid.isNotEmpty) {
+        FirebaseFirestore.instance
+            .collection(FirebaseConstants.transferLogs)
+            .add({
+          'senderId': selectedSenderUid,
+          'receiverId': uid,
+          'participants': [selectedSenderUid, uid],
+          'status': 'kill_switch',
+          'loggedAt': FieldValue.serverTimestamp(),
+        }).ignore();
+      }
+
+      // 4. Delete all handshakes initiated by this user (as receiver).
       final handshakes = await FirebaseFirestore.instance
           .collection(FirebaseConstants.handshakes)
           .where('receiverId', isEqualTo: uid)
@@ -268,7 +289,7 @@ class EncryptionService {
         await batch.commit();
       }
 
-      // 4. Delete rsa_key_received notifications from this user's inbox (best-effort).
+      // 5. Delete rsa_key_received notifications from this user's inbox (best-effort).
       final notifications = await FirebaseFirestore.instance
           .collection(FirebaseConstants.users)
           .doc(uid)
@@ -284,12 +305,15 @@ class EncryptionService {
         await batch2.commit();
       }
 
-      // 5. Log security event (event names only — no key material).
+      // 6. Log security event (event names only — no key material).
       _logSecurityEvent(
         'Receiver_Session_Closed',
         uid,
         'Firestore_Key_Deleted & Local_Buffer_Zeroed',
       );
+
+      // 7. Best-effort Kotlin GC hint — no key bytes are held natively.
+      SecurityLifecycleMixin.requestNativeClear();
     } catch (e) {
       _logSecurityEvent('closeReceiverSession_FAILED', uid, e.toString());
       rethrow;

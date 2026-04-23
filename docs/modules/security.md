@@ -128,6 +128,50 @@ All crypto isolate paths now use `compute()` — Guardian scanner shows no WARNI
 - Logs event name + timestamp — **never** key material
 - Fire-and-forget (`.ignore()`) — does not block session operations
 
+## Risk Register
+
+### RISK-03: Handshake Dependency (Deliberate Constraint)
+**Description:** A file transfer can only be initiated when the receiver has explicitly
+authorized the sender via the handshake flow (`selectSenderHandshake`). The sender's
+`_WaitingForConnectionWidget` remains until a `handshake_complete` document appears.
+
+**Why deliberate:** This is the authorization mechanism. Removing it would allow any
+authenticated user to push files to any other user without consent.
+
+**Implication:** Senders cannot transfer files to users who have not opened their
+mailbox and selected them. Both parties must be online (or the receiver must have
+an open session) for the transfer to begin.
+
+**Firestore enforcement:** The `transfers` create rule verifies
+`users/{receiverId}.selectedSenderUid == auth.uid`, ensuring Firestore independently
+validates receiver authorization even if the client-side check is bypassed.
+
+---
+
+## Audit-Purge Lifecycle
+
+Each successful session terminates via `EndSessionScreen._endSession()` which executes
+a sequential, observable cleanup pipeline:
+
+| Step | Action | Collection/Location |
+|------|--------|---------------------|
+| 0 | Zero AES key from memory | In-process `Uint8List.fillRange(0)` |
+| 1 | Delete encrypted file | Firebase Storage `transfers/{id}/encrypted_file` |
+| 2 | Write immutable audit log | `transfer_logs` (no update/delete for non-admin) |
+| 3 | Delete transfer document | `transfers/{id}` |
+| 4 | Purge handshake record | `handshakes` where receiverId+senderId match |
+
+**Immutability guarantee:** Firestore rules allow `create` only; `update` and `delete`
+are restricted to admins. Participants can read their own entries via the `participants`
+array filter.
+
+**Kill-switch path:** `EncryptionService.closeReceiverSession()` writes a
+`status: 'kill_switch'` log entry to `transfer_logs` before purging handshakes when
+the receiver terminates the session mid-transfer. The `selectedSenderUid` is captured
+from Firestore before the user document is updated so the log entry is complete.
+
+---
+
 ## Agent Instructions
 1. Every screen handling crypto buffers MUST use `SecurityLifecycleMixin`
 2. `closeReceiverSession` MUST be called on all three trigger paths — not just toggle

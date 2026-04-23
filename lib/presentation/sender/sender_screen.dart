@@ -57,6 +57,11 @@ class _SenderScreenState extends State<SenderScreen>
 
   bool _encrypting = false;
   bool _encryptingKey = false;
+  double _encryptionProgress = 0.0;
+
+  // Broadcast stream so the progress indicator always gets the latest value.
+  final _progressCtrl = StreamController<double>.broadcast();
+  StreamSubscription<double>? _progressSub;
 
   bool get _receiverSelected => _receiverId != null;
   bool get _fileSelected => _file != null;
@@ -67,11 +72,16 @@ class _SenderScreenState extends State<SenderScreen>
   void initState() {
     super.initState();
     _startHandshakeListener();
+    _progressSub = _progressCtrl.stream.listen((p) {
+      if (mounted) setState(() => _encryptionProgress = p);
+    });
   }
 
   @override
   void dispose() {
     _handshakeSub?.cancel();
+    _progressSub?.cancel();
+    _progressCtrl.close();
     super.dispose();
   }
 
@@ -97,7 +107,11 @@ class _SenderScreenState extends State<SenderScreen>
     } else {
       final doc = snap.docs.first.data();
       final receiverId = doc['receiverId'] as String? ?? '';
-      final receiverUsername = doc['receiverUsername'] as String? ?? 'Unknown';
+      // 'receiverUsername' is the canonical field (written by updated key_repository).
+      // Fall back to legacy 'fromUsername' for documents created before this fix.
+      final receiverUsername = doc['receiverUsername'] as String?
+          ?? doc['fromUsername'] as String?
+          ?? 'Unknown';
       final publicKey = doc['publicKey'] as String?;
       if (publicKey != null &&
           publicKey.isNotEmpty &&
@@ -157,7 +171,10 @@ class _SenderScreenState extends State<SenderScreen>
   Future<void> _encryptFile() async {
     final file = _file;
     if (file == null) return;
-    setState(() => _encrypting = true);
+    setState(() {
+      _encrypting = true;
+      _encryptionProgress = 0.0;
+    });
 
     if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
       if (mounted) {
@@ -175,14 +192,26 @@ class _SenderScreenState extends State<SenderScreen>
       registerBuffer(key);
       registerBuffer(iv);
 
-      final plaintext = await TransferService.resolve(
-        filePath: file.path,
-        fallbackBytes: file.bytes,
-      );
+      // ── Phase 1: read file (0 → 70%) ────────────────────────────────
+      // readFileWithProgress uses explicit 64 KB RandomAccessFile reads,
+      // yielding to the event loop between pages so the progress bar animates.
+      Uint8List plaintext;
+      if (!kIsWeb && file.path != null && file.path!.isNotEmpty) {
+        plaintext = await TransferService.readFileWithProgress(
+          file.path!,
+          (p) => _progressCtrl.add(p * 0.7), // 0 → 70%
+        );
+      } else {
+        // Web fallback: bytes are already in memory, jump straight to encrypt.
+        plaintext = file.bytes ?? Uint8List(0);
+        _progressCtrl.add(0.7);
+      }
       registerBuffer(plaintext);
 
+      // ── Phase 2: AES-256-GCM in compute() isolate (70 → 100%) ───────
       final encrypted = await compute(_runAesGcm, [plaintext, key, iv]);
       registerBuffer(encrypted);
+      _progressCtrl.add(1.0); // encryption complete
 
       plaintext.fillRange(0, plaintext.length, 0);
       unregisterBuffer(plaintext);
@@ -398,22 +427,15 @@ class _SenderScreenState extends State<SenderScreen>
                         ivBytes: _iv!.length,
                         ciphertextBytes: _encryptedBytes!.length,
                       )
-                    : GlassButton(
-                        icon: _encrypting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.lock_rounded, size: 20),
-                        label: Text(_encrypting
-                            ? 'Encrypting…'
-                            : 'Encrypt with AES Key'),
-                        onPressed:
-                            _fileSelected && !_encrypting ? _encryptFile : null,
-                        color: Colors.amber.shade700,
-                      ),
+                    : _encrypting
+                        ? _EncryptionProgressWidget(
+                            progress: _encryptionProgress)
+                        : GlassButton(
+                            icon: const Icon(Icons.lock_rounded, size: 20),
+                            label: const Text('Encrypt with AES Key'),
+                            onPressed: _fileSelected ? _encryptFile : null,
+                            color: Colors.amber.shade700,
+                          ),
               ),
             ),
             const SizedBox(height: 16),
@@ -466,6 +488,53 @@ class _SenderScreenState extends State<SenderScreen>
           ],
         ),
       ),
+      ),
+    );
+  }
+}
+
+// ─── Encryption progress ─────────────────────────────────────────────────────
+
+class _EncryptionProgressWidget extends StatelessWidget {
+  final double progress;
+  const _EncryptionProgressWidget({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (progress * 100).toInt();
+    final isReading = progress < 0.7;
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      color: Colors.amber.withValues(alpha: 0.08),
+      borderColor: Colors.amber.withValues(alpha: 0.2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.amber,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isReading ? 'Reading file… $pct%' : 'Encrypting AES-256-GCM… $pct%',
+                style: const TextStyle(fontSize: 13, color: Colors.amber),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.amber.withValues(alpha: 0.15),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
       ),
     );
   }

@@ -25,6 +25,7 @@ Future: `--prd` mode for PRD extraction is planned for a follow-up PR.
 @C:/Users/navve/projects/cryptransfer/.claude/get-shit-done/workflows/import.md
 @C:/Users/navve/projects/cryptransfer/.claude/get-shit-done/references/ui-brand.md
 @C:/Users/navve/projects/cryptransfer/.claude/get-shit-done/references/gate-prompts.md
+@C:/Users/navve/projects/cryptransfer/.claude/get-shit-done/references/doc-conflict-engine.md
 </execution_context>
 
 <context>

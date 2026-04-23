@@ -518,6 +518,9 @@ class KeyRepository {
         'publicKey': publicKey,
         'sentAt': FieldValue.serverTimestamp(),
         'fromUsername': fromUsername,
+        // 'receiverUsername' is the canonical field read by SenderScreen.
+        // 'fromUsername' is kept for backward compatibility.
+        'receiverUsername': fromUsername,
         'status': 'handshake_complete',
       };
       if (existing.docs.isNotEmpty) {
@@ -550,6 +553,70 @@ class KeyRepository {
       rethrow;
     } on FirebaseException catch (e) {
       throw NetworkException('Handshake failed: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Returns the Firestore document ID of the active handshake between
+  /// [senderUid] and [receiverUid], or null if none exists.
+  ///
+  /// Used by [EndSessionScreen] for targeted deletion (avoids a second
+  /// query by storing the ID ahead of time).
+  Future<String?> getActiveHandshakeDocId({
+    required String senderUid,
+    required String receiverUid,
+  }) async {
+    try {
+      final snap = await _db
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: senderUid)
+          .where('receiverId', isEqualTo: receiverUid)
+          .limit(1)
+          .get();
+      return snap.docs.isEmpty ? null : snap.docs.first.id;
+    } on FirebaseException {
+      return null;
+    }
+  }
+
+  /// Publishes the current user's RSA public key to [targetUserId] using a
+  /// deterministic document ID (`${_uid}_${targetUserId}`), signalling the
+  /// sender that a secure channel is ready.
+  ///
+  /// Unlike [selectSenderHandshake], this does not lock the session to a
+  /// single sender — it only makes the public key available so the sender can
+  /// begin encrypting before the receiver formally selects them.
+  ///
+  /// The sender's [streamHandshakesForSender] stream picks up the write and
+  /// transitions them out of the "Waiting for Connection" state.
+  ///
+  /// Throws [KeyNotFoundException] if the receiver has not yet generated keys.
+  Future<void> publishRSAPublicKey(String targetUserId) async {
+    try {
+      final userDoc =
+          await _db.collection(FirebaseConstants.users).doc(_uid).get();
+      final publicKey = userDoc.data()?['publicKey'] as String?;
+      if (publicKey == null || publicKey.isEmpty) {
+        throw KeyNotFoundException('Generate RSA keys first');
+      }
+      final fromUsername = userDoc.data()?['username'] as String? ??
+          _auth.currentUser?.displayName ??
+          'Unknown';
+
+      // Deterministic doc ID ensures idempotent re-sends without duplicates.
+      final docId = '${_uid}_$targetUserId';
+      await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
+        'receiverId': _uid,
+        'senderId': targetUserId,
+        'publicKey': publicKey,
+        'receiverUsername': fromUsername,
+        'fromUsername': fromUsername,
+        'status': 'handshake_complete',
+        'sentAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } on KeyNotFoundException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw NetworkException('Failed to publish key: ${e.message ?? e.code}');
     }
   }
 

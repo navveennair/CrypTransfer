@@ -44,6 +44,36 @@ class TransferService {
     return result;
   }
 
+  /// Reads [filePath] in guaranteed [kChunkSize]-byte pages via
+  /// [RandomAccessFile.read], calling [onProgress] with a 0.0–1.0 fraction
+  /// after each chunk so callers can drive a real-time progress indicator.
+  ///
+  /// Unlike [readFile] (which uses [File.openRead] and may deliver all bytes
+  /// in one event on Android), this method forces an explicit async yield
+  /// between every 64 KB page — keeping the UI event loop free throughout.
+  static Future<Uint8List> readFileWithProgress(
+    String filePath,
+    void Function(double) onProgress,
+  ) async {
+    final file = File(filePath);
+    final length = await file.length();
+    final result = Uint8List(length);
+    final raf = await file.open(mode: FileMode.read);
+    int offset = 0;
+    try {
+      while (offset < length) {
+        final chunk = await raf.read(kChunkSize); // explicit 64 KB read
+        if (chunk.isEmpty) break;
+        result.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+        onProgress(offset / length);
+      }
+    } finally {
+      await raf.close();
+    }
+    return result;
+  }
+
   /// Streams the file at [filePath] in [kChunkSize]-byte chunks.
   ///
   /// Use when you need to inspect or hash raw bytes before encryption without

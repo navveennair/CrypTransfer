@@ -476,7 +476,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           Switch(
             value: _isReadyToReceive,
             onChanged: _step1Done && !_isTogglingReady ? _onToggleReady : null,
-            activeColor: Colors.green,
+            activeThumbColor: Colors.green,
           ),
         ],
       ),
@@ -686,6 +686,8 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
   Timer? _debounce;
   List<UserModel> _results = [];
   final Map<String, String> _statusCache = {};
+  final Map<String, bool> _sendingKey = {};
+  final Set<String> _keySentTo = {};
   late List<UserModel> _connectedList;
 
   @override
@@ -708,14 +710,22 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 500), () async {
-      final results = await widget.service.searchUsers(value.trim());
-      for (final u in results) {
-        if (!_statusCache.containsKey(u.uid)) {
-          final s = await widget.service.getConnectionStatus(u.uid);
-          _statusCache[u.uid] = s ?? 'none';
+      try {
+        final results = await widget.service.searchUsers(value.trim());
+        for (final u in results) {
+          if (!_statusCache.containsKey(u.uid)) {
+            try {
+              final s = await widget.service.getConnectionStatus(u.uid);
+              _statusCache[u.uid] = s ?? 'none';
+            } catch (_) {
+              _statusCache[u.uid] = 'none';
+            }
+          }
         }
+        if (mounted) setState(() => _results = results);
+      } catch (_) {
+        // Search failed silently — leave results empty
       }
-      if (mounted) setState(() => _results = results);
     });
   }
 
@@ -732,6 +742,37 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
       }
     } catch (e) {
       if (mounted) setState(() => _statusCache[uid] = 'none');
+    }
+  }
+
+  Future<void> _sendKey(UserModel user) async {
+    setState(() => _sendingKey[user.uid] = true);
+    try {
+      await widget.service.publishRSAPublicKey(user.uid);
+      if (mounted) {
+        setState(() {
+          _sendingKey[user.uid] = false;
+          _keySentTo.add(user.uid);
+        });
+        // Brief tick display, then close sheet and complete the handshake.
+        await Future.delayed(const Duration(milliseconds: 700));
+        if (mounted) {
+          Navigator.pop(context);
+          widget.onSenderSelected(user);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sendingKey[user.uid] = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to send key: ${e.toString().replaceFirst("Exception: ", "")}',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -766,8 +807,35 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                     child: ListTile(
                       leading: UserAvatar(username: u.username),
                       title: Text(u.username),
-                      trailing: _statusCache[u.uid] == 'accepted' 
-                        ? const Icon(Icons.check_circle, color: Colors.green)
+                      trailing: _statusCache[u.uid] == 'accepted'
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Friend',
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _sendingKey[u.uid] == true
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : _keySentTo.contains(u.uid)
+                                  ? const Icon(Icons.check_rounded, color: Colors.green, size: 22)
+                                  : GlassButton(
+                                      label: const Text('Send', style: TextStyle(fontSize: 12)),
+                                      onPressed: () => _sendKey(u),
+                                      color: Colors.green,
+                                      borderRadius: 8,
+                                    ),
+                            ],
+                          )
                         : TextButton(onPressed: () => _connect(u.uid, u), child: const Text('Connect')),
                     ),
                   )),
