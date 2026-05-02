@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pointycastle/export.dart';
 
 import '../../core/constants/firebase_constants.dart';
@@ -52,16 +53,38 @@ class AuthRepository {
       email: email,
       password: password,
     );
+    // Wait for JWT so subsequent Firestore writes are authenticated.
+    await credential.user!.getIdToken();
     await credential.user!.updateDisplayName(username);
 
-    await _db.collection(FirebaseConstants.users).doc(credential.user!.uid).set({
-      'username': username,
-      'email': email,
-      'phone': phone,
-      'publicKey': null,
-      'isAdmin': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final uid = credential.user!.uid;
+    final batch = _db.batch();
+    batch.set(
+      _db.collection(FirebaseConstants.users).doc(uid),
+      {
+        'username': username,
+        'email': email,
+        'phone': phone,
+        'publicKey': null,
+        'isAdmin': false,
+        'isFirstTime': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      },
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .collection(FirebaseConstants.profile)
+          .doc('preferences'),
+      {
+        'biometricGateEnabled': false,
+        'themeMode': 'dark',
+        'keyVaultCreatedAt': null,
+        'lastVaultAccessAt': null,
+      },
+    );
+    await batch.commit();
 
     return credential;
   }
@@ -80,10 +103,6 @@ class AuthRepository {
           .limit(1)
           .get();
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') {
-        throw AuthException('Database permission error. Check Firestore security rules.',
-            code: 'firestore-permission-denied');
-      }
       throw NetworkException('Database error. Check your connection.',
           code: 'firestore-error:${e.code}');
     }
@@ -100,10 +119,80 @@ class AuthRepository {
           code: 'account-data-corrupted');
     }
 
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+    final cred = await _auth.signInWithEmailAndPassword(email: email, password: password);
+    await cred.user?.getIdToken();
+    return cred;
   }
 
-  Future<void> logout() => _auth.signOut();
+  Future<UserCredential> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
+        serverClientId: FirebaseConstants.googleWebClientId,
+      ).signIn();
+      if (googleUser == null) throw AuthException('Google sign in cancelled.');
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user!;
+      await user.getIdToken();
+
+      // Check if user document exists, if not create one
+      final userDoc = await _db.collection(FirebaseConstants.users).doc(user.uid).get();
+      if (!userDoc.exists) {
+        String username = user.email!.split('@')[0].replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+
+        bool taken = await isUsernameTaken(username);
+        if (taken) {
+          username = '${username}_${DateTime.now().millisecondsSinceEpoch % 1000}';
+        }
+
+        final gBatch = _db.batch();
+        gBatch.set(
+          _db.collection(FirebaseConstants.users).doc(user.uid),
+          {
+            'username': username,
+            'email': user.email,
+            'phone': user.phoneNumber ?? '',
+            'publicKey': null,
+            'isAdmin': false,
+            'isFirstTime': true,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+        );
+        gBatch.set(
+          _db
+              .collection(FirebaseConstants.users)
+              .doc(user.uid)
+              .collection(FirebaseConstants.profile)
+              .doc('preferences'),
+          {
+            'biometricGateEnabled': false,
+            'themeMode': 'dark',
+            'keyVaultCreatedAt': null,
+            'lastVaultAccessAt': null,
+          },
+        );
+        await gBatch.commit();
+        await user.updateDisplayName(username);
+      }
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(e.message ?? 'Google Sign-In failed', code: e.code);
+    } catch (e) {
+      throw NetworkException('Google Sign-In failed: $e');
+    }
+  }
+
+  Future<void> logout() async {
+    await GoogleSignIn().signOut();
+    await _auth.signOut();
+  }
 
   // ─── Username uniqueness ───────────────────────────────────────────────────
 
