@@ -32,13 +32,13 @@ friendships/{docId}
 
 ### Phase 03: Managed Profile & RSA Vault
 **Goal:** Implement a biometric-gated RSA Key Manager (Vault) as a zero-remanence proof-check, initialize a `profile` subcollection on user creation, and harden Firestore security rules for the new `rsa_key_manager` subcollection.
-**Status:** Executing (Wave 0 complete)
+**Status:** Executing (Wave 1 complete)
 
 **Depends on:** Phase 02
 
 **Plans:**
 - [x] 03-01: Analyzer fix + test scaffold (Wave 0) — 21 errors resolved, test/vault/ created with 5 Nyquist stubs
-- [ ] 03-02: Profile subcollection + auth registration (Wave 1)
+- [x] 03-02: Profile subcollection + auth registration (Wave 1) — FirebaseConstants rsaKeyManager/profile constants + WriteBatch atomic profile init
 - [ ] 03-03: RSA Vault key lifecycle (Wave 2)
 - [ ] 03-04: RsaKeyManagerScreen + biometric gate (Wave 3)
 - [ ] 03-05: ReceiverScreen banner + Firestore rules hardening (Wave 4)
