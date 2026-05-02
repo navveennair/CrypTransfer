@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 03
-current_plan: 05 (03-04 complete)
-status: executing
-last_updated: "2026-05-02T18:08:00Z"
+current_plan: 05 (03-05 complete — phase done)
+status: complete
+last_updated: "2026-05-02T18:17:00Z"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Session State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03
-**Current plan:** 05 (03-04 complete)
-**Status:** Executing Phase 03 — Wave 3 complete, Wave 4 next
+**Current plan:** 05 (03-05 complete — phase done)
+**Status:** Phase 03 complete — all 5 plans executed
 
 ## Session Log
 
@@ -35,6 +35,7 @@ See: .planning/PROJECT.md
 - 2026-05-02: 03-02-PLAN.md complete — FirebaseConstants rsaKeyManager/profile constants + WriteBatch profile init in register() and signInWithGoogle()
 - 2026-05-02: 03-03-PLAN.md complete — AuthRepository key lifecycle: computeFingerprint (SHA-256), regenerateKeyPair (3-doc WriteBatch), deleteKeyPair (2-doc WriteBatch), updateLastVaultAccess (merge-safe upsert)
 - 2026-05-02: 03-04-PLAN.md complete — RsaKeyManagerScreen: biometric-gated vault UI, StreamBuilder key status, CrypButton Regenerate/Delete, fingerprint via AuthRepository.computeFingerprint()
+- 2026-05-02: 03-05-PLAN.md complete — ReceiverScreen amber banner + SidebarDrawer Key Vault entry + Firestore rsa_key_manager/profile rules; Phase 03 fully wired
 
 ## Accumulated Context
 
@@ -52,3 +53,6 @@ See: .planning/PROJECT.md
 - FakeSecureStorage + MockFirebaseAuth + TestWidgetsFlutterBinding.ensureInitialized() required for unit tests involving AuthRepository and compute()
 - Removed _updatingAccess state field — field was set but never read in build(); vault opens immediately after gate passes, access timestamp is fire-and-forget
 - Removed unused cloud_firestore and firebase_constants imports from RsaKeyManagerScreen — screen delegates all Firestore work to AuthRepository
+- Removed _generateKeys() and _showProgressDialog() — dead code after D-07 enforcement; vault is sole key lifecycle surface
+- rsa_key_manager rules mirror audit_logs pattern: update:false + action field enum validation inside match /users/{userId}
+- AuthRepository import retained in sidebar_drawer.dart — still used for streamUserProfile() admin check and logout()
