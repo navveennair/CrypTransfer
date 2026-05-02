@@ -2,37 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Premium Dark Palette
-  static const Color darkBg = Color(0xFF090C10);
-  static const Color darkSurface = Color(0xFF10141B);
-  static const Color darkBorder = Color(0xFF21262D);
-  static const Color primaryBlue = Color(0xFF58A6FF);
-  static const Color accentPurple = Color(0xFFBC8CFF);
-  static const Color textMain = Color(0xFFE6EDF3);
-  static const Color textSecondary = Color(0xFF8B949E);
+  // Theme Palette - Light (Elegant)
+  static const Color lightBg = Color(0xFFF8FAFC);
+  static const Color lightSurface = Colors.white;
+  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightTextMain = Color(0xFF0F172A); // Black font
+  static const Color lightTextSecondary = Color(0xFF64748B);
 
-  // Glass Colors
-  static Color glassBg = Colors.white.withValues(alpha: 0.05);
-  static Color glassBorder = Colors.white.withValues(alpha: 0.1);
-  static const double glassBlur = 12.0;
+  // Theme Palette - Dark (Admin/Premium)
+  static const Color darkBg = Color(0xFF0F172A);
+  static const Color darkSurface = Color(0xFF1E293B);
+  static const Color darkBorder = Color(0xFF334155);
+  static const Color darkTextMain = Color(0xFFF8FAFC); // White font
+  static const Color darkTextSecondary = Color(0xFF94A3B8);
+
+  // Theme-unqualified aliases — resolve to dark palette (app default)
+  static const Color textMain = darkTextMain;
+  static const Color textSecondary = darkTextSecondary;
+
+  static const Color primaryGold = Color(0xFFF59E0B);
+  static const Color primaryBlue = Color(0xFF3B82F6);
+  static const Color accentPurple = Color(0xFF8B5CF6);
+
+  // Glass Effects
+  static const double glassBlur = 16.0;
+  static Color get glassBgLight => Colors.white.withValues(alpha: 0.6);
+  static Color get glassBorderLight => Colors.white.withValues(alpha: 0.3);
+  static Color get glassBgDark => Colors.white.withValues(alpha: 0.08);
+  static Color get glassBorderDark => Colors.white.withValues(alpha: 0.15);
 
   static ThemeData get light {
-    return ThemeData(
-      useMaterial3: true,
+    final base = ThemeData.light(useMaterial3: true);
+    return base.copyWith(
+      scaffoldBackgroundColor: lightBg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryBlue,
         brightness: Brightness.light,
+        surface: lightSurface,
+        onSurface: lightTextMain,
+        outline: lightBorder,
       ),
-      textTheme: GoogleFonts.interTextTheme(),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
+      textTheme: GoogleFonts.poppinsTextTheme(
+        base.textTheme.copyWith(
+          bodyLarge: const TextStyle(color: lightTextMain),
+          bodyMedium: const TextStyle(color: lightTextMain),
+          titleLarge: GoogleFonts.poppins(
+            color: lightTextMain,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: lightBg,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        centerTitle: true,
+        titleTextStyle: GoogleFonts.poppins(
+          color: lightTextMain,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -42,68 +70,33 @@ class AppTheme {
     final base = ThemeData.dark(useMaterial3: true);
     return base.copyWith(
       scaffoldBackgroundColor: darkBg,
-      colorScheme: const ColorScheme.dark(
-        primary: primaryBlue,
-        secondary: accentPurple,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryGold,
+        brightness: Brightness.dark,
         surface: darkSurface,
-        onSurface: textMain,
-        onSurfaceVariant: textSecondary,
+        onSurface: darkTextMain,
         outline: darkBorder,
-        outlineVariant: Color(0xFF30363D),
-        surfaceContainerLow: darkBg,
-        surfaceContainer: darkSurface,
-        surfaceContainerHigh: Color(0xFF161B22),
       ),
-      cardTheme: CardThemeData(
-        color: darkSurface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: darkBorder, width: 1),
-        ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: darkBg.withValues(alpha: 0.8),
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: textMain),
-        titleTextStyle: GoogleFonts.poppins(
-          color: textMain,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.poppinsTextTheme(
         base.textTheme.copyWith(
-          bodyLarge: const TextStyle(color: textMain),
-          bodyMedium: const TextStyle(color: textMain),
+          bodyLarge: const TextStyle(color: darkTextMain),
+          bodyMedium: const TextStyle(color: darkTextMain),
           titleLarge: GoogleFonts.poppins(
-            color: textMain, 
+            color: darkTextMain,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: darkSurface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: darkBorder),
+      appBarTheme: AppBarTheme(
+        backgroundColor: darkBg,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: GoogleFonts.poppins(
+          color: darkTextMain,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: darkBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 1.5),
-        ),
-        hintStyle: const TextStyle(color: textSecondary),
-      ),
-      dividerTheme: const DividerThemeData(
-        color: darkBorder,
-        thickness: 1,
       ),
     );
   }

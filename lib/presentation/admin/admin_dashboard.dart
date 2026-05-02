@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/constants/firebase_constants.dart';
+import '../../app_theme.dart';
+import '../widgets/shared_widgets.dart';
 import 'widgets/security_pulse_feed.dart';
 import 'widgets/transfer_volume_chart.dart';
 import 'widgets/connection_node_map.dart';
@@ -32,87 +34,100 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    // FORCE DARK THEME for Admin Dashboard
+    return Theme(
+      data: AppTheme.dark,
+      child: Builder(builder: (context) {
+        final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'CRYPTRANSFER COMMAND',
-          style: GoogleFonts.orbitron(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 2,
-            color: cs.primary,
+        return Scaffold(
+          backgroundColor: cs.surface,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              'COMMAND CENTER',
+              style: GoogleFonts.orbitron(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 2,
+                color: cs.primary,
+              ),
+            ),
+            centerTitle: true,
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: cs.primary,
+              indicatorWeight: 3,
+              labelStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold, 
+                fontSize: 11,
+                color: cs.onSurface,
+              ),
+              unselectedLabelStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500, 
+                fontSize: 11,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+              labelColor: cs.onSurface,
+              unselectedLabelColor: cs.onSurface.withValues(alpha: 0.6),
+              tabs: const [
+                Tab(text: 'ANALYTICS'),
+                Tab(text: 'NETWORK'),
+                Tab(text: 'SECURITY'),
+                Tab(text: 'USERS'),
+              ],
+            ),
           ),
-        ),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: cs.primary,
-          indicatorWeight: 3,
-          labelStyle: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold, 
-            fontSize: 12,
-            color: cs.onSurface,
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildAnalyticsTab(cs),
+              const ConnectionNodeMap(),
+              const SecurityPulseFeed(),
+              const UserManagementList(),
+            ],
           ),
-          unselectedLabelStyle: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500, 
-            fontSize: 12,
-            color: cs.onSurfaceVariant,
-          ),
-          labelColor: cs.onSurface,
-          unselectedLabelColor: cs.onSurfaceVariant,
-          tabs: const [
-            Tab(text: 'ANALYTICS', icon: Icon(Icons.analytics_outlined)),
-            Tab(text: 'NETWORK', icon: Icon(Icons.hub_outlined)),
-            Tab(text: 'SECURITY', icon: Icon(Icons.security_outlined)),
-            Tab(text: 'USERS', icon: Icon(Icons.manage_accounts_outlined)),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildAnalyticsTab(cs),
-          const ConnectionNodeMap(),
-          const SecurityPulseFeed(),
-          const UserManagementList(),
-        ],
-      ),
+        );
+      }),
     );
   }
 
   Widget _buildAnalyticsTab(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildSummaryCards(cs),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          
           Text(
-            'Transfer Volume (24h)',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: cs.onSurface,
+            'NETWORK VOLUME',
+            style: GoogleFonts.orbitron(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: cs.onSurface.withValues(alpha: 0.7),
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
-          const TransferVolumeChart(),
+          const SizedBox(height: 12),
+          GlassContainer(
+            padding: const EdgeInsets.all(20),
+            child: const TransferVolumeChart(),
+          ),
+          
           const SizedBox(height: 32),
           Text(
-            'Active Handshake Sessions',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: cs.onSurface,
+            'ACTIVE HANDSHAKES',
+            style: GoogleFonts.orbitron(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: cs.onSurface.withValues(alpha: 0.7),
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildActiveSessionsList(cs),
         ],
       ),
@@ -121,7 +136,6 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
   Widget _buildSummaryCards(ColorScheme cs) {
     return StreamBuilder<QuerySnapshot>(
-      // TOP-LEVEL COLLECTION: transfer_logs
       stream: FirebaseFirestore.instance.collection(FirebaseConstants.transferLogs).snapshots(),
       builder: (context, snapshot) {
         final totalTransfers = snapshot.data?.size ?? 0;
@@ -129,7 +143,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         return Row(
           children: [
             _SummaryCard(
-              label: 'TOTAL TRANSFERS',
+              label: 'TRANSFERS',
               value: totalTransfers.toString(),
               icon: Icons.swap_horiz_rounded,
               color: cs.primary,
@@ -142,8 +156,8 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                 return _SummaryCard(
                   label: 'TOTAL NODES',
                   value: totalUsers.toString(),
-                  icon: Icons.person_outline_rounded,
-                  color: cs.tertiary,
+                  icon: Icons.hub_rounded,
+                  color: cs.secondary,
                 );
               },
             ),
@@ -155,7 +169,6 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
   Widget _buildActiveSessionsList(ColorScheme cs) {
     return StreamBuilder<QuerySnapshot>(
-      // TOP-LEVEL COLLECTION: handshakes
       stream: FirebaseFirestore.instance
           .collection(FirebaseConstants.handshakes)
           .where('status', isEqualTo: 'handshake_complete')
@@ -165,17 +178,12 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         final sessions = snapshot.data!.docs;
         
         if (sessions.isEmpty) {
-          return Container(
+          return GlassContainer(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outline),
-            ),
             child: Center(
               child: Text(
                 'No active P2P handshakes',
-                style: TextStyle(color: cs.onSurfaceVariant),
+                style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6)),
               ),
             ),
           );
@@ -185,31 +193,26 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: sessions.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final data = sessions[i].data() as Map<String, dynamic>;
-            return Container(
+            return GlassContainer(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outline),
-              ),
               child: Row(
                 children: [
-                  const Icon(Icons.link_rounded, color: Colors.greenAccent),
+                  Icon(Icons.link_rounded, color: cs.primary),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Session: @${data['fromUsername'] ?? '...'} -> @${data['toUsername'] ?? '...'}',
+                          '@${data['fromUsername'] ?? '...'} → @${data['toUsername'] ?? '...'}',
                           style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          'Handshake ID: ${sessions[i].id}',
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                          'Handshake established',
+                          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 11),
                         ),
                       ],
                     ),
@@ -242,13 +245,8 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Expanded(
-      child: Container(
+      child: GlassContainer(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainer,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: cs.outline),
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -265,11 +263,11 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.poppins(
-                fontSize: 10,
+              style: GoogleFonts.orbitron(
+                fontSize: 9,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
-                color: cs.onSurfaceVariant,
+                color: cs.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -278,6 +276,7 @@ class _SummaryCard extends StatelessWidget {
     );
   }
 }
+
 
 class _PulseIndicator extends StatefulWidget {
   final Color color;
