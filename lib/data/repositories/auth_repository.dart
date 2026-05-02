@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io' show Platform;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -240,6 +243,71 @@ class AuthRepository {
 
   Future<String?> getPrivateKeyJson() async {
     return _secure.read(key: FirebaseConstants.privateKeyStorageKey);
+  }
+
+  // Computes SHA-256 of the UTF-8 bytes of the JSON-encoded public key.
+  // Returns full 64-char hex string. Display: fingerprint.substring(0, 16).toUpperCase()
+  // STATIC: vault screen calls AuthRepository.computeFingerprint() without needing an instance.
+  static String computeFingerprint(String publicKeyJson) {
+    final bytes = Uint8List.fromList(utf8.encode(publicKeyJson));
+    final digest = SHA256Digest();
+    final hash = digest.process(bytes);
+    return hash.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Regenerates the RSA-2048 keypair.
+  /// Writes new private key to FlutterSecureStorage, updates publicKey in Firestore,
+  /// and appends an immutable audit document to rsa_key_manager subcollection.
+  /// Uses a 3-doc WriteBatch: publicKey update + audit log + keyVaultCreatedAt (D-14).
+  Future<void> regenerateKeyPair(String uid) async {
+    final pair = await compute(_generateKeyPairIsolate, null);
+    final pubKey = pair.publicKey as RSAPublicKey;
+    final privKey = pair.privateKey as RSAPrivateKey;
+
+    final pubKeyJson = EncryptionService.encodePublicKey(pubKey);
+    final privKeyJson = EncryptionService.encodePrivateKey(privKey);
+    final fingerprint = computeFingerprint(pubKeyJson);
+
+    // Write new private key first — old key is superseded immediately.
+    await _secure.write(
+      key: FirebaseConstants.privateKeyStorageKey,
+      value: privKeyJson,
+    );
+
+    final userRef = _db.collection(FirebaseConstants.users).doc(uid);
+    final auditRef = userRef.collection(FirebaseConstants.rsaKeyManager).doc();
+    final prefsRef = userRef.collection(FirebaseConstants.profile).doc('preferences');
+    final batch = _db.batch();
+    batch.update(userRef, {'publicKey': pubKeyJson});
+    batch.set(auditRef, {
+      'action': 'regenerated',
+      'timestamp': FieldValue.serverTimestamp(),
+      'publicKeyHash': fingerprint,
+      'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+    });
+    batch.set(prefsRef, {'keyVaultCreatedAt': FieldValue.serverTimestamp()},
+        SetOptions(merge: true)); // D-14: stamp regeneration time; merge preserves other prefs
+    await batch.commit();
+  }
+
+  /// Deletes the RSA keypair.
+  /// Removes private key from FlutterSecureStorage, clears publicKey in Firestore,
+  /// and appends an immutable audit document to rsa_key_manager subcollection.
+  /// Uses a 2-doc WriteBatch: publicKey delete + audit log (no keyVaultCreatedAt on delete).
+  Future<void> deleteKeyPair(String uid) async {
+    await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
+
+    final userRef = _db.collection(FirebaseConstants.users).doc(uid);
+    final auditRef = userRef.collection(FirebaseConstants.rsaKeyManager).doc();
+    final batch = _db.batch();
+    batch.update(userRef, {'publicKey': FieldValue.delete()});
+    batch.set(auditRef, {
+      'action': 'deleted',
+      'timestamp': FieldValue.serverTimestamp(),
+      'publicKeyHash': null, // no key to hash after deletion
+      'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+    });
+    await batch.commit();
   }
 
   // ─── User profile ──────────────────────────────────────────────────────────
