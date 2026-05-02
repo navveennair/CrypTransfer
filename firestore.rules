@@ -18,9 +18,11 @@ service cloud.firestore {
     }
 
     // ─── users ───────────────────────────────────────────────────────────────
-    // Public read for user search; only owner or admin can write.
+    // List is public so username lookup works before auth (login/register).
+    // Individual document GET requires authentication.
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow list: if true;
+      allow get: if isAuthenticated();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -85,6 +87,37 @@ service cloud.firestore {
         allow update: if false;       // IMMUTABLE — never modifiable by anyone
         allow delete: if isAdmin();   // Admin-only emergency purge
       }
+
+      // ── users/{userId}/rsa_key_manager ───────────────────────────────────────
+      // Append-only RSA key lifecycle audit log. Owner creates; admin deletes.
+      // Documents are IMMUTABLE (update: false) — tamper-evident evidence trail.
+      match /rsa_key_manager/{logId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) &&
+                         request.resource.data.action in ['generated', 'regenerated', 'deleted'];
+        allow update: if false;       // IMMUTABLE
+        allow delete: if isAdmin();
+      }
+
+      // ── users/{userId}/profile ────────────────────────────────────────────────
+      // Security/UX preferences. Owner reads/creates/updates; admin can manage.
+      match /profile/{prefId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // ── users/{userId}/friendships ────────────────────────────────────────
+      // Owner can read/write their own list.
+      // Any authenticated user may CREATE an entry in another user's list
+      // only if the document's uid field equals their own uid (adding self).
+      match /friendships/{friendId} {
+        allow read: if request.auth.uid == userId;
+        allow write: if request.auth.uid == userId;
+        allow create: if isAuthenticated() &&
+                         request.resource.data.uid == request.auth.uid;
+      }
     }
 
     // Collection-group rule so senders can query their sent requests
@@ -125,8 +158,7 @@ service cloud.firestore {
                         resource.data.receiverId == request.auth.uid);
       
       allow delete: if isAuthenticated() &&
-                       (resource.data.senderId == request.auth.uid ||
-                        resource.data.receiverId == request.auth.uid);
+                       resource.data.senderId == request.auth.uid;
     }
 
     // ─── handshakes ──────────────────────────────────────────────────────────
@@ -148,11 +180,9 @@ service cloud.firestore {
                        (resource.data.receiverId == request.auth.uid ||
                         resource.data.senderId == request.auth.uid);
       
-      // Either participant may delete during zero-remanence cleanup
+      // Sender may delete during zero-remanence cleanup
       allow delete: if isAuthenticated() &&
-                       (resource.data.senderId == request.auth.uid ||
-                        resource.data.receiverId == request.auth.uid) ||
-                    isAdmin();
+                       (resource.data.senderId == request.auth.uid || isAdmin());
     }
 
 
@@ -173,5 +203,6 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
+
   }
 }
