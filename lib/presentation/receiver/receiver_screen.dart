@@ -14,6 +14,7 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/services/encryption_service.dart';
+import '../vault/rsa_key_manager_screen.dart';
 import '../widgets/shared_widgets.dart';
 import 'receiver_transfer_screen.dart';
 
@@ -125,51 +126,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       if (mounted) {
         setState(() => _checkingStatus = false);
         _showError('Could not load key status: $e');
-      }
-    }
-  }
-
-  Future<void> _generateKeys() async {
-    final alreadyHas = _hasPrivateKey;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.vpn_key_rounded, size: 36, color: AppTheme.primaryBlue),
-        title:
-            Text(alreadyHas ? 'Regenerate RSA Keys?' : 'Generate RSA Keys'),
-        content: Text(
-          alreadyHas
-              ? 'This will overwrite your existing keypair.\n\n'
-                  'Your old private key will be deleted from this device and your public key in Firestore will be updated.'
-              : 'Generate a 2048-bit RSA keypair.\n\n'
-                  '• Private key is stored securely on this device\n'
-                  '• Public key is saved to Firestore for senders',
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          GlassButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              label: Text(alreadyHas ? 'Regenerate' : 'Generate'),
-              color: AppTheme.primaryBlue,
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    _showProgressDialog('Generating RSA-2048 keypair…');
-    try {
-      await _authService.generateAndStoreKeyPair();
-      await _connService.resyncPublicKeyToAllConnections();
-      if (!mounted) return;
-      Navigator.pop(context);
-      await _checkKeyStatus();
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        _showError(e.toString());
       }
     }
   }
@@ -393,21 +349,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     );
   }
 
-  void _showProgressDialog(String message) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        content: Row(
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 20),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -446,17 +388,46 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           TextButton.icon(
             icon: const Icon(Icons.refresh_rounded, size: 16),
             label: const Text('Regenerate Keys'),
-            onPressed: _generateKeys,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
+            ).then((_) => _checkKeyStatus()),
             style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
           ),
         ],
       );
     }
-    return GlassButton(
-      icon: const Icon(Icons.vpn_key_rounded, size: 20),
-      label: const Text('Generate RSA Keys'),
-      onPressed: _generateKeys,
-      color: AppTheme.primaryBlue,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.1),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
+            ).then((_) => _checkKeyStatus()),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.amber),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No RSA keys found — tap to generate',
+                    style: TextStyle(color: Colors.amber),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -828,11 +799,18 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                                   )
                                 : _keySentTo.contains(u.uid)
                                   ? const Icon(Icons.check_rounded, color: Colors.green, size: 22)
-                                  : GlassButton(
-                                      label: const Text('Send', style: TextStyle(fontSize: 12)),
+                                  : FilledButton(
                                       onPressed: () => _sendKey(u),
-                                      color: Colors.green,
-                                      borderRadius: 8,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      child: const Text('Send'),
                                     ),
                             ],
                           )

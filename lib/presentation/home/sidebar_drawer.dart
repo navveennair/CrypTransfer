@@ -2,10 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../data/repositories/auth_repository.dart';
 import '../../data/models/user_model.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
+import '../vault/rsa_key_manager_screen.dart';
 import 'find_friends_screen.dart';
 
 class SidebarDrawer extends StatelessWidget {
@@ -90,11 +91,14 @@ class SidebarDrawer extends StatelessWidget {
 
           ListTile(
             leading: Icon(Icons.vpn_key_outlined, color: cs.primary),
-            title: const Text('Generate RSA Keys'),
-            subtitle: const Text('Create your encryption key pair'),
+            title: const Text('Key Vault'),
+            subtitle: const Text('Manage your RSA encryption keys'),
             onTap: () {
               Navigator.pop(context);
-              _showKeyGenDialog(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
+              );
             },
           ),
 
@@ -184,87 +188,4 @@ class SidebarDrawer extends StatelessWidget {
     );
   }
 
-  void _showKeyGenDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _KeyGenDialog(),
-    );
-  }
 }
-
-class _KeyGenDialog extends StatefulWidget {
-  @override
-  State<_KeyGenDialog> createState() => _KeyGenDialogState();
-}
-
-class _KeyGenDialogState extends State<_KeyGenDialog> {
-  _Status _status = _Status.idle;
-  String _message = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return AlertDialog(
-      title: const Text('RSA Key Generation'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_status == _Status.idle)
-            Text(
-              'Generate a 2048-bit RSA key pair.\n\n'
-              'Your private key is stored securely on this device only. '
-              'Your public key is shared to Firestore so friends can encrypt files for you.',
-              style: TextStyle(color: cs.onSurfaceVariant),
-            ),
-          if (_status == _Status.loading) ...[
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            const Text('Generating keys… this may take a moment.'),
-          ],
-          if (_status == _Status.success) ...[
-            Icon(Icons.check_circle_outline, color: cs.primary, size: 48),
-            const SizedBox(height: 12),
-            const Text('Key pair generated and stored successfully!'),
-          ],
-          if (_status == _Status.error) ...[
-            Icon(Icons.error_outline, color: cs.error, size: 48),
-            const SizedBox(height: 12),
-            Text(_message, style: TextStyle(color: cs.error)),
-          ],
-        ],
-      ),
-      actions: [
-        if (_status != _Status.loading) ...[
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(_status == _Status.success ? 'Done' : 'Cancel'),
-          ),
-          if (_status != _Status.success)
-            FilledButton(
-              onPressed: _generate,
-              child: const Text('Generate'),
-            ),
-        ],
-      ],
-    );
-  }
-
-  Future<void> _generate() async {
-    setState(() => _status = _Status.loading);
-    try {
-      await AuthRepository().generateAndStoreKeyPair();
-      if (mounted) setState(() => _status = _Status.success);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _status = _Status.error;
-          _message = e.toString();
-        });
-      }
-    }
-  }
-}
-
-enum _Status { idle, loading, success, error }
