@@ -325,5 +325,27 @@ class AuthRepository {
         .snapshots()
         .map((doc) => doc.exists ? UserModel.fromDoc(doc) : null);
   }
+
+  /// Updates the lastVaultAccessAt timestamp in users/{uid}/profile/preferences.
+  /// Uses set(merge: true) so it creates the doc if missing (safe for users
+  /// who registered before Phase 03 and lack the profile/preferences document).
+  Future<void> updateLastVaultAccess(String uid) async {
+    try {
+      await _db
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .collection(FirebaseConstants.profile)
+          .doc('preferences')
+          .set(
+            {'lastVaultAccessAt': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+        'Failed to update vault access time.',
+        code: 'firestore-error:${e.code}',
+      );
+    }
+  }
 }
 

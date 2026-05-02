@@ -220,5 +220,76 @@ void main() {
             reason: 'deleteKeyPair must not create profile/preferences doc');
       },
     );
+
+    // ─── updateLastVaultAccess() ──────────────────────────────────────────────
+
+    // TC-VAULT-07: updateLastVaultAccess writes lastVaultAccessAt to profile/preferences.
+    test(
+      'TC-VAULT-07: updateLastVaultAccess creates profile/preferences doc with lastVaultAccessAt',
+      () async {
+        const uid = 'test_uid_vault_access';
+        // No pre-existing profile/preferences doc — merge:true must create it.
+        final repo = AuthRepository(
+          auth: mockAuth,
+          db: fakeFirestore,
+          secure: fakeSecure,
+        );
+
+        await repo.updateLastVaultAccess(uid);
+
+        final prefsDoc = await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('profile')
+            .doc('preferences')
+            .get();
+        expect(prefsDoc.exists, true,
+            reason: 'updateLastVaultAccess must create profile/preferences doc if absent');
+        expect(prefsDoc.data()?.containsKey('lastVaultAccessAt'), true,
+            reason: 'lastVaultAccessAt must be written by updateLastVaultAccess');
+      },
+    );
+
+    // TC-VAULT-07b: updateLastVaultAccess does NOT overwrite existing prefs fields.
+    test(
+      'TC-VAULT-07b: updateLastVaultAccess preserves existing profile/preferences fields',
+      () async {
+        const uid = 'test_uid_vault_access_merge';
+        // Pre-populate profile/preferences with existing fields.
+        await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('profile')
+            .doc('preferences')
+            .set({
+          'biometricGateEnabled': true,
+          'themeMode': 'dark',
+          'keyVaultCreatedAt': null,
+          'lastVaultAccessAt': null,
+        });
+
+        final repo = AuthRepository(
+          auth: mockAuth,
+          db: fakeFirestore,
+          secure: fakeSecure,
+        );
+
+        await repo.updateLastVaultAccess(uid);
+
+        final prefsDoc = await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('profile')
+            .doc('preferences')
+            .get();
+        // lastVaultAccessAt is updated; other fields preserved.
+        expect(prefsDoc.data()?['biometricGateEnabled'], true,
+            reason: 'biometricGateEnabled must be preserved after updateLastVaultAccess');
+        expect(prefsDoc.data()?['themeMode'], 'dark',
+            reason: 'themeMode must be preserved after updateLastVaultAccess');
+        expect(prefsDoc.data()?.containsKey('lastVaultAccessAt'), true,
+            reason: 'lastVaultAccessAt must be present after update');
+      },
+    );
   });
 }
