@@ -44,6 +44,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   bool _handshakeDone = false;
 
   bool _sessionLocked = false;
+  bool _incomingHandled = false;
 
   String? _incomingTransferId;
   String? _incomingFileName;
@@ -532,7 +533,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       stream: _transferStream!,
       builder: (context, snap) {
         final hasPending = snap.hasData && snap.data!.docs.isNotEmpty;
-        if (hasPending && !_sessionLocked) {
+        if (hasPending && !_sessionLocked && !_incomingHandled) {
+          _incomingHandled = true; // set synchronously before post-frame to prevent re-entry
           final doc = snap.data!.docs.first;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _handleIncomingTransfer(doc.id, doc.data());
