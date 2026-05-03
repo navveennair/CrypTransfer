@@ -12,7 +12,20 @@
           "package_name": "com.example.cryptransfer"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "881677813575-ecfjblvb7a7q8pnjknn8amob7u8jg5ka.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.cryptransfer",
+            "certificate_hash": "10c2bf7e5d15cb4353d31aad863b3da0943af020"
+          }
+        },
+        {
+          "client_id": "881677813575-de8cqucd3qd71cbfk3rrb8l65osff7vc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAdCTzslx5ugbCG7Yd7_Bjz_B_mX42FMkQ"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "881677813575-de8cqucd3qd71cbfk3rrb8l65osff7vc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "881677813575-6s7jceim8carmdn161psc7daabil79li.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cryptransfer"
+              }
+            }
+          ]
         }
       }
     }

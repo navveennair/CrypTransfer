@@ -138,4 +138,4 @@ Both `SenderScreen` and `ReceiverScreen` use the sequential stepper pattern:
 - [ ] Receiver stepper same look as sender stepper
 - [ ] 3D buttons across all screens
 - [ ] Polish UI for viva demo
-- [ ] Fix Recent Transfers list — add `participants` field to `writeAuditLog()` (currently always empty)
+✅ `participants` field added to `writeAuditLog()`.

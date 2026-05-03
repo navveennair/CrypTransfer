@@ -9,6 +9,7 @@ import '../home/home_screen.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'register_screen.dart';
+import 'onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,31 +24,41 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthRepository();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String? _usernameError;
+  String? _passwordError;
   String _errorMessage = '';
 
   Future<void> _login() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please fill in all fields.');
-      return;
-    }
-
     setState(() {
-      _isLoading = true;
+      _usernameError = username.isEmpty ? 'Required' : null;
+      _passwordError = password.isEmpty ? 'Required' : null;
       _errorMessage = '';
     });
 
+    if (username.isEmpty || password.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      await _authService.loginWithUsername(
+      final cred = await _authService.loginWithUsername(
         username: username,
         password: password,
       );
       if (mounted) {
+        final userDoc = await _authService.getUserProfile(cred.user!.uid);
+        if (!mounted) return;
+        final isFirstTime = userDoc?.isFirstTime ?? false;
+        
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (_) => isFirstTime ? const OnboardingScreen() : const HomeScreen(),
+          ),
           (route) => false,
         );
       }
@@ -55,6 +66,34 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _errorMessage = _authError(e.code));
     } catch (e) {
       if (mounted) setState(() => _errorMessage = _generalError(e.toString()));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final cred = await _authService.signInWithGoogle();
+      if (mounted) {
+        final userDoc = await _authService.getUserProfile(cred.user!.uid);
+        if (!mounted) return;
+        final isFirstTime = userDoc?.isFirstTime ?? false;
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => isFirstTime ? const OnboardingScreen() : const HomeScreen(),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = 'Google sign-in failed.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -98,6 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Stack(
+        clipBehavior: Clip.hardEdge,
         children: [
           // ── Decorative Background ───────────────────────────
           Positioned(
@@ -116,14 +156,19 @@ class _LoginScreenState extends State<LoginScreen> {
               color: cs.secondary.withValues(alpha: 0.1),
             ),
           ),
-          
+
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 48,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                     // ── Logo & title ────────────────────────────
                     Hero(
                       tag: 'app_logo',
@@ -175,9 +220,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextField(
                             controller: _usernameController,
                             textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Username',
-                              prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
+                              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                              errorText: _usernameError,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -189,6 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              errorText: _passwordError,
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword
                                     ? Icons.visibility_off_outlined
@@ -220,6 +267,28 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: cs.primary,
                                 onPressed: _login,
                               ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: cs.outlineVariant)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                              ),
+                              Expanded(child: Divider(color: cs.outlineVariant)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _loginWithGoogle,
+                            icon: const _GoogleGIcon(),
+                            label: const Text('Sign in with Google'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              side: BorderSide(color: cs.outlineVariant),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -253,7 +322,35 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _GoogleGIcon extends StatelessWidget {
+  const _GoogleGIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Text(
+          'G',
+          style: TextStyle(
+            color: Color(0xFF4285F4),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            height: 1.0,
+          ),
+        ),
       ),
     );
   }

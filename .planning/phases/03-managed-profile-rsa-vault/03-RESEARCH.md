@@ -66,7 +66,7 @@ The two additions to `AuthRepository` (`register()` and `signInWithGoogle()`) re
 |------------|-------------|----------------|-----------|
 | RSA key lifecycle (generate/regenerate/delete) | Data layer (`AuthRepository`) | Vault screen (UI trigger only) | Crypto ops must stay in repository; screen calls into repo |
 | Biometric gate | Presentation layer (`RsaKeyManagerScreen.initState`) | `BiometricHelper` (logic encapsulated) | Gate fires at screen entry; `BiometricHelper` owns the auth call |
-| SHA-256 fingerprint computation | Data layer (`AuthRepository`) | — | Computed alongside key write; never recomputed from UI |
+| SHA-256 fingerprint computation | Data layer (`AuthRepository`) | — | Computed alongside key write; never recomputed from UI. Exposed as `AuthRepository.computeFingerprint()` static method for display use. |
 | Audit log append (`rsa_key_manager`) | Data layer (`AuthRepository`) | — | Append after every key operation; owned by same method that writes the key |
 | Profile subcollection init | Data layer (`AuthRepository`) | — | Created atomically with `users/{uid}` doc on registration |
 | `lastVaultAccessAt` update | Presentation layer (`RsaKeyManagerScreen`) | — | Fired on screen open after biometric gate passes |
@@ -134,7 +134,8 @@ BiometricHelper.authenticate(reason)
               ├── compute(_generateKeyPairIsolate, null)        [Regenerate only]
               ├── FlutterSecureStorage.write/delete             [private key]
               ├── Firestore users/{uid}.update(publicKey)       [public key]
-              └── Firestore users/{uid}/rsa_key_manager.add()   [audit doc]
+              ├── Firestore users/{uid}/rsa_key_manager.add()   [audit doc]
+              └── Firestore users/{uid}/profile/preferences.set({keyVaultCreatedAt})  [Regenerate only — D-14]
 
 ReceiverScreen "no keys" banner:
        │
@@ -159,7 +160,7 @@ lib/
 ├── data/
 │   └── repositories/
 │       └── auth_repository.dart       ← add regenerateKeyPair(), deleteKeyPair(),
-│                                          updateLastVaultAccess(), appendAuditLog()
+│                                          updateLastVaultAccess(), static computeFingerprint()
 │                                          migrate register()/signInWithGoogle() to WriteBatch
 └── presentation/
     ├── vault/                          ← NEW directory
@@ -204,7 +205,9 @@ Future<void> _authenticate() async {
 import 'dart:convert';
 import 'package:pointycastle/export.dart';
 
-String computePublicKeyFingerprint(String publicKeyJson) {
+// STATIC method on AuthRepository — screen calls AuthRepository.computeFingerprint()
+// without duplicating SHA-256 logic in presentation layer (Architectural Responsibility Map).
+static String computeFingerprint(String publicKeyJson) {
   final bytes = Uint8List.fromList(utf8.encode(publicKeyJson));
   final digest = SHA256Digest();
   final hash = digest.process(bytes);
@@ -265,6 +268,8 @@ await batch.commit();
 - **Re-subscribing to Firestore stream on every rebuild:** ReceiverScreen already has a stable `_transferStream` field pattern — the "no keys" banner must read from the same stream, not create a new subscription.
 - **Not guarding `setState` with `if (mounted)` after async operations:** All async gaps in the Vault screen must check `mounted` before calling `setState`.
 - **Skipping confirmation dialogs for destructive actions:** Delete and Regenerate both destroy the existing key pair. Always show a confirmation before proceeding, even though biometric gate provides a second factor.
+- **Duplicating SHA-256 logic in presentation layer:** The fingerprint computation belongs in the Data layer. The vault screen calls `AuthRepository.computeFingerprint(publicKeyJson)` — never inline the `SHA256Digest` logic in a widget file.
+- **Hardcoding hex color values in vault screen:** Always use `AppTheme` constants (`AppTheme.darkBg`, `AppTheme.darkSurface`, `AppTheme.primaryBlue`, `AppTheme.textMain`, `AppTheme.textSecondary`). No raw hex values in presentation files.
 
 ---
 
@@ -272,7 +277,7 @@ await batch.commit();
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| SHA-256 hashing | Custom byte-by-byte hash | `SHA256Digest` from PointyCastle | Already in project; battle-tested |
+| SHA-256 hashing | Custom byte-by-byte hash | `SHA256Digest` from PointyCastle via `AuthRepository.computeFingerprint()` | Already in project; battle-tested; Data layer owns fingerprint computation |
 | RSA key generation | Direct `RSAKeyGenerator` in main thread | `compute(_generateKeyPairIsolate, null)` pattern from `AuthRepository` | Off-thread; existing top-level function ready to reuse |
 | Secure private key storage | Custom file encryption | `FlutterSecureStorage` | Platform keystore integration |
 | Atomic multi-doc Firestore write | Sequential `set()` calls | `WriteBatch` | Prevents partial writes across `users/{uid}` and `profile/preferences` |
@@ -336,9 +341,9 @@ Future<void> _authenticate() async {
 }
 ```
 
-### Example 2: Regenerate Key with Audit Log
+### Example 2: Regenerate Key with Audit Log (3-doc WriteBatch)
 ```dart
-// Source: AuthRepository.generateAndStoreKeyPair() pattern + CONTEXT.md D-07/D-09
+// Source: AuthRepository.generateAndStoreKeyPair() pattern + CONTEXT.md D-07/D-09/D-14
 Future<void> regenerateKeyPair(String uid) async {
   final pair = await compute(_generateKeyPairIsolate, null);
   final pubKey = pair.publicKey as RSAPublicKey;
@@ -346,30 +351,26 @@ Future<void> regenerateKeyPair(String uid) async {
 
   final pubKeyJson = EncryptionService.encodePublicKey(pubKey);
   final privKeyJson = EncryptionService.encodePrivateKey(privKey);
-  final fingerprint = _computeFingerprint(pubKeyJson);
+  final fingerprint = computeFingerprint(pubKeyJson);  // static method
 
   await _secure.write(
     key: FirebaseConstants.privateKeyStorageKey,
     value: privKeyJson,
   );
 
+  final userRef = _db.collection(FirebaseConstants.users).doc(uid);
+  final auditRef = userRef.collection(FirebaseConstants.rsaKeyManager).doc();
+  final prefsRef = userRef.collection(FirebaseConstants.profile).doc('preferences');
   final batch = _db.batch();
-  batch.update(
-    _db.collection(FirebaseConstants.users).doc(uid),
-    {'publicKey': pubKeyJson},
-  );
-  batch.set(
-    _db.collection(FirebaseConstants.users)
-        .doc(uid)
-        .collection(FirebaseConstants.rsaKeyManager)
-        .doc(),
-    {
-      'action': 'regenerated',
-      'timestamp': FieldValue.serverTimestamp(),
-      'publicKeyHash': fingerprint,
-      'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
-    },
-  );
+  batch.update(userRef, {'publicKey': pubKeyJson});
+  batch.set(auditRef, {
+    'action': 'regenerated',
+    'timestamp': FieldValue.serverTimestamp(),
+    'publicKeyHash': fingerprint,
+    'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+  });
+  batch.set(prefsRef, {'keyVaultCreatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true));  // D-14: stamp regeneration time
   await batch.commit();
 }
 ```
@@ -489,16 +490,19 @@ if (!_step1Done && !_checkingStatus)
    - What we know: CONTEXT.md D-04 says "Key Vault" replaces/augments the HomeScreen drawer entry
    - What's unclear: Whether the old `_KeyGenDialog` class in `sidebar_drawer.dart` should be deleted or left as dead code
    - Recommendation: Replace the drawer `ListTile` "Generate RSA Keys" with "Key Vault" pointing to `RsaKeyManagerScreen`; remove `_KeyGenDialog` and `_Status` enum from `sidebar_drawer.dart` to keep the file clean
+   - **RESOLVED (Plan 03-05):** Drawer "Generate RSA Keys" is REPLACED with "Key Vault" pointing to `RsaKeyManagerScreen`. `_KeyGenDialog`, `_KeyGenDialogState`, `_Status` enum, and `_showKeyGenDialog` are REMOVED from `sidebar_drawer.dart` (confirmed dead code after entry point change).
 
 2. **Should `ReceiverScreen._generateKeys()` and `_openKeyManager()` be removed?**
    - What we know: Phase 03 makes the Vault the canonical key management entry point
    - What's unclear: Whether ReceiverScreen's inline key gen should redirect to the Vault or remain as a fallback
    - Recommendation: ReceiverScreen Step 1 should show the "no keys" banner (tap → Vault) and remove the inline `_generateKeys()` flow; keep `_checkKeyStatus()` for post-vault-pop refresh
+   - **RESOLVED (Plan 03-05):** `_generateKeys()` in the `_step1Done` branch MUST be updated to navigate to `RsaKeyManagerScreen` rather than performing inline key generation. The `_generateKeys()` method can be kept as a wrapper that calls `Navigator.push(RsaKeyManagerScreen).then(_checkKeyStatus)`, or the call site in the `_step1Done` branch can be updated directly — either approach is acceptable. The old `generateAndStoreKeyPair()` call path MUST NOT remain reachable from the ReceiverScreen UI per D-07 (Vault is the canonical key lifecycle surface).
 
 3. **`keyVaultCreatedAt` field in `profile/preferences` — when does it get set?**
    - What we know: D-14 includes `keyVaultCreatedAt: null` in the initial profile doc
    - What's unclear: Whether it's set on first key generation in the Vault, or always reflects the most recent generation
    - Recommendation: Set `keyVaultCreatedAt` in `profile/preferences` on every Regenerate action (not just first time), so it tracks the current key's creation time for display in the Vault View
+   - **RESOLVED (Plan 03-03):** `keyVaultCreatedAt` is written on EVERY `regenerateKeyPair()` call via a third document in the WriteBatch: `prefsRef.set({keyVaultCreatedAt: FieldValue.serverTimestamp()}, SetOptions(merge: true))`. This makes regenerate a 3-doc WriteBatch: `userRef.update(publicKey)` + `auditRef.set(auditDoc)` + `prefsRef.set({keyVaultCreatedAt: serverTimestamp()}, merge: true)`. It is NOT written on delete — the field tracks current key creation time only.
 
 ---
 

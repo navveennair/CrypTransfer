@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils/theme_service.dart';
+import '../widgets/shared_widgets.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -10,19 +11,83 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: Text('Settings', style: GoogleFonts.inter())),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: Icon(Icons.palette_outlined, color: cs.primary),
-            title: Text('Appearance', style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
-            subtitle: Text('Theme and display options', style: GoogleFonts.inter(fontSize: 13)),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AppearanceSubScreen()),
+      appBar: AppBar(
+        title: Text('Settings', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Welcome banner ────────────────────────────────
+            GlassContainer(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              color: cs.primary.withValues(alpha: 0.1),
+              borderColor: cs.primary.withValues(alpha: 0.2),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.settings_suggest_rounded, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Preferences',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          'Configure your secure environment.',
+                          style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+
+            Text(
+              'General',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            GlassContainer(
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                leading: Icon(Icons.palette_outlined, color: cs.primary),
+                title: Text('Appearance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: Text('Theme and display options', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AppearanceSubScreen()),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -37,61 +102,62 @@ class AppearanceSubScreen extends StatelessWidget {
     final themeService = context.watch<ThemeService>();
 
     return Scaffold(
-      appBar: AppBar(title: Text('Appearance', style: GoogleFonts.inter())),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-            child: Text(
-              'Theme',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: cs.primary,
-                letterSpacing: 0.8,
+      appBar: AppBar(
+        title: Text('Appearance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 10, 16, 12),
+              child: Text(
+                'Select Theme',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: cs.primary,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outline),
-            ),
-            child: RadioGroup<ThemeMode>(
-              groupValue: themeService.themeMode,
-              onChanged: (mode) => themeService.setThemeMode(mode!),
-              child: Column(
-                children: [
-                  _ThemeOption(
-                    value: ThemeMode.system,
-                    label: 'System Default',
-                    subtitle: 'Follows device setting',
-                    icon: Icons.brightness_auto_outlined,
-                    isFirst: true,
-                  ),
-                  Divider(height: 1, color: cs.outline),
-                  _ThemeOption(
-                    value: ThemeMode.light,
-                    label: 'Light',
-                    subtitle: 'Always light',
-                    icon: Icons.light_mode_outlined,
-                  ),
-                  Divider(height: 1, color: cs.outline),
-                  _ThemeOption(
-                    value: ThemeMode.dark,
-                    label: 'Dark',
-                    subtitle: 'GitHub dark (#0d1117)',
-                    icon: Icons.dark_mode_outlined,
-                    isLast: true,
-                  ),
-                ],
+            GlassContainer(
+              padding: EdgeInsets.zero,
+              child: RadioGroup<ThemeMode>(
+                groupValue: themeService.themeMode,
+                onChanged: (mode) => themeService.setThemeMode(mode!),
+                child: Column(
+                  children: [
+                    _ThemeOption(
+                      value: ThemeMode.system,
+                      label: 'System Default',
+                      subtitle: 'Follows device setting',
+                      icon: Icons.brightness_auto_outlined,
+                      isFirst: true,
+                    ),
+                    const Divider(height: 1),
+                    _ThemeOption(
+                      value: ThemeMode.light,
+                      label: 'Light',
+                      subtitle: 'Elegant light mode (Default)',
+                      icon: Icons.light_mode_outlined,
+                    ),
+                    const Divider(height: 1),
+                    _ThemeOption(
+                      value: ThemeMode.dark,
+                      label: 'Dark',
+                      subtitle: 'Premium dark mode',
+                      icon: Icons.dark_mode_outlined,
+                      isLast: true,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -121,19 +187,19 @@ class _ThemeOption extends StatelessWidget {
       value: value,
       title: Row(
         children: [
-          Icon(icon, size: 18, color: cs.onSurfaceVariant),
+          Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 10),
-          Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+          Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
         ],
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(left: 28),
-        child: Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: cs.onSurfaceVariant)),
+        child: Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: isFirst ? const Radius.circular(12) : Radius.zero,
-          bottom: isLast ? const Radius.circular(12) : Radius.zero,
+          top: isFirst ? const Radius.circular(16) : Radius.zero,
+          bottom: isLast ? const Radius.circular(16) : Radius.zero,
         ),
       ),
     );

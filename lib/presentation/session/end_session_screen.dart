@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/key_repository.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -102,6 +103,14 @@ class _EndSessionScreenState extends State<EndSessionScreen>
       _error = null;
     });
 
+    if (widget.transferId.isEmpty || widget.receiverId.isEmpty) {
+      setState(() {
+        _phase = _Phase.ready;
+        _error = 'Missing session identifiers. Cleanup aborted.';
+      });
+      return;
+    }
+
     Future<void> tick(int i) async {
       setState(() {
         _steps[i].active = true;
@@ -177,47 +186,31 @@ class _EndSessionScreenState extends State<EndSessionScreen>
       await auditBatch.commit();
       await done(2);
 
-      // ── Step 3: Delete Firestore transfer document ───────────────────
+      // ── Step 3, 4, 5: Atomic Cleanup (Transfer, Handshake, Auth) ─────────
+      // We combine the deletion of the transfer document, the handshake,
+      // and the receiver's selectedSenderUid field into a single atomic
+      // operation via KeyRepository.
       await tick(3);
-      await FirebaseFirestore.instance
-          .collection('transfers')
-          .doc(widget.transferId)
-          .delete();
+      final keyRepo = KeyRepository();
+      
+      // Step 4 logic: Get handshake ID first
+      final handshakeId = await keyRepo.getActiveHandshakeDocId(
+        senderUid: widget.senderId,
+        receiverUid: widget.receiverId,
+      );
       await done(3);
 
-      // ── Step 4: Purge handshake document ─────────────────────────────
       await tick(4);
-      try {
-        final snap = await FirebaseFirestore.instance
-            .collection(FirebaseConstants.handshakes)
-            .where('receiverId', isEqualTo: widget.receiverId)
-            .where('senderId', isEqualTo: widget.senderId)
-            .get();
-        if (snap.docs.isNotEmpty) {
-          final batch = FirebaseFirestore.instance.batch();
-          for (final doc in snap.docs) {
-            batch.delete(doc.reference);
-          }
-          await batch.commit();
-        }
-      } on FirebaseException catch (_) {
-        // Best-effort — handshake purge failure must not block cleanup
-      }
+      // Combined Step 3, 4, and 5
+      await keyRepo.endSessionCleanup(
+        transferId: widget.transferId,
+        handshakeId: handshakeId,
+        receiverId: widget.receiverId,
+      );
       await done(4);
 
-      // ── Step 5: Clear receiver authorization (Zero Remanence) ────────
-      // Remove selectedSenderUid from the receiver's Firestore user doc.
-      // Without this, the receiver's Firestore document retains a permanent
-      // authorization artifact that could allow stale transfer creation.
+      // Since Step 5 is now part of the atomic cleanup above, we just mark it done.
       await tick(5);
-      try {
-        await FirebaseFirestore.instance
-            .collection(FirebaseConstants.users)
-            .doc(widget.receiverId)
-            .update({'selectedSenderUid': FieldValue.delete()});
-      } on FirebaseException catch (_) {
-        // Best-effort — field may already be absent
-      }
       await done(5);
 
       // ── All done ──────────────────────────────────────────────────────

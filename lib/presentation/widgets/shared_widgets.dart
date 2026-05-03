@@ -32,6 +32,7 @@ class GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: margin,
       width: width,
@@ -43,10 +44,10 @@ class GlassContainer extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: color ?? AppTheme.glassBg,
+              color: color ?? (isDark ? AppTheme.glassBgDark : AppTheme.glassBgLight),
               borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
-                color: borderColor ?? AppTheme.glassBorder,
+                color: borderColor ?? (isDark ? AppTheme.glassBorderDark : AppTheme.glassBorderLight),
                 width: 1.5,
               ),
             ),
@@ -77,6 +78,7 @@ class GlassButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Opacity(
       opacity: onPressed == null ? 0.5 : 1.0,
       child: GestureDetector(
@@ -84,8 +86,8 @@ class GlassButton extends StatelessWidget {
         child: GlassContainer(
           borderRadius: borderRadius,
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          color: color?.withValues(alpha: 0.15) ?? AppTheme.glassBg,
-          borderColor: color?.withValues(alpha: 0.3) ?? AppTheme.glassBorder,
+          color: color?.withValues(alpha: 0.15),
+          borderColor: color?.withValues(alpha: 0.3),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -97,7 +99,7 @@ class GlassButton extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: color ?? AppTheme.textMain,
+                  color: color ?? cs.onSurface,
                 ),
                 child: label,
               ),
@@ -128,63 +130,63 @@ class StepCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: done ? Colors.green.shade400 : cs.outline,
-          width: done ? 1.5 : 1.0,
-        ),
-        color: done
-            ? Colors.green.withValues(alpha: 0.05)
-            : cs.surface,
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: done ? Colors.green.shade600 : cs.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (done ? Colors.green : cs.primary).withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: done
-                      ? const Icon(Icons.check, color: Colors.white, size: 18)
-                      : Text(
-                          '$step',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        borderRadius: 24,
+        padding: const EdgeInsets.all(20),
+        borderColor: done ? Colors.green.withValues(alpha: 0.4) : null,
+        color: done ? Colors.green.withValues(alpha: isDark ? 0.05 : 0.02) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: done ? Colors.green : cs.primary,
+                    boxShadow: [
+                      BoxShadow(
+                        color: (done ? Colors.green : cs.primary).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: done
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        : Text(
+                            '$step',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600, fontSize: 15),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          child,
-        ],
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w700, 
+                      fontSize: 15,
+                      color: done ? Colors.green : cs.onSurface),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
       ),
     );
   }

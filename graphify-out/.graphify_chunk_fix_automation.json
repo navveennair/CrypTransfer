@@ -1,0 +1,183 @@
+{
+  "nodes": [
+    {
+      "id": "silent_guardian_script",
+      "label": "silent_guardian.ps1",
+      "file_type": "code",
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "id": "update_status_script",
+      "label": "update_status.ps1",
+      "file_type": "code",
+      "source_file": "scripts/update_status.ps1"
+    },
+    {
+      "id": "security_protocols_doc",
+      "label": "SECURITY_PROTOCOLS.md",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md"
+    },
+    {
+      "id": "claude_doc",
+      "label": "CLAUDE.md",
+      "file_type": "document",
+      "source_file": "CLAUDE.md"
+    },
+    {
+      "id": "security_lifecycle_mixin",
+      "label": "SecurityLifecycleMixin",
+      "file_type": "code",
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    },
+    {
+      "id": "encryption_service",
+      "label": "EncryptionService",
+      "file_type": "code",
+      "source_file": "lib/data/services/encryption_service.dart"
+    },
+    {
+      "id": "receiver_screen",
+      "label": "ReceiverScreen",
+      "file_type": "code",
+      "source_file": "lib/presentation/receiver/receiver_screen.dart"
+    },
+    {
+      "id": "auth_repository",
+      "label": "AuthRepository",
+      "file_type": "code",
+      "source_file": "lib/data/repositories/auth_repository.dart"
+    },
+    {
+      "id": "transfer_repository",
+      "label": "TransferRepository",
+      "file_type": "code",
+      "source_file": "lib/data/repositories/transfer_repository.dart"
+    },
+    {
+      "id": "transfer_model",
+      "label": "TransferModel",
+      "file_type": "code",
+      "source_file": "lib/data/models/transfer_model.dart"
+    },
+    {
+      "id": "sender_screen",
+      "label": "SenderScreen",
+      "file_type": "code",
+      "source_file": "lib/presentation/sender/sender_screen.dart"
+    },
+    {
+      "id": "decrypt_screen",
+      "label": "DecryptScreen",
+      "file_type": "code",
+      "source_file": "lib/presentation/receiver/decrypt_screen.dart"
+    },
+    {
+      "id": "biometric_helper",
+      "label": "BiometricHelper",
+      "file_type": "code",
+      "source_file": "lib/core/utils/biometric_helper.dart"
+    }
+  ],
+  "edges": [
+    {
+      "source": "silent_guardian_script",
+      "target": "security_lifecycle_mixin",
+      "relation": "monitors",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "encryption_service",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "receiver_screen",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "auth_repository",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "transfer_repository",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "transfer_model",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "claude_doc",
+      "relation": "enforces",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "silent_guardian_script",
+      "target": "security_protocols_doc",
+      "relation": "enforces",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/silent_guardian.ps1"
+    },
+    {
+      "source": "update_status_script",
+      "target": "sender_screen",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/update_status.ps1"
+    },
+    {
+      "source": "update_status_script",
+      "target": "decrypt_screen",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/update_status.ps1"
+    },
+    {
+      "source": "update_status_script",
+      "target": "biometric_helper",
+      "relation": "verifies",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/update_status.ps1"
+    },
+    {
+      "source": "update_status_script",
+      "target": "claude_doc",
+      "relation": "enforces",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/update_status.ps1"
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

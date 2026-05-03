@@ -27,6 +27,9 @@ class KeyRepository {
     return uid;
   }
 
+  CollectionReference<Map<String, dynamic>> _friendshipsOf(String userId) =>
+      _db.collection(FirebaseConstants.users).doc(userId).collection(FirebaseConstants.friendships);
+
   // ─── User search ──────────────────────────────────────────────────────────
 
   Future<List<UserModel>> searchUsers(String query) async {
@@ -52,35 +55,9 @@ class KeyRepository {
 
   Future<String?> getConnectionStatus(String otherUserId) async {
     try {
-      final snap = await _db
-          .collection(FirebaseConstants.users)
-          .doc(_uid)
-          .collection(FirebaseConstants.connections)
-          .doc(otherUserId)
-          .get();
-      if (snap.exists) return 'accepted';
-
-      // Check for outgoing request
-      final outgoing = await _db
-          .collection(FirebaseConstants.users)
-          .doc(otherUserId)
-          .collection(FirebaseConstants.friendRequests)
-          .where('senderId', isEqualTo: _uid)
-          .limit(1)
-          .get();
-      if (outgoing.docs.isNotEmpty) return 'pending_sent';
-
-      // Check for incoming request
-      final incoming = await _db
-          .collection(FirebaseConstants.users)
-          .doc(_uid)
-          .collection(FirebaseConstants.friendRequests)
-          .where('senderId', isEqualTo: otherUserId)
-          .limit(1)
-          .get();
-      if (incoming.docs.isNotEmpty) return 'pending_received';
-
-      return null;
+      final doc = await _friendshipsOf(_uid).doc(otherUserId).get();
+      if (!doc.exists) return null;
+      return doc.data()?['status'] as String?;
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Could not check connection status: ${e.message ?? e.code}');
@@ -92,33 +69,47 @@ class KeyRepository {
       final status = await getConnectionStatus(targetUserId);
       if (status != null) return;
 
-      final userDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
-      final senderUsername = userDoc.data()?['username'] as String? ?? 'Unknown';
+      final results = await Future.wait([
+        _db.collection(FirebaseConstants.users).doc(_uid).get(),
+        _db.collection(FirebaseConstants.users).doc(targetUserId).get(),
+      ]);
+      final myData = results[0].data() ?? {};
+      final targetData = results[1].data() ?? {};
 
-      final payload = {
-        'senderId': _uid,
-        'senderUsername': senderUsername,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+      final myUsername = myData['username'] as String? ?? 'Unknown';
+      final myEmail = myData['email'] as String? ?? '';
+      final targetUsername = targetData['username'] as String? ?? 'Unknown';
+      final targetEmail = targetData['email'] as String? ?? '';
 
-      // Write request to the target user's incoming requests sub-collection
-      await _db
-          .collection(FirebaseConstants.users)
-          .doc(targetUserId)
-          .collection(FirebaseConstants.friendRequests)
-          .doc(_uid)
-          .set(payload);
+      final batch = _db.batch();
 
-      // Notify the receiver
+      batch.set(_friendshipsOf(_uid).doc(targetUserId), {
+        'uid': targetUserId,
+        'username': targetUsername,
+        'email': targetEmail,
+        'status': 'accepted',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      batch.set(_friendshipsOf(targetUserId).doc(_uid), {
+        'uid': _uid,
+        'username': myUsername,
+        'email': myEmail,
+        'status': 'accepted',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+
       await _db
           .collection(FirebaseConstants.users)
           .doc(targetUserId)
           .collection(FirebaseConstants.notifications)
           .add({
         'toUserId': targetUserId,
-        'fromUsername': senderUsername,
+        'fromUsername': myUsername,
         'type': 'friend_request',
-        'message': '👋 $senderUsername wants to connect with you.',
+        'message': '👋 $myUsername wants to connect with you.',
         'createdAt': FieldValue.serverTimestamp(),
         'read': false,
       });
@@ -128,73 +119,18 @@ class KeyRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getPendingRequests() async {
-    try {
-      final snap = await _db
-          .collection(FirebaseConstants.users)
-          .doc(_uid)
-          .collection(FirebaseConstants.friendRequests)
-          .get();
+  Future<List<Map<String, dynamic>>> getPendingRequests() async => [];
 
-      return snap.docs.map((doc) => {
-        'docId': doc.id,
-        ...doc.data(),
-      }).toList();
-    } on FirebaseException catch (e) {
-      throw NetworkException('Could not load pending requests: ${e.message ?? e.code}');
-    }
-  }
-
-  Future<void> acceptConnectionRequest(String docId, String senderId) async {
-    try {
-      final batch = _db.batch();
-
-      final myDoc = await _db.collection(FirebaseConstants.users).doc(_uid).get();
-      final senderDoc = await _db.collection(FirebaseConstants.users).doc(senderId).get();
-
-      final myData = myDoc.data()!;
-      final senderData = senderDoc.data()!;
-
-      // 1. Create connection in MY sub-collection
-      batch.set(
-        _db.collection(FirebaseConstants.users).doc(_uid).collection(FirebaseConstants.connections).doc(senderId),
-        {
-          'uid': senderId,
-          'username': senderData['username'],
-          'email': senderData['email'],
-          'createdAt': FieldValue.serverTimestamp(),
-        }
-      );
-
-      // 2. Create connection in SENDER'S sub-collection
-      batch.set(
-        _db.collection(FirebaseConstants.users).doc(senderId).collection(FirebaseConstants.connections).doc(_uid),
-        {
-          'uid': _uid,
-          'username': myData['username'],
-          'email': myData['email'],
-          'createdAt': FieldValue.serverTimestamp(),
-        }
-      );
-
-      // 3. Delete the friend request
-      batch.delete(_db.collection(FirebaseConstants.users).doc(_uid).collection(FirebaseConstants.friendRequests).doc(docId));
-
-      await batch.commit();
-    } on FirebaseException catch (e) {
-      throw NetworkException('Failed to accept connection: ${e.message ?? e.code}');
-    }
-  }
+  Future<void> acceptConnectionRequest(String docId, String senderId) async {}
 
   Future<List<UserModel>> getConnectedFriends() async {
     try {
-      final snap = await _db
-          .collection(FirebaseConstants.users)
-          .doc(_uid)
-          .collection(FirebaseConstants.connections)
+      final snap = await _friendshipsOf(_uid)
+          .where('status', isEqualTo: 'accepted')
           .get();
-
-      return snap.docs.map((doc) => UserModel.fromMap(doc.id, doc.data())).toList();
+      return snap.docs
+          .map((doc) => UserModel.fromMap(doc.id, doc.data()))
+          .toList();
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Could not load connections: ${e.message ?? e.code}');
@@ -209,6 +145,18 @@ class KeyRepository {
       }
     } on FirebaseException catch (e) {
       throw NetworkException('Key resync failed: ${e.message ?? e.code}');
+    }
+  }
+
+  Future<void> disconnectFriend(String friendId) async {
+    try {
+      final batch = _db.batch();
+      batch.delete(_friendshipsOf(_uid).doc(friendId));
+      batch.delete(_friendshipsOf(friendId).doc(_uid));
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Failed to disconnect: ${e.message ?? e.code}');
     }
   }
 
@@ -689,6 +637,42 @@ class KeyRepository {
         .get();
     for (final doc in notifs.docs) {
       await doc.reference.delete();
+    }
+  }
+
+  /// Atomically purges session data from Firestore.
+  /// Triggered by the 'End Session' button on the [EndSessionScreen].
+  ///
+  /// Verifies that [transferId] and [handshakeId] are not null before adding
+  /// them to the [WriteBatch] to avoid runtime errors.
+  Future<void> endSessionCleanup({
+    String? transferId,
+    String? handshakeId,
+    required String receiverId,
+  }) async {
+    if (receiverId.isEmpty) {
+      throw NetworkException('Cannot cleanup: receiverId is missing.');
+    }
+    final batch = _db.batch();
+
+    if (transferId != null && transferId.isNotEmpty) {
+      batch.delete(_db.collection(FirebaseConstants.transfers).doc(transferId));
+    }
+
+    if (handshakeId != null && handshakeId.isNotEmpty) {
+      batch.delete(_db.collection(FirebaseConstants.handshakes).doc(handshakeId));
+    }
+
+    // Always clear the receiver authorization field as part of the cleanup.
+    batch.update(
+      _db.collection(FirebaseConstants.users).doc(receiverId),
+      {'selectedSenderUid': FieldValue.delete()},
+    );
+
+    try {
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw NetworkException('Cleanup failed: ${e.message ?? e.code}');
     }
   }
 }

@@ -26,7 +26,13 @@
       "WebFetch(domain:firebase.flutter.dev)",
       "WebFetch(domain:dev.to)",
       "Bash(gsd-sdk query *)",
-      "Bash(cat *)"
+      "Bash(cat *)",
+      "Bash(keytool -list -v -keystore \"%USERPROFILE%/.android/debug.keystore\" -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(keytool *)",
+      "Bash(\"/c/Program Files/Android/Android Studio1/jbr/bin/keytool\" -list -v -keystore \"/c/Users/navve/.android/debug.keystore\" -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(pkill -f \"flutter run\")",
+      "Skill(gsd:add-phase)",
+      "Bash(firebase projects:list *)"
     ]
   }
 }

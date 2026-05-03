@@ -172,4 +172,4 @@ These sub-points map to the Non-Repudiation Status Fields table above.
 
 ## Open Tasks
 - [ ] Test edge case: app killed mid-transfer
-- [ ] Fix `participants` field gap: add `participants` array to `writeAuditLog()` so HomeScreen Recent Transfers list populates
+✅ `participants` field added to `writeAuditLog()`: ensures HomeScreen Recent Transfers list populates correctly.

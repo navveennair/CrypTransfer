@@ -1,0 +1,107 @@
+{
+  "nodes": [
+    {
+      "id": "kotlin_security_channel",
+      "label": "com.example.cryptransfer/security",
+      "file_type": "code",
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "id": "dart_security_mixin",
+      "label": "SecurityLifecycleMixin",
+      "file_type": "code",
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    },
+    {
+      "id": "main_activity",
+      "label": "MainActivity",
+      "file_type": "code",
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "id": "android_flag_secure",
+      "label": "Android FLAG_SECURE",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md"
+    },
+    {
+      "id": "dart_is_flag_secure_active",
+      "label": "isFlagSecureActive()",
+      "file_type": "code",
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    },
+    {
+      "id": "kotlin_is_flag_secure_active",
+      "label": "isFlagSecureActive",
+      "file_type": "code",
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "id": "sender_screen_encrypt_file",
+      "label": "_encryptFile",
+      "file_type": "code",
+      "source_file": "lib/presentation/sender/sender_screen.dart"
+    }
+  ],
+  "edges": [
+    {
+      "source": "main_activity",
+      "target": "kotlin_security_channel",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "source": "dart_security_mixin",
+      "target": "kotlin_security_channel",
+      "relation": "communicates_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    },
+    {
+      "source": "sender_screen_encrypt_file",
+      "target": "dart_is_flag_secure_active",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/presentation/sender/sender_screen.dart"
+    },
+    {
+      "source": "main_activity",
+      "target": "android_flag_secure",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "source": "kotlin_is_flag_secure_active",
+      "target": "android_flag_secure",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt"
+    },
+    {
+      "source": "dart_is_flag_secure_active",
+      "target": "android_flag_secure",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    },
+    {
+      "source": "dart_is_flag_secure_active",
+      "target": "kotlin_is_flag_secure_active",
+      "relation": "communicates_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/core/utils/security_lifecycle_mixin.dart"
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

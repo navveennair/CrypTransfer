@@ -367,7 +367,7 @@ class _SenderScreenState extends State<SenderScreen>
       },
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('Send File'),
+        title: Text('Send File', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -375,6 +375,49 @@ class _SenderScreenState extends State<SenderScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Welcome banner ────────────────────────────────
+            GlassContainer(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              color: cs.primary.withValues(alpha: 0.1),
+              borderColor: cs.primary.withValues(alpha: 0.2),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.send_rounded, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'File Transfer',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          'Securely encrypt and transmit your data.',
+                          style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // ── Step 0: Receiver-Authorized Connection ──────────────────
             StepCard(
               step: 0,

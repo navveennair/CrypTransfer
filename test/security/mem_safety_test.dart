@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,7 +64,8 @@ void main() {
         );
 
         // Verify the guard correctly allows execution when path is present.
-        const String? validPath = '/data/user/0/com.example.cryptransfer/cache/doc.pdf';
+        const validPath = '/data/user/0/com.example.cryptransfer/cache/doc.pdf';
+        // ignore: unnecessary_null_comparison
         final bool guardSkipped = !kIsWeb && validPath == null;
 
         expect(

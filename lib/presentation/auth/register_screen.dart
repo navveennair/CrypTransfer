@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'login_screen.dart';
+import 'onboarding_screen.dart';
+import '../home/home_screen.dart';
 
 enum _FS { pristine, checking, valid, invalid }
 
@@ -252,6 +254,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Future<void> _registerWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final cred = await _authService.signInWithGoogle();
+      if (!mounted) return;
+      
+      final userDoc = await _authService.getUserProfile(cred.user!.uid);
+      if (!mounted) return;
+      final isFirstTime = userDoc?.isFirstTime ?? false;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => isFirstTime ? const OnboardingScreen() : const HomeScreen(),
+        ),
+        (route) => false,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google Sign-In failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _touchAll() {
     if (_usernameController.text.trim().isEmpty) {
       setState(() {
@@ -448,6 +478,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: cs.primary,
                                 onPressed: _register,
                               ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: cs.outlineVariant)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                            ),
+                            Expanded(child: Divider(color: cs.outlineVariant)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _registerWithGoogle,
+                          icon: const _GoogleGIcon(),
+                          label: const Text('Sign up with Google'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: BorderSide(color: cs.outlineVariant),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -475,6 +527,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GoogleGIcon extends StatelessWidget {
+  const _GoogleGIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Text(
+          'G',
+          style: TextStyle(
+            color: Color(0xFF4285F4),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            height: 1.0,
+          ),
+        ),
       ),
     );
   }

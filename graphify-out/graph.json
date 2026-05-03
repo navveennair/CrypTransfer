@@ -9,7 +9,7 @@
       "source_file": "android\\build.gradle.kts",
       "source_location": "L1",
       "id": "android_build_gradle_kts",
-      "community": 8
+      "community": 7
     },
     {
       "label": "settings.gradle.kts",
@@ -17,7 +17,7 @@
       "source_file": "android\\settings.gradle.kts",
       "source_location": "L1",
       "id": "android_settings_gradle_kts",
-      "community": 9
+      "community": 8
     },
     {
       "label": "build.gradle.kts",
@@ -25,7 +25,7 @@
       "source_file": "android\\app\\build.gradle.kts",
       "source_location": "L1",
       "id": "android_app_build_gradle_kts",
-      "community": 10
+      "community": 9
     },
     {
       "label": "GeneratedPluginRegistrant.java",
@@ -39,7 +39,7 @@
       "label": "GeneratedPluginRegistrant",
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
-      "source_location": "L57",
+      "source_location": "L69",
       "id": "generatedpluginregistrant_generatedpluginregistrant",
       "community": 1
     },
@@ -52,36 +52,25 @@
       "community": 1
     },
     {
-      "label": "MainActivity.kt",
+      "label": "com.example.cryptransfer/security",
       "file_type": "code",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L1",
-      "id": "android_app_src_main_kotlin_com_example_cryptransfer_mainactivity_kt",
-      "community": 2
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
+      "id": "kotlin_security_channel",
+      "community": 5
     },
     {
       "label": "MainActivity",
       "file_type": "code",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L33",
-      "id": "mainactivity_mainactivity",
-      "community": 2
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
+      "id": "main_activity",
+      "community": 5
     },
     {
-      "label": ".onCreate()",
+      "label": "isFlagSecureActive",
       "file_type": "code",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L39",
-      "id": "mainactivity_mainactivity_oncreate",
-      "community": 2
-    },
-    {
-      "label": ".configureFlutterEngine()",
-      "file_type": "code",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L51",
-      "id": "mainactivity_mainactivity_configureflutterengine",
-      "community": 2
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
+      "id": "kotlin_is_flag_secure_active",
+      "community": 10
     },
     {
       "label": "flutter_lldb_helper.py",
@@ -89,7 +78,7 @@
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L1",
       "id": "ios_flutter_ephemeral_flutter_lldb_helper_py",
-      "community": 3
+      "community": 2
     },
     {
       "label": "handle_new_rx_page()",
@@ -97,7 +86,7 @@
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L7",
       "id": "flutter_lldb_helper_handle_new_rx_page",
-      "community": 3
+      "community": 2
     },
     {
       "label": "__lldb_init_module()",
@@ -105,7 +94,7 @@
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L24",
       "id": "flutter_lldb_helper_lldb_init_module",
-      "community": 3
+      "community": 2
     },
     {
       "label": "Intercept NOTIFY_DEBUGGER_ABOUT_RX_PAGES and touch the pages.",
@@ -113,7 +102,7 @@
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L8",
       "id": "flutter_lldb_helper_rationale_8",
-      "community": 3
+      "community": 2
     },
     {
       "label": "AppDelegate.swift",
@@ -187,7 +176,7 @@
       "label": "-registerWithRegistry",
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
-      "source_location": "L59",
+      "source_location": "L71",
       "id": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
       "community": 1
     },
@@ -209,7 +198,7 @@
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L1",
       "id": "ios_runner_scenedelegate_swift",
-      "community": 5
+      "community": 4
     },
     {
       "label": "SceneDelegate",
@@ -217,7 +206,7 @@
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L4",
       "id": "scenedelegate_scenedelegate",
-      "community": 5
+      "community": 4
     },
     {
       "label": "FlutterSceneDelegate",
@@ -225,7 +214,7 @@
       "source_file": "",
       "source_location": "",
       "id": "flutterscenedelegate",
-      "community": 5
+      "community": 4
     },
     {
       "label": "RunnerTests.swift",
@@ -233,7 +222,7 @@
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L1",
       "id": "ios_runnertests_runnertests_swift",
-      "community": 4
+      "community": 3
     },
     {
       "label": "RunnerTests",
@@ -241,7 +230,7 @@
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L5",
       "id": "runnertests_runnertests",
-      "community": 4
+      "community": 3
     },
     {
       "label": "XCTestCase",
@@ -249,7 +238,7 @@
       "source_file": "",
       "source_location": "",
       "id": "xctestcase",
-      "community": 4
+      "community": 3
     },
     {
       "label": ".testExample()",
@@ -257,31 +246,21 @@
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L7",
       "id": "runnertests_runnertests_testexample",
-      "community": 4
+      "community": 3
     },
     {
       "label": "silent_guardian.ps1",
       "file_type": "code",
-      "source_file": "scripts\\silent_guardian.ps1",
-      "source_location": "L1",
-      "id": "scripts_silent_guardian_ps1",
-      "community": 7
-    },
-    {
-      "label": "Write-Log()",
-      "file_type": "code",
-      "source_file": "scripts\\silent_guardian.ps1",
-      "source_location": "L17",
-      "id": "silent_guardian_write_log",
-      "community": 7
+      "source_file": "scripts/silent_guardian.ps1",
+      "id": "silent_guardian_script",
+      "community": 11
     },
     {
       "label": "update_status.ps1",
       "file_type": "code",
-      "source_file": "scripts\\update_status.ps1",
-      "source_location": "L1",
-      "id": "scripts_update_status_ps1",
-      "community": 11
+      "source_file": "scripts/update_status.ps1",
+      "id": "update_status_script",
+      "community": 12
     }
   ],
   "links": [
@@ -313,7 +292,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
-      "source_location": "L57",
+      "source_location": "L69",
       "weight": 1.0,
       "_src": "ios_runner_generatedpluginregistrant_m",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant",
@@ -325,7 +304,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
-      "source_location": "L59",
+      "source_location": "L71",
       "weight": 1.0,
       "_src": "generatedpluginregistrant_generatedpluginregistrant",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
@@ -334,40 +313,14 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
+      "relation": "implements",
       "confidence": "EXTRACTED",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L33",
-      "weight": 1.0,
-      "_src": "android_app_src_main_kotlin_com_example_cryptransfer_mainactivity_kt",
-      "_tgt": "mainactivity_mainactivity",
-      "source": "android_app_src_main_kotlin_com_example_cryptransfer_mainactivity_kt",
-      "target": "mainactivity_mainactivity",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L39",
-      "weight": 1.0,
-      "_src": "mainactivity_mainactivity",
-      "_tgt": "mainactivity_mainactivity_oncreate",
-      "source": "mainactivity_mainactivity",
-      "target": "mainactivity_mainactivity_oncreate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "android\\app\\src\\main\\kotlin\\com\\example\\cryptransfer\\MainActivity.kt",
-      "source_location": "L51",
-      "weight": 1.0,
-      "_src": "mainactivity_mainactivity",
-      "_tgt": "mainactivity_mainactivity_configureflutterengine",
-      "source": "mainactivity_mainactivity",
-      "target": "mainactivity_mainactivity_configureflutterengine",
-      "confidence_score": 1.0
+      "confidence_score": 1.0,
+      "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
+      "_src": "main_activity",
+      "_tgt": "kotlin_security_channel",
+      "source": "kotlin_security_channel",
+      "target": "main_activity"
     },
     {
       "relation": "contains",
@@ -535,18 +488,6 @@
       "_tgt": "runnertests_runnertests_testexample",
       "source": "runnertests_runnertests",
       "target": "runnertests_runnertests_testexample",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "scripts\\silent_guardian.ps1",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_src": "scripts_silent_guardian_ps1",
-      "_tgt": "silent_guardian_write_log",
-      "source": "scripts_silent_guardian_ps1",
-      "target": "silent_guardian_write_log",
       "confidence_score": 1.0
     }
   ],

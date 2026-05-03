@@ -8,6 +8,7 @@ class UserModel {
   final String? publicKey;
   final bool isAdmin;
   final bool isActive;
+  final bool isFirstTime;
   final DateTime? createdAt;
 
   const UserModel({
@@ -18,6 +19,7 @@ class UserModel {
     this.publicKey,
     this.isAdmin = false,
     this.isActive = true,
+    this.isFirstTime = false,
     this.createdAt,
   });
 
@@ -31,6 +33,7 @@ class UserModel {
       publicKey: data['publicKey'] as String?,
       isAdmin: data['isAdmin'] as bool? ?? false,
       isActive: data['isActive'] as bool? ?? true,
+      isFirstTime: data['isFirstTime'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -44,6 +47,7 @@ class UserModel {
       publicKey: data['publicKey'] as String?,
       isAdmin: data['isAdmin'] as bool? ?? false,
       isActive: data['isActive'] as bool? ?? true,
+      isFirstTime: data['isFirstTime'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
