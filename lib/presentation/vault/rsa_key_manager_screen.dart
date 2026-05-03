@@ -89,7 +89,9 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // dismiss progress dialog
+        // Guard pop — if regenerateKeyPair threw before the dialog frame was
+        // pushed, Navigator.pop would dismiss the vault screen instead.
+        if (Navigator.canPop(context)) Navigator.pop(context);
         _showError(e.toString());
       }
     } finally {
