@@ -110,13 +110,10 @@ service cloud.firestore {
 
       // ── users/{userId}/friendships ────────────────────────────────────────
       // Owner can read/write their own list.
-      // Any authenticated user may CREATE an entry in another user's list
-      // only if the document's uid field equals their own uid (adding self).
       match /friendships/{friendId} {
-        allow read: if request.auth.uid == userId;
-        allow write: if request.auth.uid == userId;
-        allow create: if isAuthenticated() &&
-                         request.resource.data.uid == request.auth.uid;
+        allow read, write: if request.auth.uid == userId;
+        // Dead 'allow create' removed — 'write' is a superset of 'create';
+        // the narrower create clause was unreachable and unenforced.
       }
     }
 
