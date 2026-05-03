@@ -164,7 +164,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     setState(() => _isTogglingReady = true);
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
+      if (uid == null) {
+        setState(() => _isTogglingReady = false);
+        _showError('Not authenticated.');
+        return;
+      }
 
       if (value) {
         await EncryptionService.setupReceiverSession(uid);
@@ -552,6 +556,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
@@ -561,7 +566,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Receive File'),
+          title: Text('Receive File', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          centerTitle: true,
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_suggest_rounded),
@@ -573,6 +579,49 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Column(
             children: [
+              // ── Welcome banner ────────────────────────────────
+              GlassContainer(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                color: cs.primary.withValues(alpha: 0.1),
+                borderColor: cs.primary.withValues(alpha: 0.2),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.download_rounded, color: cs.primary, size: 20),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Secure Inbox',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'Establish handshakes and receive data.',
+                            style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               StepCard(step: 1, title: 'RSA Keypair', done: _step1Done, child: _step1Content()),
               const SizedBox(height: 16),
               AnimatedOpacity(
