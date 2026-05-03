@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -211,6 +210,9 @@ class AuthRepository {
   // ─── RSA key management ────────────────────────────────────────────────────
 
   Future<void> generateAndStoreKeyPair() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw AuthException('Not authenticated.');
+
     final pair = await compute(_generateKeyPairIsolate, null);
     final pubKey = pair.publicKey as RSAPublicKey;
     final privKey = pair.privateKey as RSAPrivateKey;
@@ -219,9 +221,6 @@ class AuthRepository {
       key: FirebaseConstants.privateKeyStorageKey,
       value: EncryptionService.encodePrivateKey(privKey),
     );
-
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) throw AuthException('Not authenticated.');
 
     await _db.collection(FirebaseConstants.users).doc(uid).update({
       'publicKey': EncryptionService.encodePublicKey(pubKey),
@@ -283,7 +282,7 @@ class AuthRepository {
       'action': 'regenerated',
       'timestamp': FieldValue.serverTimestamp(),
       'publicKeyHash': fingerprint,
-      'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+      'deviceInfo': defaultTargetPlatform.name,
     });
     batch.set(prefsRef, {'keyVaultCreatedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true)); // D-14: stamp regeneration time; merge preserves other prefs
@@ -305,7 +304,7 @@ class AuthRepository {
       'action': 'deleted',
       'timestamp': FieldValue.serverTimestamp(),
       'publicKeyHash': null, // no key to hash after deletion
-      'deviceInfo': '${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+      'deviceInfo': defaultTargetPlatform.name,
     });
     await batch.commit();
   }
