@@ -16,7 +16,7 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../../data/services/encryption_service.dart';
-import 'download_confirm_screen.dart';
+import 'receiver_end_session_screen.dart';
 
 // ─── Top-level isolate helper (compute() requires top-level / static) ─────────
 
@@ -215,14 +215,13 @@ class _DecryptScreenState extends State<DecryptScreen>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => DownloadConfirmScreen(
+            builder: (_) => ReceiverEndSessionScreen(
               transferId: widget.transferId,
               fileName: _transfer.fileName,
               fileSize: _transfer.fileSize,
               senderUsername: _senderUsername,
               senderId: _transfer.senderId,
               receiverId: _transfer.receiverId,
-              savedPath: 'Downloads/${_transfer.fileName}',
               transferredAt: DateTime.now(),
             ),
           ),
