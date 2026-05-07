@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 03
-current_plan: 05 (03-05 complete — phase done)
+current_plan: 06 (03-06 complete — gap closure done)
 status: completed
-last_updated: "2026-05-02T18:20:09.048Z"
+last_updated: "2026-05-07T00:00:00.000Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
   percent: 100
 ---
 
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03
-**Current plan:** 05 (03-05 complete — phase done)
-**Status:** Phase 03 complete — all 5 plans executed
+**Current plan:** 06 (03-06 complete — gap closure done)
+**Status:** Phase 03 complete — all 6 plans executed, UAT 6/6 passed
 
 ## Session Log
 
@@ -36,6 +36,7 @@ See: .planning/PROJECT.md
 - 2026-05-02: 03-03-PLAN.md complete — AuthRepository key lifecycle: computeFingerprint (SHA-256), regenerateKeyPair (3-doc WriteBatch), deleteKeyPair (2-doc WriteBatch), updateLastVaultAccess (merge-safe upsert)
 - 2026-05-02: 03-04-PLAN.md complete — RsaKeyManagerScreen: biometric-gated vault UI, StreamBuilder key status, CrypButton Regenerate/Delete, fingerprint via AuthRepository.computeFingerprint()
 - 2026-05-02: 03-05-PLAN.md complete — ReceiverScreen amber banner + SidebarDrawer Key Vault entry + Firestore rsa_key_manager/profile rules; Phase 03 fully wired
+- 2026-05-07: 03-06-PLAN.md complete — deployed firestore.rules to cryptransfer-96e9f; fixed deleteKeyPair() ordering (commit-before-wipe); UAT 6/6 passed
 
 ## Accumulated Context
 
