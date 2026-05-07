@@ -24,16 +24,19 @@ result: pass
 expected: With an existing RSA key pair, the Key Vault screen shows an "RSA-2048" algorithm label and a 16-character uppercase hex fingerprint (e.g., "A1B2C3D4E5F60123"). Two action buttons — Regenerate and Delete — are visible below the key info.
 result: pass
 resolved_by: 03-06 (deployed firestore.rules to cryptransfer-96e9f)
+user_confirmed: 2026-05-07
 
 ### 4. Regenerate Keys Flow
 expected: Tap the Regenerate button in Key Vault. A confirmation dialog appears before any action is taken. After confirming, the key is regenerated — the fingerprint displayed on screen changes to reflect the new key pair. A success snackbar or indicator is shown.
 result: pass
 resolved_by: 03-06 (deployed firestore.rules to cryptransfer-96e9f)
+user_confirmed: 2026-05-07
 
 ### 5. Delete Keys Flow
 expected: Tap the Delete button in Key Vault. A confirmation dialog appears. After confirming, the key is deleted — the screen transitions from the "active key" view to a "no key" state (showing an option to generate a new key pair).
 result: pass
 resolved_by: 03-06 (deployed firestore.rules to cryptransfer-96e9f)
+user_confirmed: 2026-05-07
 
 ### 6. No-Keys Warning Banner in ReceiverScreen
 expected: On an account with no RSA keys (e.g., after deleting via vault), navigate to the Receiver screen. Step 1 shows an amber warning banner ("No RSA keys found — tap to generate" or similar). Tapping the banner navigates to the Key Vault screen. After returning, the banner is gone if a key was generated.
