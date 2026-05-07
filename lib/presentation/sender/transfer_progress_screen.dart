@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
-import '../session/end_session_screen.dart';
+import 'sender_session_ended_screen.dart';
 import '../widgets/shared_widgets.dart';
 
 class TransferProgressScreen extends StatefulWidget {
@@ -23,7 +23,7 @@ class TransferProgressScreen extends StatefulWidget {
   final String encryptedAESKeyB64;
   final String ivB64;
 
-  /// Raw AES key bytes — passed through to EndSessionScreen for in-memory zeroing.
+  /// Raw AES key bytes — registered in initState and zeroed by wipeAll() on session end (D-07).
   final Uint8List? aesKey;
 
   const TransferProgressScreen({
@@ -53,12 +53,12 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   int _totalBytes = 0;
   bool _done = false;
   String? _error;
-  DateTime? _completedAt;
 
   // ── Non-repudiation listener state ────────────────────────────────────────
   StreamSubscription<DocumentSnapshot>? _transferListener;
   bool _receiverDecrypted = false;
   bool _canEndSession = false;
+  bool _sessionEnded = false; // D-06: guard against double-fire on stream reconnect
   String? _statusMessage;
 
   late AnimationController _successCtrl;
@@ -100,7 +100,28 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         .doc(widget.transferId)
         .snapshots()
         .listen((snapshot) {
-      if (!snapshot.exists) return;
+      // D-06: detect receiver cleanup — transfer doc deleted by ReceiverEndSessionScreen step 2
+      if (!snapshot.exists) {
+        if (!_done || _sessionEnded) return; // only react after upload completes (Pitfall 1)
+        _sessionEnded = true;
+        wipeAll(); // zeros widget.encryptedBytes + widget.aesKey (registered in initState)
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SenderSessionEndedScreen(
+                transferId: widget.transferId,
+                fileName: widget.fileName,
+                fileSize: widget.fileSize,
+                receiverUsername: widget.receiverUsername,
+                senderId: widget.senderId,
+                receiverId: widget.receiverId,
+              ),
+            ),
+          );
+        }
+        return;
+      }
       final data = snapshot.data()!;
       final receiverStatus = data['receiverStatus'] as String?;
 
@@ -195,7 +216,6 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         setState(() {
           _progress = 1.0;
           _done = true;
-          _completedAt = DateTime.now();
         });
         _successCtrl.forward();
       }
@@ -399,30 +419,6 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                     ),
                   ),
 
-                const SizedBox(height: 12),
-                CrypButton(
-                  icon: const Icon(Icons.lock_clock_rounded),
-                  label: const Text('End Session'),
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EndSessionScreen(
-                        transferId: widget.transferId,
-                        fileName: widget.fileName,
-                        fileSize: widget.fileSize,
-                        senderUsername:
-                            FirebaseAuth.instance.currentUser?.displayName ??
-                                'Unknown',
-                        receiverUsername: widget.receiverUsername,
-                        senderId: widget.senderId,
-                        receiverId: widget.receiverId,
-                        transferredAt: _completedAt ?? DateTime.now(),
-                        aesKey: widget.aesKey,
-                      ),
-                    ),
-                  ),
-                  color: Colors.red.shade700,
-                ),
               ] else ...[
                 Text(
                   'Uploading encrypted file…',
