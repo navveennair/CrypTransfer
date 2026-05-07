@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -221,6 +222,79 @@ void main() {
       },
     );
 
+    // ─── deleteKeyPair() ordering ─────────────────────────────────────────────
+
+    // TC-VAULT-03-ORDER-1: If batch.commit() fails, _secure.delete() must NOT
+    // have been called — private key must remain in secure storage.
+    // RED with buggy code (wipe before commit); GREEN after fix (commit first).
+    test(
+      'TC-VAULT-03-ORDER-1: deleteKeyPair must NOT wipe secure storage if batch.commit() fails',
+      () async {
+        const uid = 'test_uid_ordering_fail';
+        final throwingFirestore = _ThrowingBatchFirestore();
+        await throwingFirestore
+            .collection('users')
+            .doc(uid)
+            .set({'publicKey': 'PUB_KEY', 'username': 'orderuser'});
+
+        final secureStorage = FakeSecureStorage();
+        await secureStorage.write(
+            key: 'rsa_private_key', value: 'PRIVATE_KEY_MATERIAL');
+
+        final repo = AuthRepository(
+          auth: mockAuth,
+          db: throwingFirestore,
+          secure: secureStorage,
+        );
+
+        // batch.commit() will throw — deleteKeyPair must propagate the exception.
+        await expectLater(
+          repo.deleteKeyPair(uid),
+          throwsException,
+          reason: 'deleteKeyPair must propagate batch commit failure',
+        );
+
+        // Key must still be present: secure wipe must not run before commit.
+        final keyPresent =
+            await secureStorage.containsKey(key: 'rsa_private_key');
+        expect(keyPresent, true,
+            reason:
+                'Private key must remain when batch.commit() fails (ordering bug)');
+      },
+    );
+
+    // TC-VAULT-03-ORDER-2: On successful commit, _secure.delete() IS called.
+    test(
+      'TC-VAULT-03-ORDER-2: deleteKeyPair wipes secure storage after successful batch.commit()',
+      () async {
+        const uid = 'test_uid_ordering_success';
+        final fakeFirestore = FakeFirebaseFirestore();
+        await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .set({'publicKey': 'PUB_KEY', 'username': 'orderuser2'});
+
+        final secureStorage = FakeSecureStorage();
+        await secureStorage.write(
+            key: 'rsa_private_key', value: 'PRIVATE_KEY_MATERIAL');
+
+        final repo = AuthRepository(
+          auth: mockAuth,
+          db: fakeFirestore,
+          secure: secureStorage,
+        );
+
+        await repo.deleteKeyPair(uid);
+
+        // Key must be gone after a successful commit.
+        final keyPresent =
+            await secureStorage.containsKey(key: 'rsa_private_key');
+        expect(keyPresent, false,
+            reason:
+                'Private key must be wiped after successful batch.commit()');
+      },
+    );
+
     // ─── updateLastVaultAccess() ──────────────────────────────────────────────
 
     // TC-VAULT-07: updateLastVaultAccess writes lastVaultAccessAt to profile/preferences.
@@ -292,4 +366,32 @@ void main() {
       },
     );
   });
+}
+
+// ─── Ordering-test helpers ────────────────────────────────────────────────────
+
+/// FakeFirebaseFirestore variant whose batch() always throws on commit.
+/// Used by TC-VAULT-03-ORDER-1 to verify that _secure.delete() is NOT called
+/// before a successful batch.commit() (i.e., the ordering fix is correct).
+class _ThrowingBatchFirestore extends FakeFirebaseFirestore {
+  @override
+  WriteBatch batch() => _ThrowingWriteBatch();
+}
+
+/// WriteBatch stub that throws on commit() and is a no-op for mutations.
+class _ThrowingWriteBatch extends Fake implements WriteBatch {
+  @override
+  void update(
+          DocumentReference<Object?> document, Map<Object, Object?> data) {}
+
+  @override
+  void set<T>(DocumentReference<T> document, T data,
+          [SetOptions? options]) {}
+
+  @override
+  void delete(DocumentReference<Object?> document) {}
+
+  @override
+  Future<void> commit() async =>
+      throw Exception('Simulated batch commit failure for ordering test');
 }
