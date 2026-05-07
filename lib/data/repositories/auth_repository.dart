@@ -294,8 +294,6 @@ class AuthRepository {
   /// and appends an immutable audit document to rsa_key_manager subcollection.
   /// Uses a 2-doc WriteBatch: publicKey delete + audit log (no keyVaultCreatedAt on delete).
   Future<void> deleteKeyPair(String uid) async {
-    await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
-
     final userRef = _db.collection(FirebaseConstants.users).doc(uid);
     final auditRef = userRef.collection(FirebaseConstants.rsaKeyManager).doc();
     final batch = _db.batch();
@@ -307,6 +305,10 @@ class AuthRepository {
       'deviceInfo': defaultTargetPlatform.name,
     });
     await batch.commit();
+    // Secure-storage wipe only after Firestore commit succeeds.
+    // If batch.commit() throws, the private key is NOT wiped — Firestore and
+    // secure storage remain consistent (both still hold key material).
+    await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
   }
 
   // ─── User profile ──────────────────────────────────────────────────────────
