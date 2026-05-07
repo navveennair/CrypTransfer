@@ -1,18 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 03-managed-profile-rsa-vault
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, 03-05-SUMMARY.md
 started: 2026-05-03T00:00:00Z
-updated: 2026-05-03T00:03:00Z
+updated: 2026-05-07T00:00:00Z
 ---
 
 ## Current Test
 
-number: 3
-name: Key Vault Shows Active Key Fingerprint
-expected: |
-  With an existing RSA key pair, the Key Vault screen shows an "RSA-2048" algorithm label and a 16-character uppercase hex fingerprint. Two action buttons — Regenerate and Delete — are visible.
-awaiting: investigating fix
+[testing complete]
 
 ## Tests
 
@@ -44,14 +40,14 @@ severity: blocker
 
 ### 6. No-Keys Warning Banner in ReceiverScreen
 expected: On an account with no RSA keys (e.g., after deleting via vault), navigate to the Receiver screen. Step 1 shows an amber warning banner ("No RSA keys found — tap to generate" or similar). Tapping the banner navigates to the Key Vault screen. After returning, the banner is gone if a key was generated.
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 6
-passed: 2
+passed: 3
 issues: 3
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
