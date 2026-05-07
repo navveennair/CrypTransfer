@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 03-managed-profile-rsa-vault
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, 03-05-SUMMARY.md
 started: 2026-05-03T00:00:00Z
@@ -58,7 +58,13 @@ blocked: 0
   reason: "User reported: both sender and receiver cannot Generate, Regenerate or Delete Keys"
   severity: blocker
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Firestore security rules for users/{uid}/rsa_key_manager subcollection written in Phase 03 but never deployed to production Firebase project (cryptransfer-96e9f). All mutation ops hit PERMISSION_DENIED. Rules are correct in firestore.rules — deploy is the only missing step. Secondary: deleteKeyPair() wipes secure storage before batch commit, risking key desync on batch failure."
+  artifacts:
+    - path: "firestore.rules"
+      issue: "rsa_key_manager rules exist locally but were never deployed via firebase deploy"
+    - path: "lib/data/repositories/auth_repository.dart"
+      issue: "deleteKeyPair() deletes from secure storage before Firestore batch commit — risky ordering"
+  missing:
+    - "Run: firebase deploy --only firestore:rules"
+    - "Move _secure.delete() call in deleteKeyPair() to after successful batch commit"
+  debug_session: ".planning/debug/key-vault-ops-fail.md"
