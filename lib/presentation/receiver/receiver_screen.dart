@@ -34,12 +34,13 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   bool _hasPrivateKey = false;
   bool _hasPublicKey = false;
   bool _checkingStatus = true;
-  
+
   bool _isReadyToReceive = false;
   bool _loadingReadyState = true;
   bool _isTogglingReady = false;
 
   List<UserModel> _connectedFriends = [];
+  StreamSubscription<List<UserModel>>? _friendsSub;
   bool _handshaking = false;
   bool _handshakeDone = false;
 
@@ -62,17 +63,27 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     WidgetsBinding.instance.addObserver(this);
     _sessionManager.stateNotifier.addListener(_onSessionStateChanged);
     _checkKeyStatus();
-    _loadConnectedFriends();
+    _subscribeToFriends();
     _loadReadyToReceiveState();
   }
 
   @override
   void dispose() {
+    _friendsSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     EncryptionService.unbindSession();
     _sessionManager.dispose();
     super.dispose();
+  }
+
+  void _subscribeToFriends() {
+    _friendsSub = _connService.streamConnectedFriends().listen(
+      (friends) {
+        if (mounted) setState(() => _connectedFriends = friends);
+      },
+      onError: (_) {}, // silently ignore errors — list stays at last known value
+    );
   }
 
   void _onSessionStateChanged() {
@@ -262,13 +273,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     return result ?? false;
   }
 
-  Future<void> _loadConnectedFriends() async {
-    try {
-      final friends = await _connService.getConnectedFriends();
-      if (mounted) setState(() => _connectedFriends = friends);
-    } catch (_) {}
-  }
-
   void _openFindSenderSheet() {
     if (_sessionManager.activeSenderUid != null) return;
     showModalBottomSheet<void>(
@@ -279,7 +283,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       builder: (_) => _FindSenderSheet(
         service: _connService,
         initialConnected: _connectedFriends,
-        onConnectionMade: _loadConnectedFriends,
+        onConnectionMade: () {}, // no-op: stream keeps the list live
         onSenderSelected: _onSenderSelected,
       ),
     );
@@ -711,15 +715,25 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
   final Map<String, bool> _sendingKey = {};
   final Set<String> _keySentTo = {};
   late List<UserModel> _connectedList;
+  StreamSubscription<List<UserModel>>? _friendsSub;
 
   @override
   void initState() {
     super.initState();
     _connectedList = List.from(widget.initialConnected);
+    // Subscribe to live friend updates so the sheet reflects changes without
+    // needing to close and reopen.
+    _friendsSub = widget.service.streamConnectedFriends().listen(
+      (friends) {
+        if (mounted) setState(() => _connectedList = friends);
+      },
+      onError: (_) {},
+    );
   }
 
   @override
   void dispose() {
+    _friendsSub?.cancel();
     _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();

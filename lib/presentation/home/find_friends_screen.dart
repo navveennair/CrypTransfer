@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -15,26 +17,40 @@ class FindFriendsScreen extends StatefulWidget {
 class _FindFriendsScreenState extends State<FindFriendsScreen> {
   final _searchController = TextEditingController();
   final _repo = KeyRepository();
-  
+
   List<UserModel> _searchResults = [];
   List<Map<String, dynamic>> _pendingRequests = [];
   List<UserModel> _friends = [];
   final Map<String, String?> _statuses = {};
   bool _searching = false;
   bool _loadingRequests = true;
-  bool _loadingFriends = true;
+
+  StreamSubscription<List<UserModel>>? _friendsSub;
 
   @override
   void initState() {
     super.initState();
     _loadPendingRequests();
-    _loadFriends();
+    _subscribeFriends();
   }
 
   @override
   void dispose() {
+    _friendsSub?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Subscribe to live friend updates. The stream emits immediately with the
+  /// current accepted-connections list and again whenever a document is added,
+  /// removed, or updated — eliminating the need for a manual screen refresh.
+  void _subscribeFriends() {
+    _friendsSub = _repo.streamConnectedFriends().listen(
+      (friends) {
+        if (mounted) setState(() => _friends = friends);
+      },
+      onError: (_) {},
+    );
   }
 
   Future<void> _loadPendingRequests() async {
@@ -45,17 +61,6 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingRequests = false);
-    }
-  }
-
-  Future<void> _loadFriends() async {
-    setState(() => _loadingFriends = true);
-    try {
-      final friends = await _repo.getConnectedFriends();
-      if (mounted) setState(() => _friends = friends);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loadingFriends = false);
     }
   }
 
@@ -119,7 +124,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           ),
         );
         _loadPendingRequests();
-        _loadFriends();
+        // No manual _loadFriends() needed — stream handles the update.
         if (_statuses.containsKey(senderId)) {
           setState(() => _statuses[senderId] = 'accepted');
         }
@@ -158,7 +163,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       await _repo.disconnectFriend(user.uid);
       if (mounted) {
         setState(() => _statuses[user.uid] = null);
-        _loadFriends();
+        // No manual _loadFriends() needed — stream removes the friend reactively.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Disconnected from @${user.username}'),
@@ -280,10 +285,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
             ),
           ),
 
-          // My Connections Section
-          if (_loadingFriends)
-            const SliverToBoxAdapter(child: LinearProgressIndicator())
-          else if (_friends.isNotEmpty && _searchController.text.isEmpty) ...[
+          // My Connections Section — driven by live stream, no loading indicator needed
+          if (_friends.isNotEmpty && _searchController.text.isEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
@@ -426,7 +429,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 (ctx, i) {
                   final user = _searchResults[i];
                   final status = _statuses[user.uid];
-                  
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                     child: GlassContainer(
@@ -501,7 +504,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 ),
               ),
             ),
-          
+
           const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
         ],
       ),

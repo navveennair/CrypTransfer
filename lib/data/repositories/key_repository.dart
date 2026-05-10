@@ -39,7 +39,7 @@ class KeyRepository {
       final result = await _db
           .collection(FirebaseConstants.users)
           .where('username', isGreaterThanOrEqualTo: q)
-          .where('username', isLessThanOrEqualTo: '$q\uf8ff')
+          .where('username', isLessThanOrEqualTo: '$q')
           .limit(10)
           .get();
       return result.docs
@@ -135,6 +135,21 @@ class KeyRepository {
       throw NetworkException(
           'Could not load connections: ${e.message ?? e.code}');
     }
+  }
+
+  /// Real-time stream of accepted connections for the current user.
+  ///
+  /// Emits a new list whenever the friendship sub-collection changes —
+  /// connection added, removed, or status updated. Use this instead of
+  /// [getConnectedFriends] wherever the UI must react without a manual
+  /// refresh (e.g. ReceiverScreen friend list, FindFriendsScreen).
+  Stream<List<UserModel>> streamConnectedFriends() {
+    return _friendshipsOf(_uid)
+        .where('status', isEqualTo: 'accepted')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => UserModel.fromMap(doc.id, doc.data()))
+            .toList());
   }
 
   Future<void> resyncPublicKeyToAllConnections() async {
