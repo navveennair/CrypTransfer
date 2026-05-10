@@ -110,10 +110,11 @@ service cloud.firestore {
 
       // ── users/{userId}/friendships ────────────────────────────────────────
       // Owner can read/write their own list.
+      // A friend may delete their own mirror entry (needed for bilateral WriteBatch
+      // disconnect — user A deletes users/B/friendships/A where friendId == A).
       match /friendships/{friendId} {
         allow read, write: if request.auth.uid == userId;
-        // Dead 'allow create' removed — 'write' is a superset of 'create';
-        // the narrower create clause was unreachable and unenforced.
+        allow delete: if request.auth.uid == friendId;
       }
     }
 
