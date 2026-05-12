@@ -19,7 +19,14 @@ import '../widgets/shared_widgets.dart';
 import 'receiver_transfer_screen.dart';
 
 class ReceiverScreen extends StatefulWidget {
-  const ReceiverScreen({super.key});
+  final String? preFilledSenderUid;
+  final String? preFilledSenderUsername;
+
+  const ReceiverScreen({
+    super.key,
+    this.preFilledSenderUid,
+    this.preFilledSenderUsername,
+  });
 
   @override
   State<ReceiverScreen> createState() => _ReceiverScreenState();
@@ -62,7 +69,19 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _sessionManager.stateNotifier.addListener(_onSessionStateChanged);
-    _checkKeyStatus();
+    _checkKeyStatus().then((_) {
+      if (mounted && widget.preFilledSenderUid != null) {
+        // Pre-fill from Active Connection role picker (D-14):
+        // calls _onSenderSelected directly, bypassing the
+        // manual "Find & Select Sender" sheet.
+        _onSenderSelected(UserModel(
+          uid: widget.preFilledSenderUid!,
+          username: widget.preFilledSenderUsername ?? '',
+          email: '',
+          phone: '',
+        ));
+      }
+    });
     _subscribeToFriends();
     _loadReadyToReceiveState();
   }
