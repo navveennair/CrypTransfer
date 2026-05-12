@@ -192,8 +192,11 @@ service cloud.firestore {
     // proposer's own doc may also be marked connected (mutual-accept WriteBatch);
     // either party may delete (cancel or post-session cleanup).
     match /neutral_handshakes/{handshakeId} {
+      // resource == null when doc doesn't exist; needed for runTransaction tx.get()
+      // on a not-yet-created doc (WR-01 idempotent sendProposal).
       allow read: if isAuthenticated() &&
-                     (resource.data.proposerId == request.auth.uid ||
+                     (resource == null ||
+                      resource.data.proposerId == request.auth.uid ||
                       resource.data.partnerId == request.auth.uid);
 
       // Only proposer may create, and only with their own UID as proposerId
