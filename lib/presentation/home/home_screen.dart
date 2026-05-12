@@ -29,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _handshakeRepo = HandshakeRepository();
   StreamSubscription<QuerySnapshot>? _pendingProposalSub;
+  StreamSubscription<QuerySnapshot>? _outcomePendingSub;
+  late final Stream<QuerySnapshot> _recentTransfersStream;
   String? _lastSeenProposalId; // deduplication — mirrors _lastBannerDocId
   // ignore: prefer_final_fields
   Map<String, StreamSubscription> _outcomeSubs = {};
@@ -36,6 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _recentTransfersStream = FirebaseFirestore.instance
+        .collection(FirebaseConstants.users)
+        .doc(uid)
+        .collection(FirebaseConstants.auditLogs)
+        .orderBy('loggedAt', descending: true)
+        .limit(10)
+        .snapshots();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startNotifListener();
       _startHandshakeListener();
@@ -48,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _notifSub?.cancel();
     _bannerEntry?.remove();
     _pendingProposalSub?.cancel();
+    _outcomePendingSub?.cancel();
     for (final sub in _outcomeSubs.values) {
       sub.cancel();
     }
@@ -85,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startOutcomeListener() {
     // Subscribe to outgoing pending docs. For each, open a per-doc outcome stream
     // that fires the outcome _NotifBanner when the partner responds (D-08).
-    _handshakeRepo.streamOutgoingPending().listen((snap) {
+    _outcomePendingSub = _handshakeRepo.streamOutgoingPending().listen((snap) {
       if (!mounted) return;
       for (final change in snap.docChanges) {
         final docId = change.doc.id;
@@ -137,14 +148,16 @@ class _HomeScreenState extends State<HomeScreen> {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           if (type != 'outcome') {
-            NotificationService.markRead(FirebaseAuth.instance.currentUser!.uid, docId);
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            if (uid != null) NotificationService.markRead(uid, docId);
           }
         },
         onTap: () {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           if (type != 'outcome') {
-            NotificationService.markRead(FirebaseAuth.instance.currentUser!.uid, docId);
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            if (uid != null) NotificationService.markRead(uid, docId);
           }
           if (!mounted) return;
           if (type == 'rsa_key_received') {
@@ -455,13 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
 
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection(FirebaseConstants.users)
-                  .doc(FirebaseAuth.instance.currentUser?.uid ?? '')
-                  .collection(FirebaseConstants.auditLogs)
-                  .orderBy('loggedAt', descending: true)
-                  .limit(10)
-                  .snapshots(),
+              stream: _recentTransfersStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(

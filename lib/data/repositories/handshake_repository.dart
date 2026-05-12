@@ -28,9 +28,11 @@ class HandshakeRepository {
   /// Creates a new connection proposal from the current user to [partnerUid].
   ///
   /// Uses a deterministic doc ID `${_uid}_${partnerUid}` so re-sends are
-  /// idempotent (SetOptions.merge overwrites without creating duplicates).
+  /// idempotent. A transaction protects `createdAt` — it is written only when
+  /// the document does not yet exist, preserving the original proposal timestamp
+  /// on subsequent re-sends (WR-01 fix).
   ///
-  /// Throws [AuthException] if [partnerUid] is empty.
+  /// Throws [AuthException] if [partnerUid] is empty or the caller has no username.
   /// Throws [NetworkException] on Firestore failure.
   Future<void> sendProposal({
     required String partnerUid,
@@ -38,23 +40,38 @@ class HandshakeRepository {
   }) async {
     if (partnerUid.isEmpty) throw AuthException('partnerUid required');
     try {
-      final docId = '${_uid}_$partnerUid';
       final userDoc =
           await _db.collection(FirebaseConstants.users).doc(_uid).get();
       final currentUsername = userDoc.data()?['username'] as String? ?? '';
+      if (currentUsername.isEmpty) {
+        throw AuthException('User profile incomplete — username not set.');
+      }
 
-      await _db
+      final docRef = _db
           .collection(FirebaseConstants.neutralHandshakes)
-          .doc(docId)
-          .set({
-        'proposerId': _uid,
-        'proposerUsername': currentUsername,
-        'partnerId': partnerUid,
-        'partnerUsername': partnerUsername,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+          .doc('${_uid}_$partnerUid');
+
+      await _db.runTransaction((tx) async {
+        final snap = await tx.get(docRef);
+        if (!snap.exists) {
+          tx.set(docRef, {
+            'proposerId': _uid,
+            'proposerUsername': currentUsername,
+            'partnerId': partnerUid,
+            'partnerUsername': partnerUsername,
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.update(docRef, {
+            'proposerUsername': currentUsername,
+            'partnerUsername': partnerUsername,
+            'status': 'pending',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      });
     } on FirebaseException catch (e) {
       throw NetworkException('Failed to send proposal: ${e.message ?? e.code}');
     }
