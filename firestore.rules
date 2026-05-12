@@ -149,6 +149,9 @@ service cloud.firestore {
                          // Connection-based fallback for pre-established social connections
                          || (exists(/databases/$(database)/documents/users/$(request.resource.data.senderId)/connections/$(request.resource.data.receiverId)) &&
                              exists(/databases/$(database)/documents/users/$(request.resource.data.receiverId)/connections/$(request.resource.data.senderId)))
+                         // Phase 5 neutral handshake: either party may have proposed
+                         || exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
+                         || exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
                        );
       
       allow update: if isAuthenticated() &&
@@ -194,17 +197,22 @@ service cloud.firestore {
                       resource.data.partnerId == request.auth.uid);
 
       // Only proposer may create, and only with their own UID as proposerId
+      // WR-05: self-proposals blocked — proposerId must differ from partnerId
       allow create: if isAuthenticated() &&
-                       request.resource.data.proposerId == request.auth.uid;
+                       request.resource.data.proposerId == request.auth.uid &&
+                       request.resource.data.proposerId != request.resource.data.partnerId;
 
       // Partner may accept or reject; proposer's own doc may be marked connected
       // by a mutual-accept WriteBatch (proposer cannot reject their own proposal)
+      // WR-06: update restricted to status+updatedAt fields only
       allow update: if isAuthenticated() && (
         (resource.data.partnerId == request.auth.uid &&
-         request.resource.data.status in ['connected', 'rejected'])
+         request.resource.data.status in ['connected', 'rejected'] &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
         ||
         (resource.data.proposerId == request.auth.uid &&
-         request.resource.data.status == 'connected')
+         request.resource.data.status == 'connected' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
       );
 
       // Either party may delete (cancel proposal or post-session cleanup)
