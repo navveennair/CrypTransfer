@@ -57,7 +57,7 @@ Plans:
 ### Phase 05: Neutral Handshake Model — Separate Connection from Role Assignment
 **Goal:** Refactor the CrypTransfer connection architecture to a neutral Handshake model that decouples "Establishing a Connection" from "Defining Sender/Receiver Roles." Introduces `proposerId`/`partnerId` semantics, a pending-approval flow with global listener and approval UI, and defers role selection (Send/Receive) to the moment a user taps an active connection.
 
-**Status:** Planned
+**Status:** Executing
 
 **Depends on:** Phase 04
 
@@ -67,10 +67,13 @@ Plans:
 3. **Global Listener & Approval UI** — HomeController/NavigationWrapper listens for `partnerId == currentUser.uid && status == 'pending'`. Shows approval dialog; Accept → `connected`, Reject → `rejected`. Proposer sees 5-second fading notification of outcome.
 4. **Role Bridge** — On `connected`, add to Active Connections list. Clicking an Active Connection presents [Send File] / [Receive File] choice. Role selection initializes the Transfer document (assigns `senderId`/`receiverId`) and triggers the Zero Remanence session.
 
-**Plans:** 4 plans
+**Status:** Complete
+
+**Plans:** 5 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Wave 0 test scaffold: handshake_repository_test.dart (HAND-01–05), sender_prefill_test.dart (HAND-07), receiver_prefill_test.dart (HAND-08)
-- [ ] 05-02-PLAN.md — Wave 1 data layer: HandshakeRepository (CRUD + streams), FirebaseConstants.neutralHandshakes, Firestore neutral_handshakes rules block
-- [ ] 05-03-PLAN.md — Wave 1 (parallel) session screen integration: SenderScreen.preFilledPartnerUid, ReceiverScreen.preFilledSenderUid pre-fill params
-- [ ] 05-04-PLAN.md — Wave 2 HomeScreen restructure: Active Connections + Pending Requests sections, _ProposalBanner listener, _RolePickerSheet, retire role buttons
+- [x] 05-01-PLAN.md — Wave 0 test scaffold: handshake_repository_test.dart (HAND-01–05), sender_prefill_test.dart (HAND-07), receiver_prefill_test.dart (HAND-08)
+- [x] 05-02-PLAN.md — Wave 1 data layer: HandshakeRepository (CRUD + streams), FirebaseConstants.neutralHandshakes, Firestore neutral_handshakes rules block
+- [x] 05-03-PLAN.md — Wave 1 (parallel) session screen integration: SenderScreen.preFilledPartnerUid, ReceiverScreen.preFilledSenderUid pre-fill params
+- [x] 05-04-PLAN.md — Wave 2 HomeScreen restructure: Active Connections + Pending Requests sections, _ProposalBanner listener, _RolePickerSheet, retire role buttons
+- [x] 05-05-PLAN.md — Gap closure: transfers Firestore rule neutral_handshakes auth (CR-01), repo/UI hardening (WR-01–07), stream tests (IN-01, IN-02, IN-04)
