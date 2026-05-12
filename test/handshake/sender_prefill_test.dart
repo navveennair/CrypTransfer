@@ -7,13 +7,25 @@ void main() {
   });
 
   group('SENDER PREFILL TESTS', () {
-    // HAND-07: SenderScreen with preFilledPartnerUid sets _receiverId without _FindSenderSheet
-    test(
-      'TC-HAND-07: SenderScreen accepts preFilledPartnerUid constructor param',
-      () {
-        // After Wave 2, SenderScreen will have preFilledPartnerUid param.
-        // This test verifies the widget can be constructed with the param.
-        fail('TC-HAND-07: not implemented yet — SenderScreen pre-fill not built');
+    testWidgets(
+      'TC-HAND-07: SenderScreen accepts preFilledPartnerUid without throwing',
+      (tester) async {
+        // SenderScreen with pre-fill should construct without error.
+        // Full session flow requires Firebase — just verify widget instantiation.
+        expect(
+          () => const SenderScreen(
+            preFilledPartnerUid: 'uid123',
+            preFilledPartnerUsername: 'alice',
+          ),
+          returnsNormally,
+        );
+        // Verify preFilledPartnerUid field is accessible
+        const screen = SenderScreen(
+          preFilledPartnerUid: 'uid123',
+          preFilledPartnerUsername: 'alice',
+        );
+        expect(screen.preFilledPartnerUid, equals('uid123'));
+        expect(screen.preFilledPartnerUsername, equals('alice'));
       },
     );
   });
