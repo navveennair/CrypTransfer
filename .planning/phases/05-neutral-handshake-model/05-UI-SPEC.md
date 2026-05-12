@@ -57,22 +57,25 @@ Exceptions:
 
 All text uses Poppins via `google_fonts` package. The app ships dark-only (AppTheme.textMain = darkTextMain).
 
+**Declared font sizes (exactly 3): 12sp, 14sp, 20sp.**
+**Declared font weights (exactly 2): w400 (regular), w600 (semibold).**
+
 | Role | Size | Weight | Line Height | Usage in Phase 5 |
 |------|------|--------|-------------|-----------------|
 | Body | 14sp | w400 (regular) | 1.5 | Connection row secondary text (@username peer label, date/time, pending badge label, banner message body) |
-| Label | 12sp | w500 (medium) | 1.4 | Section headers (e.g., "Active Connections", "Pending Requests"), status badge text, "Cancel" text, empty state sub-copy |
-| Heading | 15sp–16sp | w600 (semibold) | 1.2 | Section header labels (match existing "Actions" / "Recent Transfers" headers at 14sp w600), connection row primary text (partner username at 14sp w600), banner title at 15sp w600 |
+| Label | 12sp | w600 (semibold) | 1.4 | Section headers (e.g., "Active Connections", "Pending Requests"), status badge text, "Cancel" text, empty state sub-copy |
+| Heading | 14sp | w600 (semibold) | 1.2 | Section header labels (match existing "Actions" / "Recent Transfers" headers at 14sp w600), connection row primary text (partner username), banner title |
 | Display | 20sp | w600 (semibold) | 1.2 | Role picker tile labels ([Send File] / [Receive File]) — large tile text for bottom sheet |
 
 **Concrete declarations:**
 - Body text: 14sp, w400, line-height 1.5 — partner username secondary lines, date, message text
 - Section header: 14sp, w600, `cs.onSurfaceVariant` — matches existing "Actions" / "Recent Transfers" pattern exactly
 - Row primary text: 14sp, w600, `cs.onSurface` — partner @username on connection row
-- Banner text: 14sp, w500, `Colors.white` — matches existing `_NotifBanner` text style [VERIFIED: home_screen.dart line 462]
+- Banner text: 14sp, w600, `Colors.white` — matches existing `_NotifBanner` text style [VERIFIED: home_screen.dart line 462]
 - Role tile label: 20sp, w600, `cs.onSurface` — bottom sheet [Send File] / [Receive File] tiles
 - Badge/label: 12sp, w600, color varies by state — Pending amber, Connected green
 
-**Source:** home_screen.dart (fontSize 12, 14, 15, 16 observed), shared_widgets.dart (15sp w600 GlassButton label), app_theme.dart (titleLarge 20sp w600) [VERIFIED]
+**Source:** home_screen.dart (fontSize 12, 14 observed), shared_widgets.dart (GlassButton label), app_theme.dart (titleLarge 20sp w600) [VERIFIED]
 
 ---
 
@@ -124,9 +127,9 @@ All components are from the existing codebase. No new component library blocks r
 
 | Component | Based On | Changes |
 |-----------|----------|---------|
-| `_ProposalBanner` | `_NotifBanner` | Replace `onTap` with `onAccept` + `onReject` `VoidCallback`s; add inline Accept (green `TextButton`) and Reject (red `TextButton`) inside the banner Row; keep 5s auto-dismiss timer; keep `onDismiss` for no-action close |
-| `_ActiveConnectionRow` | `GlassContainer` + `UserAvatar` + `SecurityBadge` | Full-width tappable row with UserAvatar (leading), @username (primary), status badge (Connected/Pending), optional cancel icon button (trailing, amber, Pending only) |
-| `_PendingRequestRow` | `GlassContainer` + `UserAvatar` | Full-width card with UserAvatar + "@username wants to connect" text + Accept (green CrypButton) + Reject (ghost TextButton); used in Pending Requests section for the partner's inbound view |
+| `_ProposalBanner` | `_NotifBanner` | Replace `onTap` with `onAccept` + `onReject` `VoidCallback`s; add inline Accept Request (green `TextButton`) and Decline Request (red `TextButton`) inside the banner Row; keep 5s auto-dismiss timer; keep `onDismiss` for no-action close |
+| `_ActiveConnectionRow` | `GlassContainer` + `UserAvatar` + `SecurityBadge` | Full-width tappable row with UserAvatar (leading), @username (primary), status badge (Connected/Pending), optional cancel icon button (trailing, amber, Pending only, tooltip: 'Cancel connection request') |
+| `_PendingRequestRow` | `GlassContainer` + `UserAvatar` | Full-width card with UserAvatar + "@username wants to connect" text + Accept Request (green CrypButton) + Decline Request (ghost TextButton); used in Pending Requests section for the partner's inbound view |
 | `_RolePickerSheet` | `_FindSenderSheet` modal pattern | `showModalBottomSheet` + `GlassContainer` + `BottomSheetHandle` + two large tile rows ([Send File] / [Receive File]), each with icon + label + chevron |
 | `_EmptyConnectionsPrompt` | `GlassContainer` + empty state pattern from home_screen.dart | Center column: icon (Icons.link_off_rounded) + heading "No connections yet" + sub-copy + "Add New Connection" CrypButton |
 
@@ -157,9 +160,9 @@ All components are from the existing codebase. No new component library blocks r
 - Renders as `OverlayEntry` positioned at `MediaQuery.of(context).padding.top + 8` (matches `_NotifBanner` exactly)
 - Icon: `Icons.person_add_rounded` in deepPurple circle container (replaces `Icons.notifications_active_rounded`)
 - Message: "@proposerUsername wants to connect"
-- Action row: Accept (`TextButton` with `Colors.green`, "Accept") + Reject (`TextButton` with `cs.error`, "Reject") — right-aligned after the Dismiss X button
-- Accept tap: calls `onAccept` callback → calls `HandshakeRepository.acceptProposal()` → banner dismisses → partner UID appears in Active Connections section
-- Reject tap: calls `onReject` callback → calls `HandshakeRepository.rejectProposal()` → banner dismisses → proposal disappears from Pending Requests section
+- Action row: Accept Request (`TextButton` with `Colors.green`, "Accept Request") + Decline Request (`TextButton` with `cs.error`, "Decline Request") — right-aligned after the Dismiss X button
+- Accept Request tap: calls `onAccept` callback → calls `HandshakeRepository.acceptProposal()` → banner dismisses → partner UID appears in Active Connections section
+- Decline Request tap: calls `onReject` callback → calls `HandshakeRepository.rejectProposal()` → banner dismisses → proposal disappears from Pending Requests section
 - Dismiss X tap (no action): calls `onDismiss` → banner removes; proposal remains in `pending` state; re-surfaces in Pending Requests section (D-03)
 - 5-second auto-dismiss: same `Timer(Duration(seconds: 5), onDismiss)` pattern — auto-dismiss with no action taken (same as X tap behavior)
 
@@ -168,7 +171,7 @@ All components are from the existing codebase. No new component library blocks r
 - Full row is tappable (`InkWell` wrapping `GlassContainer`)
 - Tap on a **Connected** row → opens `_RolePickerSheet` bottom sheet
 - Tap on a **Pending** row (proposer's own) → no navigation; shows SnackBar: "Waiting for @username to respond" — tap area blocked for session entry until status=connected
-- Cancel icon button (trailing, Pending rows only): `IconButton(icon: Icon(Icons.cancel_outlined), color: Colors.amber.shade400)` → triggers `HandshakeRepository.cancelProposal()` with confirmation; see Destructive Actions section
+- Cancel icon button (trailing, Pending rows only): `IconButton(icon: Icon(Icons.cancel_outlined), color: Colors.amber.shade400, tooltip: 'Cancel connection request', onPressed: _showCancelConfirmation)` → triggers `HandshakeRepository.cancelProposal()` with confirmation; see Destructive Actions section
 
 ### `_RolePickerSheet` Tiles (D-13, D-14)
 
@@ -205,8 +208,8 @@ All components are from the existing codebase. No new component library blocks r
 | Pending Requests section header | "Pending Requests" |
 | Active Connections section header | "Active Connections" |
 | Incoming proposal banner | "@{proposerUsername} wants to connect" |
-| Proposal accept button | "Accept" |
-| Proposal reject button | "Decline" |
+| Proposal accept button | "Accept Request" |
+| Proposal reject button | "Decline Request" |
 | Pending row badge label | "Pending" |
 | Connected row badge label | "Connected" |
 | Pending row SnackBar (tapped) | "Waiting for @{partnerUsername} to respond" |
@@ -241,7 +244,7 @@ Each new component must handle these states explicitly.
 | State | Visual |
 |-------|--------|
 | Connected | Green `SecurityBadge`-style badge, row fully tappable, no cancel button |
-| Pending (own outgoing) | Amber "Pending" badge, row tap shows SnackBar (not navigable), amber cancel `IconButton` trailing |
+| Pending (own outgoing) | Amber "Pending" badge, row tap shows SnackBar (not navigable), amber cancel `IconButton` trailing (tooltip: 'Cancel connection request') |
 | Loading (stream pending) | `CircularProgressIndicator` centered in section area |
 | Error | Inline error text at section level: "Couldn't load connections." with retry link |
 
@@ -249,9 +252,9 @@ Each new component must handle these states explicitly.
 
 | State | Visual |
 |-------|--------|
-| Idle | Accept (green CrypButton) + Decline (ghost TextButton), UserAvatar, @username |
-| Accepting in-flight | Accept button shows `CircularProgressIndicator` (replaces label), both buttons disabled |
-| Rejecting in-flight | Decline button shows spinner, both buttons disabled |
+| Idle | Accept Request (green CrypButton) + Decline Request (ghost TextButton), UserAvatar, @username |
+| Accepting in-flight | Accept Request button shows `CircularProgressIndicator` (replaces label), both buttons disabled |
+| Rejecting in-flight | Decline Request button shows spinner, both buttons disabled |
 | Success | Row disappears reactively via stream |
 | Error | SnackBar: "Couldn't accept/decline request. Try again." Row remains |
 
@@ -259,9 +262,9 @@ Each new component must handle these states explicitly.
 
 | State | Visual |
 |-------|--------|
-| Visible | 5s countdown, deepPurple tint, person_add icon, Accept + Decline + X buttons |
-| Accepting in-flight | Accept text → spinner, both action buttons disabled |
-| Rejecting in-flight | Decline text → spinner, both action buttons disabled |
+| Visible | 5s countdown, deepPurple tint, person_add icon, Accept Request + Decline Request + X buttons |
+| Accepting in-flight | Accept Request text → spinner, both action buttons disabled |
+| Rejecting in-flight | Decline Request text → spinner, both action buttons disabled |
 | Dismissed (X or auto) | OverlayEntry removed; proposal stays pending; surfaces in Pending Requests section |
 
 ---
@@ -288,7 +291,7 @@ These were left to Claude's discretion in CONTEXT.md. Resolved here as binding c
 **Decision:** When A proposes to B and B simultaneously proposes to A, both docs exist (`A_B` pending + `B_A` pending). Display both as a **single merged row** in Active Connections, deduplicating by partnerUid. When either party accepts, both docs are updated to `connected` via `WriteBatch`. The row appearance does not change between single-proposal and mutual-proposal cases — the user sees one row per partner regardless.
 
 ### Cancel Button Placement (Pending Row)
-**Decision:** **Trailing icon button** — `IconButton(icon: Icon(Icons.cancel_outlined), color: Colors.amber.shade400, onPressed: _showCancelConfirmation)`. Reasoning: swipe-to-dismiss is ambiguous on a list that is not a `Dismissible`; a context menu (`PopupMenuButton`) adds an extra tap and hides the action; a visible icon communicates withdrawability at a glance. The amber color matches the Pending badge color, creating a visual group.
+**Decision:** **Trailing icon button** — `IconButton(icon: Icon(Icons.cancel_outlined), color: Colors.amber.shade400, tooltip: 'Cancel connection request', onPressed: _showCancelConfirmation)`. Reasoning: swipe-to-dismiss is ambiguous on a list that is not a `Dismissible`; a context menu (`PopupMenuButton`) adds an extra tap and hides the action; a visible icon communicates withdrawability at a glance. The amber color matches the Pending badge color, creating a visual group.
 
 ### Firestore Doc ID Scheme
 **Decision:** Deterministic `${proposerId}_${partnerId}` — mirrors the `publishRSAPublicKey` pattern in `key_repository.dart`. Idempotent re-proposals produce no duplicates. **Source:** RESEARCH.md Pattern 1, `key_repository.dart` [VERIFIED]
