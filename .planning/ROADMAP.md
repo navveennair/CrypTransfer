@@ -43,3 +43,34 @@ friendships/{docId}
 - [x] 03-04: RsaKeyManagerScreen + biometric gate (Wave 3) — biometric-gated vault UI, StreamBuilder key status, CrypButton Regenerate/Delete, fingerprint via AuthRepository.computeFingerprint()
 - [x] 03-05: ReceiverScreen banner + Firestore rules hardening (Wave 4) — amber no-keys banner, Key Vault drawer entry, rsa_key_manager/profile Firestore rules
 - [x] 03-06: Gap closure — deploy Firestore rules + fix deleteKeyPair() ordering (UAT tests 3/4/5 blocker)
+
+### Phase 4: Zero Remanence reactive session termination: Receiver as Master Cleanup (WriteBatch atomic delete of Transfer + AESKey docs, purge local RSA keys + handshake from secure storage, redirect to SessionEndedScreen). Sender Reactive Listener (StreamListener on Transfers/{sessionId} — when document no longer exists, zero AES key from local memory/secure storage, navigate to SessionEndedScreen). No 'End Session' button on sender side.
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 4 to break down)
+
+### Phase 05: Neutral Handshake Model — Separate Connection from Role Assignment
+**Goal:** Refactor the CrypTransfer connection architecture to a neutral Handshake model that decouples "Establishing a Connection" from "Defining Sender/Receiver Roles." Introduces `proposerId`/`partnerId` semantics, a pending-approval flow with global listener and approval UI, and defers role selection (Send/Receive) to the moment a user taps an active connection.
+
+**Status:** Planned
+
+**Depends on:** Phase 04
+
+**Scope:**
+1. **Neutral Handshake Data Model** — Rename `senderId`/`receiverId` in handshake logic to `proposerId` (initiator) and `partnerId` (recipient). Default `status: 'pending'`.
+2. **Firestore Security Rules** — Update Handshakes collection rules: create allowed for `proposerId == auth.uid`; read for either party; update allowed for `partnerId` only, restricting new status to `connected` or `rejected`.
+3. **Global Listener & Approval UI** — HomeController/NavigationWrapper listens for `partnerId == currentUser.uid && status == 'pending'`. Shows approval dialog; Accept → `connected`, Reject → `rejected`. Proposer sees 5-second fading notification of outcome.
+4. **Role Bridge** — On `connected`, add to Active Connections list. Clicking an Active Connection presents [Send File] / [Receive File] choice. Role selection initializes the Transfer document (assigns `senderId`/`receiverId`) and triggers the Zero Remanence session.
+
+**Plans:** 4 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Wave 0 test scaffold: handshake_repository_test.dart (HAND-01–05), sender_prefill_test.dart (HAND-07), receiver_prefill_test.dart (HAND-08)
+- [ ] 05-02-PLAN.md — Wave 1 data layer: HandshakeRepository (CRUD + streams), FirebaseConstants.neutralHandshakes, Firestore neutral_handshakes rules block
+- [ ] 05-03-PLAN.md — Wave 1 (parallel) session screen integration: SenderScreen.preFilledPartnerUid, ReceiverScreen.preFilledSenderUid pre-fill params
+- [ ] 05-04-PLAN.md — Wave 2 HomeScreen restructure: Active Connections + Pending Requests sections, _ProposalBanner listener, _RolePickerSheet, retire role buttons
