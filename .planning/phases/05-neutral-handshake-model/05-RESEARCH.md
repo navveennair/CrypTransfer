@@ -704,7 +704,7 @@ await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **HomeScreen Active Connections stream — include pending outgoing proposals?**
    - What we know: D-07 says Pending row appears in "Active Connections section"
