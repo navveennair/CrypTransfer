@@ -1,396 +1,256 @@
 ---
 phase: 05-neutral-handshake-model
-reviewed: 2026-05-12T00:00:00Z
+reviewed: 2026-05-13T00:00:00Z
 depth: standard
-files_reviewed: 9
+files_reviewed: 5
 files_reviewed_list:
-  - lib/data/repositories/handshake_repository.dart
-  - lib/core/constants/firebase_constants.dart
   - firestore.rules
-  - lib/presentation/sender/sender_screen.dart
-  - lib/presentation/receiver/receiver_screen.dart
+  - lib/data/repositories/handshake_repository.dart
   - lib/presentation/home/home_screen.dart
+  - lib/presentation/sender/sender_screen.dart
   - test/handshake/handshake_repository_test.dart
-  - test/handshake/sender_prefill_test.dart
-  - test/handshake/receiver_prefill_test.dart
 findings:
-  critical: 1
-  warning: 7
-  info: 4
-  total: 12
+  critical: 0
+  warning: 3
+  info: 3
+  total: 6
 status: issues_found
 ---
 
-# Phase 5: Code Review Report
+# Phase 05: Code Review Report (Re-review — Gap Closure Pass)
 
-**Reviewed:** 2026-05-12T00:00:00Z
+**Reviewed:** 2026-05-13T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 9
+**Files Reviewed:** 5
 **Status:** issues_found
 
 ## Summary
 
-Phase 5 introduces the neutral handshake model cleanly: `HandshakeRepository` is
-well-structured with dependency injection, the `FirebaseConstants` addition is
-correct, and the pre-fill constructor parameters on `SenderScreen`/`ReceiverScreen`
-are wired consistently. However, several correctness and security issues were found
-across the repository, Firestore rules, HomeScreen stream lifecycle, and tests.
+This is the re-review of the five files modified to close the findings from the prior
+pass (CR-01, WR-01 through WR-07, IN-01, IN-02, IN-04). The prior critical finding
+(CR-01) and five of seven warnings are correctly resolved. Specifically:
 
-The most urgent finding is a Firestore rule gap: the `transfers` create rule still
-gates on the legacy `connections` subcollection rather than `neutral_handshakes`.
-Additionally, HomeScreen leaks a Firestore stream subscription (the outer
-`streamOutgoingPending` listen is fire-and-forget), and the `sendProposal` merge
-clobbers `createdAt` on every re-send.
+- WR-01 (`createdAt` clobbered on re-send): fixed via `runTransaction` — the `createdAt`
+  field is now only written when `!snap.exists`.
+- WR-02 (empty proposerUsername): fixed — `AuthException` is now thrown if `currentUsername` is empty.
+- WR-03 (`_outcomePendingSub` leaked): fixed — field stored and cancelled in `dispose()`.
+- WR-04 (null bang crash on banner dismiss/tap): fixed — `currentUser?.uid` with null guard.
+- WR-05 (self-proposal): fixed — `proposerId != partnerId` added to create rule.
+- WR-06 (field restriction on update): fixed — `affectedKeys().hasOnly(['status', 'updatedAt'])` applied.
+- WR-07 (`_revertToWaiting` drops pre-fill): fixed — `preFilledPartnerUid/Username` preserved.
+- IN-01 (TC-HAND-03 used wrong actor): fixed — auth2 (partner) now used.
+- IN-02 (streaming methods untested): fixed — TC-HAND-06a/06b/06c added.
+- IN-04 (`_recentTransfersStream` in `build()`): fixed — stream lifted to `initState`.
 
----
-
-## Critical Issues
-
-### CR-01: Firestore `transfers` create rule does not recognise `neutral_handshakes` connections
-
-**File:** `firestore.rules:139-160`
-**Issue:** The `transfers` collection create rule uses a dual `exists()` check against the
-legacy `users/{uid}/connections` subcollection as its connection-based fallback. The
-Phase 5 `neutral_handshakes` collection is never consulted. Users who establish a
-connection exclusively through `neutral_handshakes` (the new Phase 5 path) will be
-blocked from creating a transfer document unless they also have mirror `connections`
-docs, which the new flow does not create. The `selectedSenderUid` handshake path still
-works, but any scenario where that field is absent or stale will silently deny the
-transfer write.
-
-**Fix:** Add a `neutral_handshakes` existence check as an additional OR branch in the
-create rule:
-
-```
-allow create: if isAuthenticated() &&
-                 request.resource.data.senderId == request.auth.uid &&
-                 (
-                   // Handshake-authorized: receiver explicitly selected this sender
-                   get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data['selectedSenderUid'] == request.auth.uid
-
-                   // Legacy bilateral connections
-                   || (exists(/databases/$(database)/documents/users/$(request.resource.data.senderId)/connections/$(request.resource.data.receiverId)) &&
-                       exists(/databases/$(database)/documents/users/$(request.resource.data.receiverId)/connections/$(request.resource.data.senderId)))
-
-                   // Phase 5 neutral handshake: either party may have proposed
-                   || exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
-                   || exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
-                 );
-```
+Three new findings remain that were introduced or left unresolved in this pass.
 
 ---
 
 ## Warnings
 
-### WR-01: `sendProposal` overwrites `createdAt` on every merge, defeating idempotency intent
+### WR-01: Firestore `neutral_handshakes` exists check in `transfers` create rule does not verify `status == 'connected'`
 
-**File:** `lib/data/repositories/handshake_repository.dart:46-57`
-**Issue:** `SetOptions(merge: true)` is used with `createdAt: FieldValue.serverTimestamp()`
-included in the document map. On a re-send to the same `proposerId_partnerId` doc,
-`createdAt` is overwritten with the new server time. This corrupts the audit trail and
-means the timestamp no longer reflects when the original proposal was made. The comment
-says "re-sends are idempotent" but the timestamp is not stable.
+**File:** `firestore.rules:153-154`
 
-**Fix:** Use `set` with `SetOptions(mergeFields: [...])` listing every field except
-`createdAt`, or use a separate `update` path after checking existence:
+**Issue:** The two Phase 5 OR branches added to the `transfers` create rule use `exists()`
+to check for a `neutral_handshakes` document, but do not verify that its `status` is
+`'connected'`. A `pending` or `rejected` handshake document also satisfies the rule.
+This allows a sender to create a transfer document before the receiver has accepted the
+connection request — bypassing the handshake acceptance gating entirely.
 
-```dart
-await _db
-    .collection(FirebaseConstants.neutralHandshakes)
-    .doc(docId)
-    .set({
-  'proposerId': _uid,
-  'proposerUsername': currentUsername,
-  'partnerId': partnerUid,
-  'partnerUsername': partnerUsername,
-  'status': 'pending',
-  'createdAt': FieldValue.serverTimestamp(),   // only set on new doc
-  'updatedAt': FieldValue.serverTimestamp(),
-}, SetOptions(mergeFields: [
-  'proposerUsername',   // allow username refresh on re-send
-  'partnerUsername',
-  'status',
-  'updatedAt',
-  // 'createdAt' intentionally omitted — not merged
-]));
-// For brand-new docs, createdAt must be seeded separately:
-// Use a transaction or check doc.exists before deciding.
+```javascript
+// Current — any status (pending, rejected, connected) satisfies the rule:
+|| exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
+|| exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
 ```
 
-Simplest safe approach: use a transaction — set `createdAt` only when `!docSnap.exists`.
+**Fix:** Switch from `exists()` to `get()` with a status field check. Use `.get('status', '')`
+to safely handle missing fields (returns `''` when the document doesn't exist, avoiding
+a Firestore rules null-access error):
+
+```javascript
+// Fixed — only a connected handshake authorises a transfer:
+|| get(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId)).data.get('status', '') == 'connected'
+|| get(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid)).data.get('status', '') == 'connected'
+```
+
+Note: `get()` returns `__null__` (not an error) if the document does not exist, and
+chaining `.data.get('status', '')` safely returns `''` in that case. This pattern is
+consistent with the `selectedSenderUid` check already used on line 148.
 
 ---
 
-### WR-02: `sendProposal` silently sends proposals with empty `proposerUsername`
+### WR-02: `sendProposal` re-send on a `connected` doc resets it to `pending`
 
-**File:** `lib/data/repositories/handshake_repository.dart:43-44`
-**Issue:** The `currentUsername` is fetched from the user's Firestore document. If
-the `username` field is absent or the document does not exist yet, it falls back to
-`''`. The proposal is then written with `proposerUsername: ''`. `_ProposalBanner` in
-HomeScreen renders this as `"@ wants to connect"` with no name — confusing for the
-recipient and not detectable at the call site.
+**File:** `lib/data/repositories/handshake_repository.dart:66-72`
 
-**Fix:** Add a guard after the fetch:
-
-```dart
-final currentUsername = userDoc.data()?['username'] as String? ?? '';
-if (currentUsername.isEmpty) {
-  throw AuthException('User profile incomplete — username not set.');
-}
-```
-
----
-
-### WR-03: HomeScreen `_startOutcomeListener` leaks its outer stream subscription
-
-**File:** `lib/presentation/home/home_screen.dart:85-123`
-**Issue:** The `streamOutgoingPending()` subscription in `_startOutcomeListener` is
-created via `.listen(...)` but the returned `StreamSubscription` is never stored.
-`dispose()` only cancels `_pendingProposalSub` and the per-doc `_outcomeSubs`. The
-outer outgoing-pending subscription continues to deliver events after the widget is
-disposed. The `if (!mounted) return;` guard prevents UI updates but cannot cancel
-the subscription, so new per-doc subscriptions will not be started (no crash), but
-the parent Firestore listener remains open indefinitely for the lifetime of the
-isolate.
-
-**Fix:** Store and cancel the subscription:
+**Issue:** The `runTransaction` `else` branch (triggered when the doc already exists)
+unconditionally writes `'status': 'pending'` on line 70. If the existing document has
+`status == 'connected'` — meaning the receiver already accepted the proposal — calling
+`sendProposal` again silently tears down the established connection by resetting it to
+`pending`. This can be triggered if the user navigates to `FindFriendsScreen` and taps
+"Send" on a contact they are already connected to.
 
 ```dart
-StreamSubscription<QuerySnapshot>? _outcomePendingSub;  // new field
-
-void _startOutcomeListener() {
-  _outcomePendingSub = _handshakeRepo.streamOutgoingPending().listen((snap) {
-    // ... existing body
+} else {
+  tx.update(docRef, {
+    'proposerUsername': currentUsername,
+    'partnerUsername': partnerUsername,
+    'status': 'pending',      // BUG: overwrites 'connected'
+    'updatedAt': FieldValue.serverTimestamp(),
   });
 }
+```
 
-@override
-void dispose() {
-  _notifSub?.cancel();
-  _bannerEntry?.remove();
-  _pendingProposalSub?.cancel();
-  _outcomePendingSub?.cancel();    // add this
-  for (final sub in _outcomeSubs.values) sub.cancel();
-  _outcomeSubs.clear();
-  super.dispose();
+**Fix:** Read the current `status` inside the transaction and only set it to `'pending'`
+when the document is not already connected:
+
+```dart
+} else {
+  final currentStatus = snap.data()?['status'] as String? ?? '';
+  final updates = <String, dynamic>{
+    'proposerUsername': currentUsername,
+    'partnerUsername': partnerUsername,
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+  // Only reset to pending if not already connected — do not break
+  // an established connection on a redundant send.
+  if (currentStatus != 'connected') {
+    updates['status'] = 'pending';
+  }
+  tx.update(docRef, updates);
 }
 ```
 
 ---
 
-### WR-04: Null crash in `_showNotifBanner` when user is signed out during dismiss
+### WR-03: `acceptProposal` mutual-doc read is outside the batch — TOCTOU gap
 
-**File:** `lib/presentation/home/home_screen.dart:140,147`
-**Issue:** `FirebaseAuth.instance.currentUser!.uid` uses a bang operator in both the
-`onDismiss` and `onTap` callbacks of `_NotifBanner`. If the user is signed out
-between the time the banner is shown and the time they dismiss or tap it (e.g., token
-expiry, concurrent sign-out on another device), `currentUser` is `null` and the app
-crashes with a `Null check operator used on a null value` exception.
+**File:** `lib/data/repositories/handshake_repository.dart:91-105`
 
-**Fix:** Use null-safe access and guard the call:
-
-```dart
-onDismiss: () {
-  entry.remove();
-  if (_bannerEntry == entry) _bannerEntry = null;
-  if (type != 'outcome') {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) NotificationService.markRead(uid, docId);
-  }
-},
-```
-
-Apply the same pattern to the `onTap` callback.
-
----
-
-### WR-05: `neutral_handshakes` update rule permits proposer to self-accept a proposal
-
-**File:** `firestore.rules:202-208`
-**Issue:** The update rule permits the proposer to set `status = 'connected'` on their
-own doc (`resource.data.proposerId == request.auth.uid && request.resource.data.status == 'connected'`).
-This branch is intended to support the mutual-accept WriteBatch (where a second doc
-`B_A` is also marked connected when `A_B` is accepted). However, a proposer can also
-call `.update({'status': 'connected'})` directly on the `A_B` doc they created,
-self-accepting their own pending proposal without waiting for the partner. Additionally,
-a user could send a proposal to themselves (`proposerId == partnerId == auth.uid`) and
-immediately self-accept it.
-
-**Fix:** Add a guard to restrict the proposer-connected branch to the mutual-accept
-scenario (where the current user is the partner on the canonical doc, i.e., a different
-doc exists where `auth.uid` is the partner accepting):
-
-At minimum, disallow self-proposals at the create rule level:
-```
-allow create: if isAuthenticated() &&
-                 request.resource.data.proposerId == request.auth.uid &&
-                 request.resource.data.proposerId != request.resource.data.partnerId;
-```
-
-For the mutual-accept branch, consider restricting it so the proposer-connected update
-only applies when the mutual doc (`partnerId_proposerId`) also exists in connected state,
-verified via `get()`.
-
----
-
-### WR-06: `neutral_handshakes` update rule does not restrict updatable fields
-
-**File:** `firestore.rules:202-208`
-**Issue:** The update condition only checks the incoming `status` value — it does not
-restrict which other fields are being modified. A malicious partner could accept a
-proposal while also writing arbitrary values to `proposerUsername`, `partnerUsername`,
-`createdAt`, or any other field in the same update call. While no privilege escalation
-is possible, it allows data tampering in proposals (e.g., spoofing the displayed
-username in banners).
-
-**Fix:** Restrict the update to only allow changes to `status` and `updatedAt`:
-
-```
-allow update: if isAuthenticated() && (
-  (resource.data.partnerId == request.auth.uid &&
-   request.resource.data.status in ['connected', 'rejected'] &&
-   request.resource.data.diff(resource.data).affectedKeys()
-     .hasOnly(['status', 'updatedAt']))
-  ||
-  (resource.data.proposerId == request.auth.uid &&
-   request.resource.data.status == 'connected' &&
-   request.resource.data.diff(resource.data).affectedKeys()
-     .hasOnly(['status', 'updatedAt']))
-);
-```
-
----
-
-### WR-07: Pre-fill in `SenderScreen` is lost permanently on `_revertToWaiting`
-
-**File:** `lib/presentation/sender/sender_screen.dart:112-115,147-160`
-**Issue:** When `snap.docs.isEmpty` (receiver closed their session), `_revertToWaiting()`
-nulls `_receiverId` and `_receiverUsername`. If the screen was launched with
-`preFilledPartnerUid`, those values are gone. The pre-fill is only applied once in
-`initState` and there is no re-application logic. After the revert, the UI shows the
-pulsing "Waiting for Secure Connection" widget with no indication that the partner UID
-context is still relevant, and the user cannot recover without navigating back and
-re-entering `SenderScreen`.
-
-Additionally, `streamHandshakesForSender()` fetches all incoming handshakes — if
-another receiver connects first, `snap.docs.first` at line 125 will use their doc
-regardless of `preFilledPartnerUid`. The filter at line 136-137 only applies when
-assigning the fields, not to `_revertToWaiting()`, so any empty snapshot (even from a
-different user's disconnect) triggers the revert.
-
-**Fix:** In `_revertToWaiting()`, preserve the pre-fill when reverting:
+**Issue:** `mutualRef.get()` on line 94 is called before the `WriteBatch` is created.
+If the partner's mutual proposal document (`B_A`) is created by another client in the
+narrow window between the `get()` and `batch.commit()`, the batch will not include it
+(`mutualSnap.exists` is stale), leaving an asymmetric state: the primary doc is
+`'connected'` but the simultaneously-created mutual doc remains `'pending'`.
 
 ```dart
-void _revertToWaiting() {
-  _wipeSensitiveData();
-  if (mounted) {
-    setState(() {
-      // Preserve pre-fill so the sender stays targeted at the intended partner
-      _receiverId = widget.preFilledPartnerUid;
-      _receiverUsername = widget.preFilledPartnerUsername ?? 'Partner';
-      _selectedReceiverPublicKeyJson = null;
-      _file = null;
-      _encryptedAESKey = null;
-      _encrypting = false;
-      _encryptingKey = false;
+final mutualSnap = await mutualRef.get();   // snapshot taken here
+
+final batch = _db.batch();
+batch.update(primaryRef, {'status': 'connected', ...});
+if (mutualSnap.exists) {                    // stale read; race window here
+  batch.update(mutualRef, {'status': 'connected', ...});
+}
+await batch.commit();
+```
+
+**Fix:** Move both reads and writes into a `runTransaction` so they are atomic:
+
+```dart
+Future<void> acceptProposal(String docId, String proposerId) async {
+  try {
+    final primaryRef = _db
+        .collection(FirebaseConstants.neutralHandshakes)
+        .doc(docId);
+    final mutualRef = _db
+        .collection(FirebaseConstants.neutralHandshakes)
+        .doc('${_uid}_$proposerId');
+
+    await _db.runTransaction((tx) async {
+      final mutualSnap = await tx.get(mutualRef);
+      tx.update(primaryRef,
+          {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
+      if (mutualSnap.exists) {
+        tx.update(mutualRef,
+            {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
+      }
     });
+  } on FirebaseException catch (e) {
+    throw NetworkException(
+        'Failed to accept proposal: ${e.message ?? e.code}');
   }
 }
 ```
-
-For the multi-receiver race: also filter `_onHandshakeUpdate` to only call
-`_revertToWaiting()` when the empty snapshot is relevant to the pre-filled partner
-(i.e., do not revert if pre-fill is active and the emptied docs were from a different
-sender).
 
 ---
 
 ## Info
 
-### IN-01: TC-HAND-03 uses the wrong actor — proposer rejects instead of partner
+### IN-01: No client-side self-proposal guard in `sendProposal`
 
-**File:** `test/handshake/handshake_repository_test.dart:67-87`
-**Issue:** `rejectProposal` is called using `mockAuth` (user1), who is the proposer.
-By design and by the Firestore rules, only the partner may reject. The test passes
-because `fake_cloud_firestore` does not enforce security rules, but the same call
-would be denied on real Firestore. The test is validating the wrong authorization
-path and gives false confidence.
+**File:** `lib/data/repositories/handshake_repository.dart:41`
 
-**Fix:** Use `auth2` (user2, the partner) to call `rejectProposal`:
+**Issue:** `sendProposal` validates that `partnerUid` is non-empty but does not check
+whether `partnerUid == _uid`. If the caller passes their own UID, the call is blocked
+server-side by the Firestore rule (`proposerId != partnerId`), but the caller receives
+a generic `NetworkException` (permission-denied wrapped) rather than a meaningful error
+message. The `FindFriendsScreen` UI likely prevents this from happening normally, but
+the repository layer should be defensive.
+
+**Fix:** Add a self-proposal guard alongside the empty check:
 
 ```dart
-final auth2 = MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: 'user2'));
-final repo = HandshakeRepository(db: fakeFirestore, auth: auth2);
-await repo.rejectProposal('user1_user2');
+if (partnerUid.isEmpty) throw AuthException('partnerUid required');
+if (partnerUid == _uid) throw AuthException('Cannot send a connection request to yourself.');
 ```
 
 ---
 
-### IN-02: Test coverage gap — streaming and outcome methods not tested
+### IN-02: No test for `sendProposal` called on an already-`connected` doc
 
 **File:** `test/handshake/handshake_repository_test.dart`
-**Issue:** `streamActiveConnectionsAsProposer`, `streamActiveConnectionsAsPartner`,
-`streamOutgoingPending`, and `streamProposalOutcome` have no test cases. Given that
-these streams drive the HomeScreen Active Connections section and the outcome banner,
-their absence means the main UI data paths are untested. TC-HAND-06 is referenced in
-comments but not present.
 
-**Fix:** Add tests for at minimum the two `streamActiveConnections*` methods and
-`streamProposalOutcome`, verifying they emit the correct docs after an `acceptProposal`
-call.
+**Issue:** The WR-02 bug above (re-proposal resets a `connected` doc to `pending`) is not
+covered by any test. If WR-02 is fixed, a regression test should lock the behaviour to
+prevent future regressions.
 
----
-
-### IN-03: `sender_prefill_test.dart` TC-HAND-07 is a constructor smoke test, not a behavioral test
-
-**File:** `test/handshake/sender_prefill_test.dart:12-31`
-**Issue:** The test only verifies that the widget can be constructed and that the
-constructor fields are accessible. It does not verify the D-13 behavior: that
-`_receiverId` is set to `preFilledPartnerUid` during `initState`, skipping the
-`_FindSenderSheet`. The actual pre-fill logic (lines 82-91 of `sender_screen.dart`)
-is untested.
-
-**Fix:** Use `testWidgets` with a mocked Firebase environment to pump `SenderScreen`
-with pre-fill parameters and verify the `_ConnectedBadge` (not `_WaitingForConnectionWidget`)
-is rendered for the pre-filled username.
-
----
-
-### IN-04: HomeScreen Recent Transfers `StreamBuilder` creates a new stream on every rebuild
-
-**File:** `lib/presentation/home/home_screen.dart:457-464`
-**Issue:** The Firestore query for Recent Transfers is constructed inline inside
-`build()`. Each call to `build()` produces a new `Stream` object with a different
-object identity. `StreamBuilder` compares stream identity and re-subscribes when the
-stream reference changes, opening a new Firestore listener on every `setState` call
-in `_HomeScreenState`. Since `_HomeScreenState` receives updates from three active
-stream subscriptions (`_notifSub`, `_pendingProposalSub`, `_outcomeSubs`), this can
-open many redundant listeners.
-
-**Fix:** Lift the stream into a field initialized in `initState`:
+**Fix:** Add a test case after fixing WR-02:
 
 ```dart
-late final Stream<QuerySnapshot> _recentTransfersStream;
+test('TC-HAND-07: sendProposal on connected doc preserves connected status',
+    () async {
+  await fakeFirestore.collection('neutral_handshakes').doc('user1_user2').set({
+    'proposerId': 'user1',
+    'partnerId': 'user2',
+    'status': 'connected',
+    'proposerUsername': 'testuser1',
+    'partnerUsername': 'alice',
+  });
 
-@override
-void initState() {
-  super.initState();
-  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-  _recentTransfersStream = FirebaseFirestore.instance
-      .collection(FirebaseConstants.users)
-      .doc(uid)
-      .collection(FirebaseConstants.auditLogs)
-      .orderBy('loggedAt', descending: true)
-      .limit(10)
-      .snapshots();
-  // ... rest of initState
-}
+  final repo = HandshakeRepository(db: fakeFirestore, auth: mockAuth);
+  await repo.sendProposal(partnerUid: 'user2', partnerUsername: 'alice');
+
+  final snap = await fakeFirestore
+      .collection('neutral_handshakes').doc('user1_user2').get();
+  expect(snap.data()!['status'], equals('connected'));
+});
 ```
-
-Then reference `stream: _recentTransfersStream` in the `StreamBuilder`.
 
 ---
 
-_Reviewed: 2026-05-12T00:00:00Z_
+### IN-03: Hard cast `notif['docId'] as String` is fragile against stream contract changes
+
+**File:** `lib/presentation/home/home_screen.dart:139`
+
+**Issue:** `_showNotifBanner` performs `final docId = notif['docId'] as String;` as a
+hard cast. The cast is currently safe because `NotificationService.latestUnreadStream`
+always populates `'docId'` (line 49 of `notification_service.dart`). However, `_showNotifBanner`
+is also called from `_startOutcomeListener` (line 118) with an inline map that always
+includes `'docId'`. The danger is that if `latestUnreadStream` contract ever changes
+(e.g., the `docId` key is renamed or omitted in a refactor), this becomes a `TypeError`
+crash at runtime rather than a graceful fallback.
+
+**Fix:** Use a null-safe cast and add a guard:
+
+```dart
+final docId = notif['docId'] as String?;
+if (docId == null) return; // defensive guard — skip if contract violated
+final message = notif['message'] as String? ?? 'New notification';
+```
+
+---
+
+_Reviewed: 2026-05-13T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
