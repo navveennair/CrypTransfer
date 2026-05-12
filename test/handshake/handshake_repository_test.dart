@@ -12,10 +12,12 @@ void main() {
     late FakeFirebaseFirestore fakeFirestore;
     late MockFirebaseAuth mockAuth;
 
-    setUp(() {
+    setUp(() async {
       fakeFirestore = FakeFirebaseFirestore();
       mockAuth = MockFirebaseAuth(
           signedIn: true, mockUser: MockUser(uid: 'user1'));
+      // Seed user profile so sendProposal's username fetch succeeds
+      await fakeFirestore.collection('users').doc('user1').set({'username': 'testuser1'});
     });
 
     // HAND-01: sendProposal() creates neutral_handshakes doc with proposerId, partnerId, status=pending
@@ -74,8 +76,10 @@ void main() {
         'status': 'pending',
       });
 
-      final repo =
-          HandshakeRepository(db: fakeFirestore, auth: mockAuth);
+      // Only the partner (user2) may reject — using auth2 matches the Firestore rule
+      final auth2 = MockFirebaseAuth(
+          signedIn: true, mockUser: MockUser(uid: 'user2'));
+      final repo = HandshakeRepository(db: fakeFirestore, auth: auth2);
 
       await repo.rejectProposal('user1_user2');
 
@@ -128,6 +132,82 @@ void main() {
       final snap = await repo.streamIncomingPending().first;
       expect(snap.docs.length, equals(1));
       expect(snap.docs.first.get('proposerId'), equals('user2'));
+    });
+
+    // IN-02: streamActiveConnectionsAsProposer emits connected docs where proposerId==uid
+    test('TC-HAND-06a: streamActiveConnectionsAsProposer emits connected docs for proposer',
+        () async {
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user1_user2')
+          .set({
+        'proposerId': 'user1',
+        'partnerId': 'user2',
+        'status': 'connected',
+      });
+      // Doc where user1 is partner — should NOT appear in this stream
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user2_user1')
+          .set({
+        'proposerId': 'user2',
+        'partnerId': 'user1',
+        'status': 'connected',
+      });
+
+      final repo = HandshakeRepository(db: fakeFirestore, auth: mockAuth);
+      final snap = await repo.streamActiveConnectionsAsProposer().first;
+      expect(snap.docs.length, equals(1));
+      expect(snap.docs.first.get('proposerId'), equals('user1'));
+    });
+
+    // IN-02: streamActiveConnectionsAsPartner emits connected docs where partnerId==uid
+    test('TC-HAND-06b: streamActiveConnectionsAsPartner emits connected docs for partner',
+        () async {
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user2_user1')
+          .set({
+        'proposerId': 'user2',
+        'partnerId': 'user1',
+        'status': 'connected',
+      });
+      // Doc where user1 is proposer — should NOT appear in this stream
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user1_user3')
+          .set({
+        'proposerId': 'user1',
+        'partnerId': 'user3',
+        'status': 'connected',
+      });
+
+      final repo = HandshakeRepository(db: fakeFirestore, auth: mockAuth);
+      final snap = await repo.streamActiveConnectionsAsPartner().first;
+      expect(snap.docs.length, equals(1));
+      expect(snap.docs.first.get('partnerId'), equals('user1'));
+    });
+
+    // IN-02: streamProposalOutcome emits the doc status after acceptProposal
+    test('TC-HAND-06c: streamProposalOutcome emits connected status after accept',
+        () async {
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user1_user2')
+          .set({
+        'proposerId': 'user1',
+        'partnerId': 'user2',
+        'status': 'pending',
+      });
+
+      final auth2 = MockFirebaseAuth(
+          signedIn: true, mockUser: MockUser(uid: 'user2'));
+      final partnerRepo = HandshakeRepository(db: fakeFirestore, auth: auth2);
+      await partnerRepo.acceptProposal('user1_user2', 'user1');
+
+      final repo = HandshakeRepository(db: fakeFirestore, auth: mockAuth);
+      final docSnap = await repo.streamProposalOutcome('user1_user2').first;
+      expect(docSnap.data()?['status'], equals('connected'));
     });
   });
 }

@@ -148,8 +148,10 @@ class _SenderScreenState extends State<SenderScreen>
     _wipeSensitiveData();
     if (mounted) {
       setState(() {
-        _receiverId = null;
-        _receiverUsername = null;
+        // Preserve pre-fill so the sender stays targeted at the intended partner
+        // after the receiver temporarily closes their session (WR-07 fix).
+        _receiverId = widget.preFilledPartnerUid;
+        _receiverUsername = widget.preFilledPartnerUsername ?? 'Partner';
         _selectedReceiverPublicKeyJson = null;
         _file = null;
         _encryptedAESKey = null;
