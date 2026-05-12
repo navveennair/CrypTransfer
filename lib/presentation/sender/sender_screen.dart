@@ -32,7 +32,14 @@ Uint8List _runAesGcm(List<Uint8List> args) {
 // ─── Widget ──────────────────────────────────────────────────────────────────
 
 class SenderScreen extends StatefulWidget {
-  const SenderScreen({super.key});
+  final String? preFilledPartnerUid;
+  final String? preFilledPartnerUsername;
+
+  const SenderScreen({
+    super.key,
+    this.preFilledPartnerUid,
+    this.preFilledPartnerUsername,
+  });
 
   @override
   State<SenderScreen> createState() => _SenderScreenState();
@@ -72,6 +79,16 @@ class _SenderScreenState extends State<SenderScreen>
   void initState() {
     super.initState();
     _startHandshakeListener();
+    if (widget.preFilledPartnerUid != null) {
+      // Pre-fill from Active Connection role picker (D-13):
+      // partner UID is already known; skip _FindSenderSheet.
+      // The handshake stream still runs so the RSA key arrives
+      // reactively when the partner opens ReceiverScreen.
+      setState(() {
+        _receiverId = widget.preFilledPartnerUid;
+        _receiverUsername = widget.preFilledPartnerUsername ?? 'Partner';
+      });
+    }
     _progressSub = _progressCtrl.stream.listen((p) {
       if (mounted) setState(() => _encryptionProgress = p);
     });
@@ -115,7 +132,9 @@ class _SenderScreenState extends State<SenderScreen>
       final publicKey = doc['publicKey'] as String?;
       if (publicKey != null &&
           publicKey.isNotEmpty &&
-          receiverId.isNotEmpty) {
+          receiverId.isNotEmpty &&
+          (widget.preFilledPartnerUid == null ||
+           receiverId == widget.preFilledPartnerUid)) {
         setState(() {
           _receiverId = receiverId;
           _receiverUsername = receiverUsername;
