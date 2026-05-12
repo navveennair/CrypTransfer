@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 03
 current_plan: 06 (03-06 complete — gap closure done)
 status: completed
-last_updated: "2026-05-07T00:00:00.000Z"
+last_updated: "2026-05-12T04:44:57.612Z"
 progress:
-  total_phases: 3
+  total_phases: 5
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -43,6 +43,8 @@ See: .planning/PROJECT.md
 ### Roadmap Evolution
 
 - Phase 03 added: Managed Profile & RSA Vault — biometric-gated key vault, profile subcollection, Firestore security rules hardening
+- Phase 04 added: Zero Remanence reactive session termination — Receiver as Master Cleanup (WriteBatch atomic delete of Transfer + AESKey docs, purge local RSA keys + handshake from secure storage, redirect to SessionEndedScreen); Sender Reactive Listener (StreamListener on Transfers/{sessionId} auto-wipes AES key and navigates to SessionEndedScreen when doc deleted)
+- Phase 05 added: Neutral Handshake Model — decouple connection establishment from sender/receiver role assignment; proposerId/partnerId semantics, pending-approval flow with global listener + approval dialog, role selection deferred to Active Connection tap
 
 ### Decisions
 
