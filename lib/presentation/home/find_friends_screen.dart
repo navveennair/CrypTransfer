@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/firebase_constants.dart';
 import '../../data/models/user_model.dart';
+import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -16,52 +20,95 @@ class FindFriendsScreen extends StatefulWidget {
 
 class _FindFriendsScreenState extends State<FindFriendsScreen> {
   final _searchController = TextEditingController();
-  final _repo = KeyRepository();
+  final _keyRepo = KeyRepository(); // search only
+  final _hsRepo = HandshakeRepository();
 
   List<UserModel> _searchResults = [];
+  // Each entry: {uid, username, email, docId}
+  List<Map<String, dynamic>> _connectedUsers = [];
+  // Each entry: {docId, proposerId, proposerUsername}
   List<Map<String, dynamic>> _pendingRequests = [];
-  List<UserModel> _friends = [];
   final Map<String, String?> _statuses = {};
   bool _searching = false;
-  bool _loadingRequests = true;
 
-  StreamSubscription<List<UserModel>>? _friendsSub;
+  StreamSubscription<QuerySnapshot>? _proposerSub;
+  StreamSubscription<QuerySnapshot>? _partnerSub;
+  StreamSubscription<QuerySnapshot>? _pendingSub;
+
+  String get _myUid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
-    _loadPendingRequests();
-    _subscribeFriends();
+    _subscribeConnections();
+    _subscribePending();
   }
 
   @override
   void dispose() {
-    _friendsSub?.cancel();
+    _proposerSub?.cancel();
+    _partnerSub?.cancel();
+    _pendingSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  /// Subscribe to live friend updates. The stream emits immediately with the
-  /// current accepted-connections list and again whenever a document is added,
-  /// removed, or updated — eliminating the need for a manual screen refresh.
-  void _subscribeFriends() {
-    _friendsSub = _repo.streamConnectedFriends().listen(
-      (friends) {
-        if (mounted) setState(() => _friends = friends);
-      },
-      onError: (_) {},
-    );
+  void _subscribeConnections() {
+    final fromProposer = <Map<String, dynamic>>[];
+    final fromPartner = <Map<String, dynamic>>[];
+
+    void merge() {
+      final seen = <String>{};
+      final merged = <Map<String, dynamic>>[];
+      for (final entry in [...fromProposer, ...fromPartner]) {
+        if (seen.add(entry['uid'] as String)) merged.add(entry);
+      }
+      if (mounted) setState(() => _connectedUsers = merged);
+    }
+
+    _proposerSub = _hsRepo.streamActiveConnectionsAsProposer().listen((snap) {
+      fromProposer
+        ..clear()
+        ..addAll(snap.docs.map((doc) {
+          final d = doc.data();
+          return {
+            'uid': d['partnerId'],
+            'username': d['partnerUsername'] ?? '',
+            'email': '',
+            'docId': doc.id,
+          };
+        }));
+      merge();
+    }, onError: (_) {});
+
+    _partnerSub = _hsRepo.streamActiveConnectionsAsPartner().listen((snap) {
+      fromPartner
+        ..clear()
+        ..addAll(snap.docs.map((doc) {
+          final d = doc.data();
+          return {
+            'uid': d['proposerId'],
+            'username': d['proposerUsername'] ?? '',
+            'email': '',
+            'docId': doc.id,
+          };
+        }));
+      merge();
+    }, onError: (_) {});
   }
 
-  Future<void> _loadPendingRequests() async {
-    setState(() => _loadingRequests = true);
-    try {
-      final reqs = await _repo.getPendingRequests();
-      if (mounted) setState(() => _pendingRequests = reqs);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loadingRequests = false);
-    }
+  void _subscribePending() {
+    _pendingSub = _hsRepo.streamIncomingPending().listen((snap) {
+      final requests = snap.docs.map((doc) {
+        final d = doc.data();
+        return {
+          'docId': doc.id,
+          'proposerId': d['proposerId'] as String? ?? '',
+          'proposerUsername': d['proposerUsername'] as String? ?? 'Unknown',
+        };
+      }).toList();
+      if (mounted) setState(() => _pendingRequests = requests);
+    }, onError: (_) {});
   }
 
   Future<void> _performSearch(String query) async {
@@ -71,10 +118,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     }
     setState(() => _searching = true);
     try {
-      final res = await _repo.searchUsers(query);
+      final res = await _keyRepo.searchUsers(query);
       for (final user in res) {
-        final status = await _repo.getConnectionStatus(user.uid);
-        _statuses[user.uid] = status;
+        _statuses[user.uid] = await _getConnectionStatus(user.uid);
       }
       if (mounted) setState(() => _searchResults = res);
     } catch (e) {
@@ -88,13 +134,37 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     }
   }
 
+  /// Returns 'accepted', 'pending_sent', 'pending_received', or null.
+  Future<String?> _getConnectionStatus(String targetUid) async {
+    final coll = FirebaseFirestore.instance
+        .collection(FirebaseConstants.neutralHandshakes);
+
+    final sentSnap = await coll.doc('${_myUid}_$targetUid').get();
+    if (sentSnap.exists) {
+      final s = sentSnap.data()?['status'] as String?;
+      if (s == 'connected') return 'accepted';
+      if (s == 'pending') return 'pending_sent';
+    }
+
+    final receivedSnap = await coll.doc('${targetUid}_$_myUid').get();
+    if (receivedSnap.exists) {
+      final s = receivedSnap.data()?['status'] as String?;
+      if (s == 'connected') return 'accepted';
+      if (s == 'pending') return 'pending_received';
+    }
+
+    return null;
+  }
+
   Future<void> _sendRequest(UserModel user) async {
     setState(() => _statuses[user.uid] = 'sending...');
     try {
-      await _repo.sendConnectionRequest(user.uid);
-      final status = await _repo.getConnectionStatus(user.uid);
+      await _hsRepo.sendProposal(
+        partnerUid: user.uid,
+        partnerUsername: user.username,
+      );
       if (mounted) {
-        setState(() => _statuses[user.uid] = status);
+        setState(() => _statuses[user.uid] = 'pending_sent');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Request sent to @${user.username}'),
@@ -113,9 +183,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
   }
 
   Future<void> _acceptRequest(Map<String, dynamic> req) async {
-    final senderId = req['senderId'] as String;
     try {
-      await _repo.acceptConnectionRequest(req['docId'], senderId);
+      await _hsRepo.acceptProposal(
+          req['docId'] as String, req['proposerId'] as String);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -123,10 +193,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        _loadPendingRequests();
-        // No manual _loadFriends() needed — stream handles the update.
-        if (_statuses.containsKey(senderId)) {
-          setState(() => _statuses[senderId] = 'accepted');
+        final pid = req['proposerId'] as String;
+        if (_statuses.containsKey(pid)) {
+          setState(() => _statuses[pid] = 'accepted');
         }
       }
     } catch (e) {
@@ -138,15 +207,21 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     }
   }
 
-  Future<void> _disconnect(UserModel user) async {
+  Future<void> _disconnect(Map<String, dynamic> conn) async {
     final cs = Theme.of(context).colorScheme;
+    final username = conn['username'] as String;
+    final docId = conn['docId'] as String;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Disconnect?'),
-        content: Text('Are you sure you want to remove @${user.username} from your connections?'),
+        content: Text(
+            'Are you sure you want to remove @$username from your connections?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: cs.error),
@@ -155,18 +230,14 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
         ],
       ),
     );
-
     if (confirmed != true) return;
 
-    setState(() => _statuses[user.uid] = 'sending...');
     try {
-      await _repo.disconnectFriend(user.uid);
+      await _hsRepo.cancelProposal(docId);
       if (mounted) {
-        setState(() => _statuses[user.uid] = null);
-        // No manual _loadFriends() needed — stream removes the friend reactively.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Disconnected from @${user.username}'),
+            content: Text('Disconnected from @$username'),
             backgroundColor: cs.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
@@ -174,7 +245,6 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _statuses[user.uid] = 'accepted');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to disconnect: $e')),
         );
@@ -191,7 +261,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       appBar: AppBar(
         title: Text(
           'Connections',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: cs.onSurface),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600, color: cs.onSurface),
         ),
         centerTitle: true,
         iconTheme: IconThemeData(color: cs.onSurface),
@@ -201,9 +272,11 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           // ── Welcome banner ────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: GlassContainer(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 16),
                 color: cs.secondary.withValues(alpha: 0.1),
                 borderColor: cs.secondary.withValues(alpha: 0.2),
                 child: Row(
@@ -214,7 +287,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         color: cs.secondary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.people_alt_rounded, color: cs.secondary, size: 20),
+                      child: Icon(Icons.people_alt_rounded,
+                          color: cs.secondary, size: 20),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -276,7 +350,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: cs.primary, width: 1.5),
+                    borderSide:
+                        BorderSide(color: cs.primary, width: 1.5),
                   ),
                 ),
                 onSubmitted: _performSearch,
@@ -285,14 +360,16 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
             ),
           ),
 
-          // My Connections Section — driven by live stream, no loading indicator needed
-          if (_friends.isNotEmpty && _searchController.text.isEmpty) ...[
+          // My Connections Section
+          if (_connectedUsers.isNotEmpty &&
+              _searchController.text.isEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Row(
                   children: [
-                    Icon(Icons.people_outline_rounded, size: 18, color: cs.primary),
+                    Icon(Icons.people_outline_rounded,
+                        size: 18, color: cs.primary),
                     const SizedBox(width: 8),
                     Text(
                       'My Connections',
@@ -310,47 +387,54 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (ctx, i) {
-                  final user = _friends[i];
+                  final conn = _connectedUsers[i];
+                  final username = conn['username'] as String;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 6),
                     child: GlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
-                          backgroundColor: cs.primary.withValues(alpha: 0.1),
+                          backgroundColor:
+                              cs.primary.withValues(alpha: 0.1),
                           foregroundColor: cs.primary,
-                          child: Text(user.username[0].toUpperCase()),
+                          child: Text(username.isNotEmpty
+                              ? username[0].toUpperCase()
+                              : '?'),
                         ),
                         title: Text(
-                          '@${user.username}',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: cs.onSurface),
+                          '@$username',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface),
                         ),
-                        subtitle: Text(user.email, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                         trailing: IconButton(
-                          icon: Icon(Icons.link_off_rounded, color: cs.error, size: 22),
-                          onPressed: () => _disconnect(user),
+                          icon: Icon(Icons.link_off_rounded,
+                              color: cs.error, size: 22),
+                          onPressed: () => _disconnect(conn),
                           tooltip: 'Disconnect',
                         ),
                       ),
                     ),
                   );
                 },
-                childCount: _friends.length,
+                childCount: _connectedUsers.length,
               ),
             ),
           ],
 
           // Pending Requests Section
-          if (_loadingRequests)
-            const SliverToBoxAdapter(child: LinearProgressIndicator())
-          else if (_pendingRequests.isNotEmpty) ...[
+          if (_pendingRequests.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Row(
                   children: [
-                    Icon(Icons.mark_email_unread_outlined, size: 18, color: cs.secondary),
+                    Icon(Icons.mark_email_unread_outlined,
+                        size: 18, color: cs.secondary),
                     const SizedBox(width: 8),
                     Text(
                       'Incoming Requests',
@@ -369,27 +453,38 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
               delegate: SliverChildBuilderDelegate(
                 (ctx, i) {
                   final req = _pendingRequests[i];
+                  final proposerUsername =
+                      req['proposerUsername'] as String;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 6),
                     child: GlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       borderColor: cs.secondary.withValues(alpha: 0.3),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
                           backgroundColor: cs.secondary,
                           foregroundColor: cs.onSecondary,
-                          child: Text(req['senderUsername'][0].toUpperCase()),
+                          child: Text(proposerUsername.isNotEmpty
+                              ? proposerUsername[0].toUpperCase()
+                              : '?'),
                         ),
                         title: Text(
-                          '@${req['senderUsername']}',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: cs.onSurface),
+                          '@$proposerUsername',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface),
                         ),
-                        subtitle: Text('Wants to connect with you', style: TextStyle(color: cs.onSurfaceVariant)),
+                        subtitle: Text('Wants to connect with you',
+                            style:
+                                TextStyle(color: cs.onSurfaceVariant)),
                         trailing: GlassButton(
                           onPressed: () => _acceptRequest(req),
                           borderRadius: 8,
-                          label: const Text('Accept', style: TextStyle(fontSize: 12)),
+                          label: const Text('Accept',
+                              style: TextStyle(fontSize: 12)),
                           color: cs.secondary,
                         ),
                       ),
@@ -431,22 +526,31 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                   final status = _statuses[user.uid];
 
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 6),
                     child: GlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
                           backgroundColor: cs.surfaceContainerHigh,
                           foregroundColor: cs.primary,
-                          child: Text(user.username[0].toUpperCase()),
+                          child:
+                              Text(user.username[0].toUpperCase()),
                         ),
                         title: Text(
                           '@${user.username}',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: cs.onSurface),
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface),
                         ),
-                        subtitle: Text(user.email, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                        trailing: _buildAction(user, status, cs),
+                        subtitle: Text(user.email,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant)),
+                        trailing:
+                            _buildAction(user, status, cs),
                       ),
                     ),
                   );
@@ -461,7 +565,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.person_search_rounded, size: 64, color: cs.outline),
+                    Icon(Icons.person_search_rounded,
+                        size: 64, color: cs.outline),
                     const SizedBox(height: 16),
                     Text(
                       'No users found',
@@ -482,7 +587,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.connect_without_contact_rounded, size: 80, color: cs.primary.withValues(alpha: 0.1)),
+                    Icon(Icons.connect_without_contact_rounded,
+                        size: 80,
+                        color: cs.primary.withValues(alpha: 0.1)),
                     const SizedBox(height: 20),
                     Text(
                       'Connect with Friends',
@@ -493,11 +600,14 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 48),
                       child: Text(
                         'Secure transfers require a bidirectional connection. Search for friends to get started.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            height: 1.5),
                       ),
                     ),
                   ],
@@ -515,7 +625,13 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     if (status == 'accepted') {
       return PopupMenuButton<String>(
         onSelected: (val) {
-          if (val == 'disconnect') _disconnect(user);
+          if (val == 'disconnect') {
+            // Find the docId from _connectedUsers
+            final conn = _connectedUsers
+                .where((c) => c['uid'] == user.uid)
+                .firstOrNull;
+            if (conn != null) _disconnect(conn);
+          }
         },
         itemBuilder: (ctx) => [
           PopupMenuItem(
@@ -530,19 +646,27 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           ),
         ],
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.greenAccent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.2)),
+            border: Border.all(
+                color: Colors.greenAccent.withValues(alpha: 0.2)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 16),
+              Icon(Icons.check_circle_rounded,
+                  color: Colors.greenAccent, size: 16),
               SizedBox(width: 4),
-              Text('Connected', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-              Icon(Icons.arrow_drop_down, color: Colors.greenAccent, size: 18),
+              Text('Connected',
+                  style: TextStyle(
+                      color: Colors.greenAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
+              Icon(Icons.arrow_drop_down,
+                  color: Colors.greenAccent, size: 18),
             ],
           ),
         ),
@@ -552,18 +676,28 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     if (status == 'pending_sent') {
       return Text(
         'Pending',
-        style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, fontSize: 13),
+        style: TextStyle(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            fontSize: 13),
       );
     }
 
     if (status == 'pending_received') {
       return FilledButton(
-        onPressed: () => _loadPendingRequests(), // refresh
+        onPressed: () {
+          // Find in pending requests and accept
+          final req = _pendingRequests
+              .where((r) => r['proposerId'] == user.uid)
+              .firstOrNull;
+          if (req != null) _acceptRequest(req);
+        },
         style: FilledButton.styleFrom(
           backgroundColor: cs.secondary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
         ),
-        child: const Text('View Request'),
+        child: const Text('Accept'),
       );
     }
 
@@ -578,7 +712,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     return OutlinedButton(
       onPressed: () => _sendRequest(user),
       style: OutlinedButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: const Text('Connect'),
     );
