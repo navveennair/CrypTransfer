@@ -25,13 +25,13 @@ key_files:
   modified:
     - lib/presentation/home/home_screen.dart
 decisions:
-  - "_outcomeSubs stored as mutable Map<String, StreamSubscription> (not final) — entries added/removed reactively; marked with ignore comment"
+  - "_outcomeSubs stored as final Map<String, StreamSubscription> — entries added/removed reactively but the map reference is never reassigned"
   - "Active Connections section uses three nested StreamBuilders (proposer + partner + outgoing pending) rather than a merged stream — avoids Firestore OR query limitation"
   - "_ProposalBanner created as separate StatefulWidget (not a variant of _NotifBanner) — different action row (Accept/Reject vs. onTap); keeps _NotifBanner untouched"
   - "Deduplication in _ActiveConnectionsSection uses a seenUids Set<String> — prevents same person appearing twice when mutual proposals both accepted"
   - "Pre-existing TC010 test failure (auth_test.dart binding init) is out of scope — confirmed pre-existing before this plan"
 metrics:
-  duration: "~30 minutes"
+  duration: "~25 minutes"
   completed_date: "2026-05-12"
   tasks_completed: 2
   files_changed: 1
@@ -72,7 +72,7 @@ HomeScreen restructured from a simple role-button launcher into a full connectio
 
 ## Commits
 
-- `5fb312a` feat(05-04): restructure HomeScreen — connection hub with handshake listeners and role picker
+- `bb047bf` feat(05-04): restructure HomeScreen — handshake listeners, _ProposalBanner, Active Connections, _RolePickerSheet
 
 ## Verification
 
@@ -103,14 +103,14 @@ Acceptance criteria verified:
 - **Issue:** `_showNotifBanner` unconditionally calls `NotificationService.markRead()` for every banner type, but outcome banners (type='outcome') are driven by HandshakeRepository streams — not the NotificationService. Calling `markRead` with an outcome docId would attempt to mark a neutral_handshakes doc as read in the notifications collection.
 - **Fix:** Added `if (type != 'outcome')` guard around `NotificationService.markRead()` calls in both `onDismiss` and `onTap` callbacks of `_showNotifBanner`.
 - **Files modified:** `lib/presentation/home/home_screen.dart`
-- **Commit:** `5fb312a`
+- **Commit:** `bb047bf`
 
 **2. [Rule 2 - Missing] _EmptyConnectionsPrompt requires onAddPressed callback**
 - **Found during:** Task 2 implementation
 - **Issue:** Plan specified `_EmptyConnectionsPrompt` with an `onAddPressed` callback, but `_ActiveConnectionsSection` widget was not wired to pass it through.
 - **Fix:** Added `onAddPressed` parameter to `_ActiveConnectionsSection` and threaded it through to `_EmptyConnectionsPrompt`.
 - **Files modified:** `lib/presentation/home/home_screen.dart`
-- **Commit:** `5fb312a`
+- **Commit:** `bb047bf`
 
 ## Known Stubs
 
@@ -123,10 +123,10 @@ None. No new network endpoints or auth paths introduced beyond those already tra
 ## Self-Check: PASSED
 
 Files created/modified:
-- `lib/presentation/home/home_screen.dart` — FOUND (1270 lines)
+- `lib/presentation/home/home_screen.dart` — FOUND (1028 insertions over base, ~1470 lines total)
 
 Commits:
-- `5fb312a` — FOUND
+- `bb047bf` — FOUND
 
 Key criteria:
 - `class _ProposalBanner` — FOUND (2 occurrences: definition + State class)
