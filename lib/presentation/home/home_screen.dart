@@ -31,6 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<QuerySnapshot>? _pendingProposalSub;
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
   late final Stream<QuerySnapshot> _recentTransfersStream;
+  late final Stream<QuerySnapshot> _activeAsProposerStream;
+  late final Stream<QuerySnapshot> _activeAsPartnerStream;
+  late final Stream<QuerySnapshot> _outgoingPendingStream;
+  late final Stream<QuerySnapshot> _incomingPendingStream;
   String? _lastSeenProposalId; // deduplication — mirrors _lastBannerDocId
   // ignore: prefer_final_fields
   Map<String, StreamSubscription> _outcomeSubs = {};
@@ -46,6 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
         .orderBy('loggedAt', descending: true)
         .limit(10)
         .snapshots();
+    _activeAsProposerStream = _handshakeRepo.streamActiveConnectionsAsProposer();
+    _activeAsPartnerStream = _handshakeRepo.streamActiveConnectionsAsPartner();
+    _outgoingPendingStream = _handshakeRepo.streamOutgoingPending();
+    _incomingPendingStream = _handshakeRepo.streamIncomingPending();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startNotifListener();
       _startHandshakeListener();
@@ -422,7 +430,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 12),
             _ActiveConnectionsSection(
-              handshakeRepo: _handshakeRepo,
+              activeAsProposerStream: _activeAsProposerStream,
+              activeAsPartnerStream: _activeAsPartnerStream,
+              outgoingPendingStream: _outgoingPendingStream,
               currentUid: FirebaseAuth.instance.currentUser?.uid ?? '',
               onConnectionTap: _openRolePicker,
               onCancelTap: _cancelProposal,
@@ -435,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // ── Pending Requests ───────────────────────────────────────────────
             _PendingRequestsSection(
-              handshakeRepo: _handshakeRepo,
+              incomingPendingStream: _incomingPendingStream,
               onAccept: _acceptProposal,
               onReject: _rejectProposal,
               onShowError: (msg) => ScaffoldMessenger.of(context).showSnackBar(
@@ -883,7 +893,9 @@ class _ProposalBannerState extends State<_ProposalBanner> {
 // ─── Active Connections Section ────────────────────────────────────────────────
 
 class _ActiveConnectionsSection extends StatelessWidget {
-  final HandshakeRepository handshakeRepo;
+  final Stream<QuerySnapshot> activeAsProposerStream;
+  final Stream<QuerySnapshot> activeAsPartnerStream;
+  final Stream<QuerySnapshot> outgoingPendingStream;
   final String currentUid;
   final void Function({required String partnerUid, required String partnerUsername})
       onConnectionTap;
@@ -893,7 +905,9 @@ class _ActiveConnectionsSection extends StatelessWidget {
   final void Function(String msg) onShowError;
 
   const _ActiveConnectionsSection({
-    required this.handshakeRepo,
+    required this.activeAsProposerStream,
+    required this.activeAsPartnerStream,
+    required this.outgoingPendingStream,
     required this.currentUid,
     required this.onConnectionTap,
     required this.onCancelTap,
@@ -904,13 +918,13 @@ class _ActiveConnectionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: handshakeRepo.streamActiveConnectionsAsProposer(),
+      stream: activeAsProposerStream,
       builder: (context, proposerSnap) {
         return StreamBuilder<QuerySnapshot>(
-          stream: handshakeRepo.streamActiveConnectionsAsPartner(),
+          stream: activeAsPartnerStream,
           builder: (context, partnerSnap) {
             return StreamBuilder<QuerySnapshot>(
-              stream: handshakeRepo.streamOutgoingPending(),
+              stream: outgoingPendingStream,
               builder: (context, pendingSnap) {
                 if (proposerSnap.connectionState == ConnectionState.waiting ||
                     partnerSnap.connectionState == ConnectionState.waiting ||
@@ -1075,13 +1089,13 @@ class _ActiveConnectionRow extends StatelessWidget {
 // ─── Pending Requests Section ──────────────────────────────────────────────────
 
 class _PendingRequestsSection extends StatelessWidget {
-  final HandshakeRepository handshakeRepo;
+  final Stream<QuerySnapshot> incomingPendingStream;
   final void Function({required String docId, required String proposerId}) onAccept;
   final void Function({required String docId}) onReject;
   final void Function(String msg) onShowError;
 
   const _PendingRequestsSection({
-    required this.handshakeRepo,
+    required this.incomingPendingStream,
     required this.onAccept,
     required this.onReject,
     required this.onShowError,
@@ -1091,7 +1105,7 @@ class _PendingRequestsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return StreamBuilder<QuerySnapshot>(
-      stream: handshakeRepo.streamIncomingPending(),
+      stream: incomingPendingStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
