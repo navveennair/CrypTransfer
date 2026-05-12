@@ -11,6 +11,7 @@ abstract class FirebaseConstants {
   static const String connections = 'connections';
   static const String friendships = 'friendships';
   static const String handshakes = 'handshakes';
+  static const String neutralHandshakes = 'neutral_handshakes';
   static const String securityAuditLog = 'security_audit_log';
   static const String rsaKeyManager = 'rsa_key_manager';  // subcollection: users/{uid}/rsa_key_manager
   static const String profile = 'profile';                 // subcollection: users/{uid}/profile

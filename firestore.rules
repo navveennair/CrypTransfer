@@ -183,6 +183,35 @@ service cloud.firestore {
                        (resource.data.senderId == request.auth.uid || isAdmin());
     }
 
+    // ─── neutral_handshakes ──────────────────────────────────────────────────
+    // Connection-layer neutral handshakes. Separate from session-layer `handshakes`.
+    // proposer creates; both parties read; only partner may accept/reject;
+    // proposer's own doc may also be marked connected (mutual-accept WriteBatch);
+    // either party may delete (cancel or post-session cleanup).
+    match /neutral_handshakes/{handshakeId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.proposerId == request.auth.uid ||
+                      resource.data.partnerId == request.auth.uid);
+
+      // Only proposer may create, and only with their own UID as proposerId
+      allow create: if isAuthenticated() &&
+                       request.resource.data.proposerId == request.auth.uid;
+
+      // Partner may accept or reject; proposer's own doc may be marked connected
+      // by a mutual-accept WriteBatch (proposer cannot reject their own proposal)
+      allow update: if isAuthenticated() && (
+        (resource.data.partnerId == request.auth.uid &&
+         request.resource.data.status in ['connected', 'rejected'])
+        ||
+        (resource.data.proposerId == request.auth.uid &&
+         request.resource.data.status == 'connected')
+      );
+
+      // Either party may delete (cancel proposal or post-session cleanup)
+      allow delete: if isAuthenticated() &&
+                       (resource.data.proposerId == request.auth.uid ||
+                        resource.data.partnerId == request.auth.uid);
+    }
 
     // ─── transfer_logs ───────────────────────────────────────────────────────
     // Append-only per-transfer start log. Participants may read; admin sees all.
