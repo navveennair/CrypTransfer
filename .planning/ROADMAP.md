@@ -79,3 +79,21 @@ Plans:
 - [x] 05-05-PLAN.md — Gap closure: transfers Firestore rule neutral_handshakes auth (CR-01), repo/UI hardening (WR-01–07), stream tests (IN-01, IN-02, IN-04)
 - [x] 05-06-PLAN.md — Gap closure: home_screen.dart bug fixes — Accept spinner reset, hasError branch, stream deduplication, InkWell removal (UAT tests 4, 5, 8)
 - [x] 05-07-PLAN.md — Gap closure: receiver prefill ordering fix — _pendingPrefilledSender deferred to _onToggleReady(true) (UAT test 10)
+
+### Phase 06: Synchronized Readiness Gate
+**Goal:** Ensure the Sender cannot encrypt or pick files until the Receiver has prepared their cryptographic environment. Bridges the Neutral Handshake model to the Transfer flow with a bidirectional readiness protocol.
+
+**Depends on:** Phase 05
+
+**Scope:**
+1. **Data Model Update** — Add `receiverReady: false` and `senderReady: false` boolean fields to the Transfers model; initialize both when the transfer document is first created.
+2. **Receiver-Side Trigger** — Once the receiver completes Stepper 3 (RSA keys generated and public key confirmed in Firestore), update the active Transfers document to set `receiverReady: true`.
+3. **Sender-Side Gate** — Disable all navigation/Next buttons immediately after session init; add a real-time stream listener on the `receiverReady` field; show a pulsing "Waiting for Receiver to prepare secure vault..." UI while `false`; on `receiverReady == true` show a snackbar "Secure channel established. Receiver is ready." and auto-advance the sender stepper.
+4. **Safety & Cleanup** — If the Transfers document is deleted or status becomes `rejected` while the Sender is waiting, kick the Sender back to HomeScreen with a "Session Terminated" notification after a 1-minute timer.
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Wave 1: KeyRepository data layer — selectSenderHandshake returns Future<String>, new setReceiverReady() method
+- [ ] 06-02-PLAN.md — Wave 2: ReceiverScreen trigger — _onSenderSelected captures docId, _writeReceiverReady() with retry SnackBar
+- [ ] 06-03-PLAN.md — Wave 2 (parallel): SenderScreen gate — _receiverReady state, _WaitingForReceiverWidget, countdown timer, Steps 1-4 AnimatedOpacity gate, eject logic
