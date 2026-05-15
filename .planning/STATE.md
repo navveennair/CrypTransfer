@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 05
-current_plan: 00 (planning complete — ready to execute)
-status: verifying
-last_updated: "2026-05-15T11:57:43.948Z"
+current_phase: 06
+current_plan: 01
+status: executing
+last_updated: "2026-05-15T17:52:39.059Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 4
-  total_plans: 20
-  completed_plans: 20
-  percent: 100
+  total_plans: 23
+  completed_plans: 21
+  percent: 91
 ---
 
 # Session State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md
 ## Position
 
 **Milestone:** v1.0 milestone
-**Current phase:** 05
-**Current plan:** 00 (planning complete — ready to execute)
-**Status:** Phase 05 planned — 4 plans in 3 waves, verification passed
+**Current phase:** 06
+**Current plan:** 01 (complete — ready for 06-02)
+**Status:** Phase 06 executing — 06-01 complete (KeyRepository data layer)
 
 ## Session Log
 
@@ -42,6 +42,9 @@ See: .planning/PROJECT.md
 - 2026-05-15: 05-06-PLAN.md complete — gap closure: Accept spinner reset (Future<void> + finally), hasError branch in _ActiveConnectionsSection, stream deduplication (_incomingPendingStream/_outgoingPendingStream reuse), InkWell removed from pending rows (UAT tests 4, 5, 8)
 - 2026-05-15: 05-07-PLAN.md complete — gap closure: _pendingPrefilledSender deferred consumption in _onToggleReady(true) after setupReceiverSession; stepper 3 prefill now fires after public key written to Firestore (UAT test 10)
 - 2026-05-15: hotfix — transfers Firestore delete rule extended to receiverId; receiver was blocked from deleting the transfer doc during endSessionCleanup (PERMISSION_DENIED on End Session); deployed to cryptransfer-96e9f
+- 2026-05-15: hotfix — reactive connection status in FindFriendsScreen search results; static _statuses map replaced with per-tile StreamSubscription on HandshakeRepository.streamHandshakeWithUser(); "Pending" label pulses via AnimationController; "Connected" badge updates immediately on partner accept without re-search
+- 2026-05-16: Phase 06 planned — 3 plans in 2 waves (Wave 1: 06-01 KeyRepository data layer; Wave 2: 06-02 ReceiverScreen trigger + 06-03 SenderScreen gate); verification passed after 1 targeted fix (D-02 receiverReady: false initialization added to batch.set())
+- 2026-05-15: 06-01-PLAN.md complete — selectSenderHandshake() returns Future<String> doc ID; setReceiverReady() added; receiverReady: false initialized on new doc creation
 
 ## Accumulated Context
 
@@ -50,6 +53,7 @@ See: .planning/PROJECT.md
 - Phase 03 added: Managed Profile & RSA Vault — biometric-gated key vault, profile subcollection, Firestore security rules hardening
 - Phase 04 added: Zero Remanence reactive session termination — Receiver as Master Cleanup (WriteBatch atomic delete of Transfer + AESKey docs, purge local RSA keys + handshake from secure storage, redirect to SessionEndedScreen); Sender Reactive Listener (StreamListener on Transfers/{sessionId} auto-wipes AES key and navigates to SessionEndedScreen when doc deleted)
 - Phase 05 added: Neutral Handshake Model — decouple connection establishment from sender/receiver role assignment; proposerId/partnerId semantics, pending-approval flow with global listener + approval dialog, role selection deferred to Active Connection tap
+- Phase 06 added: Synchronized Readiness Gate — receiverReady/senderReady fields on Transfers model; receiver sets receiverReady: true after Stepper 3 completes; sender-side stream gate blocks progression until receiverReady; pulsing waiting UI + auto-advance on unlock; safety timer kicks sender to HomeScreen if doc deleted or rejected
 
 ### Decisions
 
@@ -64,3 +68,6 @@ See: .planning/PROJECT.md
 - Removed _generateKeys() and _showProgressDialog() — dead code after D-07 enforcement; vault is sole key lifecycle surface
 - rsa_key_manager rules mirror audit_logs pattern: update:false + action field enum validation inside match /users/{userId}
 - AuthRepository import retained in sidebar_drawer.dart — still used for streamUserProfile() admin check and logout()
+- selectSenderHandshake returns the Firestore doc ID so ReceiverScreen can pass it to setReceiverReady without a second query
+- receiverReady: false initialized in new-doc batch.set() so the field always exists from creation (D-02)
+- setReceiverReady is a standalone method (not folded into selectSenderHandshake) so ReceiverScreen can call it after session setup completes
