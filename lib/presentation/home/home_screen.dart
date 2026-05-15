@@ -337,14 +337,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _rejectProposal({required String docId}) {
-    _handshakeRepo.rejectProposal(docId).catchError((_) {
+  Future<void> _rejectProposal({required String docId}) async {
+    try {
+      await _handshakeRepo.rejectProposal(docId);
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Text("Couldn't decline request. Try again."),
         backgroundColor: Theme.of(context).colorScheme.error,
       ));
-    });
+      rethrow;
+    }
   }
 
   @override
@@ -1103,7 +1106,7 @@ class _ActiveConnectionRow extends StatelessWidget {
 class _PendingRequestsSection extends StatelessWidget {
   final Stream<QuerySnapshot> incomingPendingStream;
   final Future<void> Function({required String docId, required String proposerId}) onAccept;
-  final void Function({required String docId}) onReject;
+  final Future<void> Function({required String docId}) onReject;
   final void Function(String msg) onShowError;
 
   const _PendingRequestsSection({
@@ -1179,7 +1182,7 @@ class _PendingRequestRow extends StatefulWidget {
   final String docId;
   final String proposerId;
   final Future<void> Function({required String docId, required String proposerId}) onAccept;
-  final void Function({required String docId}) onReject;
+  final Future<void> Function({required String docId}) onReject;
 
   const _PendingRequestRow({
     required this.proposerUsername,
@@ -1226,9 +1229,13 @@ class _PendingRequestRowState extends State<_PendingRequestRow> {
               TextButton(
                 onPressed: isLoading
                     ? null
-                    : () {
+                    : () async {
                         setState(() => _rejecting = true);
-                        widget.onReject(docId: widget.docId);
+                        try {
+                          await widget.onReject(docId: widget.docId);
+                        } finally {
+                          if (mounted) setState(() => _rejecting = false);
+                        }
                       },
                 style: TextButton.styleFrom(
                   foregroundColor: cs.error,
