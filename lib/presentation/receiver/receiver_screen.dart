@@ -330,7 +330,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         .snapshots();
     setState(() => _handshaking = true);
     try {
-      await _connService.selectSenderHandshake(
+      final handshakeDocId = await _connService.selectSenderHandshake(
         senderUid: sender.uid,
         senderUsername: sender.username,
       );
@@ -340,6 +340,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           _handshaking = false;
         });
       }
+      // Phase 6: signal receiver readiness on the handshake doc (D-07)
+      await _writeReceiverReady(handshakeDocId);
     } catch (e) {
       if (mounted) {
         setState(() => _handshaking = false);
@@ -397,6 +399,29 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
+  }
+
+  /// Writes `receiverReady: true` to the active handshake document.
+  /// On failure, surfaces a retry SnackBar (D-08).
+  Future<void> _writeReceiverReady(String handshakeDocId) async {
+    try {
+      await _connService.setReceiverReady(handshakeDocId);
+    } catch (e) {
+      if (!mounted) return;
+      final cs = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to signal readiness — tap to retry.'),
+          backgroundColor: cs.error,
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => _writeReceiverReady(handshakeDocId),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _step1Content() {
