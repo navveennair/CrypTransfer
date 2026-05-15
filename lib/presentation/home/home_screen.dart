@@ -30,11 +30,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final _handshakeRepo = HandshakeRepository();
   StreamSubscription<QuerySnapshot>? _pendingProposalSub;
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
-  late final Stream<QuerySnapshot> _recentTransfersStream;
-  late final Stream<QuerySnapshot> _activeAsProposerStream;
-  late final Stream<QuerySnapshot> _activeAsPartnerStream;
-  late final Stream<QuerySnapshot> _outgoingPendingStream;
-  late final Stream<QuerySnapshot> _incomingPendingStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _recentTransfersStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _activeAsProposerStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _activeAsPartnerStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _outgoingPendingStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _incomingPendingStream;
   String? _lastSeenProposalId; // deduplication — mirrors _lastBannerDocId
   // ignore: prefer_final_fields
   Map<String, StreamSubscription> _outcomeSubs = {};
@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startHandshakeListener() {
-    _pendingProposalSub = _handshakeRepo.streamIncomingPending().listen((snap) {
+    _pendingProposalSub = _incomingPendingStream.listen((snap) {
       if (!mounted) return;
       for (final change in snap.docChanges) {
         if (change.type == DocumentChangeType.added) {
@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startOutcomeListener() {
     // Subscribe to outgoing pending docs. For each, open a per-doc outcome stream
     // that fires the outcome _NotifBanner when the partner responds (D-08).
-    _outcomePendingSub = _handshakeRepo.streamOutgoingPending().listen((snap) {
+    _outcomePendingSub = _outgoingPendingStream.listen((snap) {
       if (!mounted) return;
       for (final change in snap.docChanges) {
         final docId = change.doc.id;
@@ -1093,13 +1093,7 @@ class _ActiveConnectionRow extends StatelessWidget {
         child: row,
       );
     } else {
-      return InkWell(
-        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Waiting for @$username to respond')),
-        ),
-        borderRadius: BorderRadius.circular(16),
-        child: row,
-      );
+      return row;
     }
   }
 }
