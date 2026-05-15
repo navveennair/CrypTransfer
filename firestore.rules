@@ -158,8 +158,10 @@ service cloud.firestore {
                        (resource.data.senderId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid);
       
+      // Receiver triggers cleanup (endSessionCleanup WriteBatch) — must be able to delete.
       allow delete: if isAuthenticated() &&
-                       resource.data.senderId == request.auth.uid;
+                       (resource.data.senderId == request.auth.uid ||
+                        resource.data.receiverId == request.auth.uid);
     }
 
     // ─── handshakes ──────────────────────────────────────────────────────────
