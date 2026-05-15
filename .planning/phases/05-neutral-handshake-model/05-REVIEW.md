@@ -1,256 +1,182 @@
 ---
 phase: 05-neutral-handshake-model
-reviewed: 2026-05-13T00:00:00Z
+reviewed: 2026-05-15T00:00:00Z
 depth: standard
-files_reviewed: 5
+files_reviewed: 2
 files_reviewed_list:
-  - firestore.rules
-  - lib/data/repositories/handshake_repository.dart
   - lib/presentation/home/home_screen.dart
-  - lib/presentation/sender/sender_screen.dart
-  - test/handshake/handshake_repository_test.dart
+  - lib/presentation/receiver/receiver_screen.dart
 findings:
   critical: 0
-  warning: 3
-  info: 3
-  total: 6
+  warning: 2
+  info: 1
+  total: 3
 status: issues_found
 ---
 
-# Phase 05: Code Review Report (Re-review — Gap Closure Pass)
+# Phase 05: Code Review Report (Gap Closure — home + receiver fix pass)
 
-**Reviewed:** 2026-05-13T00:00:00Z
+**Reviewed:** 2026-05-15
 **Depth:** standard
-**Files Reviewed:** 5
+**Files Reviewed:** 2
 **Status:** issues_found
 
 ## Summary
 
-This is the re-review of the five files modified to close the findings from the prior
-pass (CR-01, WR-01 through WR-07, IN-01, IN-02, IN-04). The prior critical finding
-(CR-01) and five of seven warnings are correctly resolved. Specifically:
+Targeted review of the two files modified in the Phase 05 gap-closure fix pass:
+`home_screen.dart` (four stated bug fixes) and `receiver_screen.dart` (deferred-prefill
+pattern). Most stated fixes are correctly implemented:
 
-- WR-01 (`createdAt` clobbered on re-send): fixed via `runTransaction` — the `createdAt`
-  field is now only written when `!snap.exists`.
-- WR-02 (empty proposerUsername): fixed — `AuthException` is now thrown if `currentUsername` is empty.
-- WR-03 (`_outcomePendingSub` leaked): fixed — field stored and cancelled in `dispose()`.
-- WR-04 (null bang crash on banner dismiss/tap): fixed — `currentUser?.uid` with null guard.
-- WR-05 (self-proposal): fixed — `proposerId != partnerId` added to create rule.
-- WR-06 (field restriction on update): fixed — `affectedKeys().hasOnly(['status', 'updatedAt'])` applied.
-- WR-07 (`_revertToWaiting` drops pre-fill): fixed — `preFilledPartnerUid/Username` preserved.
-- IN-01 (TC-HAND-03 used wrong actor): fixed — auth2 (partner) now used.
-- IN-02 (streaming methods untested): fixed — TC-HAND-06a/06b/06c added.
-- IN-04 (`_recentTransfersStream` in `build()`): fixed — stream lifted to `initState`.
+- **Async Accept with `finally`**: `_PendingRequestRowState` wraps the `await widget.onAccept()`
+  call in `try`/`finally`, correctly resetting `_accepting = false` whether the call
+  succeeds or throws (lines 1246-1254). PASS.
+- **`hasError` branch in nested `StreamBuilder`**: `_ActiveConnectionsSection` checks
+  `proposerSnap.hasError || partnerSnap.hasError || pendingSnap.hasError` before the
+  loading/data branches (lines 933-945). PASS.
+- **Stream deduplication**: `_incomingPendingStream` and `_outgoingPendingStream` are
+  `late final` fields initialised once in `initState` and passed to both the listener
+  subscriptions and the `StreamBuilder` widgets. Each `.listen()` / `StreamBuilder`
+  creates its own independent Firestore subscription from the same stream object, which
+  is the correct pattern for Firestore streams. PASS.
+- **`InkWell` removal from pending rows**: `_ActiveConnectionRow.build()` only wraps the
+  row in `InkWell` when `isConnected == true`; pending rows (`isConnected == false`) are
+  returned as plain `GlassContainer` (lines 1088-1098). PASS.
+- **Deferred prefill in `receiver_screen.dart`**: `_pendingPrefilledSender` is populated
+  after `_checkKeyStatus()` completes (lines 73-87) and consumed with an explicit
+  `_pendingPrefilledSender = null` before calling `_onSenderSelected` inside
+  `_onToggleReady(true)` (lines 219-223). The null-clear prevents re-firing on a second
+  toggle-on. PASS.
 
-Three new findings remain that were introduced or left unresolved in this pass.
+Two issues were found that were not addressed by the stated fixes.
 
 ---
 
 ## Warnings
 
-### WR-01: Firestore `neutral_handshakes` exists check in `transfers` create rule does not verify `status == 'connected'`
+### WR-01: `_PendingRequestsSection` silently swallows stream errors — `onShowError` never called
 
-**File:** `firestore.rules:153-154`
+**File:** `lib/presentation/home/home_screen.dart:1119`
 
-**Issue:** The two Phase 5 OR branches added to the `transfers` create rule use `exists()`
-to check for a `neutral_handshakes` document, but do not verify that its `status` is
-`'connected'`. A `pending` or `rejected` handshake document also satisfies the rule.
-This allows a sender to create a transfer document before the receiver has accepted the
-connection request — bypassing the handshake acceptance gating entirely.
+**Issue:** The `StreamBuilder` in `_PendingRequestsSection` checks only
+`ConnectionState.waiting` and then falls through to `snapshot.data?.docs ?? []`. When
+the Firestore stream emits an error, `snapshot.hasError == true` and `snapshot.data` is
+`null`, so `docs` becomes `[]` and the widget silently returns `SizedBox.shrink()`. The
+`onShowError` callback is declared in the constructor (line 1107) and passed in from
+`_HomeScreenState.build()` (lines 453-456), but is never invoked inside `build()`.
+The user sees the Pending Requests section disappear without any feedback — identical to
+the "no pending requests" state. This is inconsistent with `_ActiveConnectionsSection`,
+which has an explicit `hasError` branch rendering an error message (line 933).
 
-```javascript
-// Current — any status (pending, rejected, connected) satisfies the rule:
-|| exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
-|| exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
-```
-
-**Fix:** Switch from `exists()` to `get()` with a status field check. Use `.get('status', '')`
-to safely handle missing fields (returns `''` when the document doesn't exist, avoiding
-a Firestore rules null-access error):
-
-```javascript
-// Fixed — only a connected handshake authorises a transfer:
-|| get(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId)).data.get('status', '') == 'connected'
-|| get(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid)).data.get('status', '') == 'connected'
-```
-
-Note: `get()` returns `__null__` (not an error) if the document does not exist, and
-chaining `.data.get('status', '')` safely returns `''` in that case. This pattern is
-consistent with the `selectedSenderUid` check already used on line 148.
-
----
-
-### WR-02: `sendProposal` re-send on a `connected` doc resets it to `pending`
-
-**File:** `lib/data/repositories/handshake_repository.dart:66-72`
-
-**Issue:** The `runTransaction` `else` branch (triggered when the doc already exists)
-unconditionally writes `'status': 'pending'` on line 70. If the existing document has
-`status == 'connected'` — meaning the receiver already accepted the proposal — calling
-`sendProposal` again silently tears down the established connection by resetting it to
-`pending`. This can be triggered if the user navigates to `FindFriendsScreen` and taps
-"Send" on a contact they are already connected to.
+**Fix:** Add a `hasError` guard immediately after the `waiting` check:
 
 ```dart
-} else {
-  tx.update(docRef, {
-    'proposerUsername': currentUsername,
-    'partnerUsername': partnerUsername,
-    'status': 'pending',      // BUG: overwrites 'connected'
-    'updatedAt': FieldValue.serverTimestamp(),
-  });
+// _PendingRequestsSection.build() — inside StreamBuilder builder:
+if (snapshot.connectionState == ConnectionState.waiting) {
+  return const SizedBox.shrink();
 }
-```
-
-**Fix:** Read the current `status` inside the transaction and only set it to `'pending'`
-when the document is not already connected:
-
-```dart
-} else {
-  final currentStatus = snap.data()?['status'] as String? ?? '';
-  final updates = <String, dynamic>{
-    'proposerUsername': currentUsername,
-    'partnerUsername': partnerUsername,
-    'updatedAt': FieldValue.serverTimestamp(),
-  };
-  // Only reset to pending if not already connected — do not break
-  // an established connection on a redundant send.
-  if (currentStatus != 'connected') {
-    updates['status'] = 'pending';
-  }
-  tx.update(docRef, updates);
+if (snapshot.hasError) {
+  onShowError('Could not load pending requests. Check your connection.');
+  return const SizedBox.shrink();
 }
+final docs = snapshot.data?.docs ?? [];
 ```
 
 ---
 
-### WR-03: `acceptProposal` mutual-doc read is outside the batch — TOCTOU gap
+### WR-02: `_rejecting` flag never reset on Firestore failure — Decline button permanently stuck
 
-**File:** `lib/data/repositories/handshake_repository.dart:91-105`
+**File:** `lib/presentation/home/home_screen.dart:1222`
 
-**Issue:** `mutualRef.get()` on line 94 is called before the `WriteBatch` is created.
-If the partner's mutual proposal document (`B_A`) is created by another client in the
-narrow window between the `get()` and `batch.commit()`, the batch will not include it
-(`mutualSnap.exists` is stale), leaving an asymmetric state: the primary doc is
-`'connected'` but the simultaneously-created mutual doc remains `'pending'`.
+**Issue:** In `_PendingRequestRowState.build()`, tapping "Decline Request" sets
+`_rejecting = true` (line 1226) and calls `widget.onReject(docId: widget.docId)` (line
+1227). The callback resolves to `_HomeScreenState._rejectProposal`, which is a void,
+fire-and-forget method — it returns nothing, and the call site does not `await` it. There
+is no `finally` block to reset `_rejecting = false`.
+
+On **success**, the Firestore document is deleted, the stream emits a removal event, and
+the `StreamBuilder` removes the row from the widget tree — the stuck state is never
+observed. On **failure**, the snackbar fires correctly (via `.catchError`) but `_rejecting`
+stays `true` permanently: the row remains visible, the Decline spinner keeps spinning,
+`isLoading` remains `true`, and both "Decline" and "Accept" buttons are disabled. The
+user cannot retry without navigating away and back.
+
+The Accept path (lines 1244-1254) correctly uses `async`/`await` with `try`/`finally`.
+The Decline path should follow the same pattern.
+
+**Fix:** Change `onReject` to `Future<void> Function` through the chain so the row can
+`await` the operation and reset `_rejecting` in a `finally` block:
 
 ```dart
-final mutualSnap = await mutualRef.get();   // snapshot taken here
+// 1. _PendingRequestRow and _PendingRequestsSection — change the field type:
+final Future<void> Function({required String docId}) onReject;
 
-final batch = _db.batch();
-batch.update(primaryRef, {'status': 'connected', ...});
-if (mutualSnap.exists) {                    // stale read; race window here
-  batch.update(mutualRef, {'status': 'connected', ...});
-}
-await batch.commit();
-```
-
-**Fix:** Move both reads and writes into a `runTransaction` so they are atomic:
-
-```dart
-Future<void> acceptProposal(String docId, String proposerId) async {
+// 2. _HomeScreenState._rejectProposal — make async, use try/catch + rethrow:
+Future<void> _rejectProposal({required String docId}) async {
   try {
-    final primaryRef = _db
-        .collection(FirebaseConstants.neutralHandshakes)
-        .doc(docId);
-    final mutualRef = _db
-        .collection(FirebaseConstants.neutralHandshakes)
-        .doc('${_uid}_$proposerId');
-
-    await _db.runTransaction((tx) async {
-      final mutualSnap = await tx.get(mutualRef);
-      tx.update(primaryRef,
-          {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-      if (mutualSnap.exists) {
-        tx.update(mutualRef,
-            {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-      }
-    });
-  } on FirebaseException catch (e) {
-    throw NetworkException(
-        'Failed to accept proposal: ${e.message ?? e.code}');
+    await _handshakeRepo.rejectProposal(docId);
+  } catch (_) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text("Couldn't decline request. Try again."),
+      backgroundColor: Theme.of(context).colorScheme.error,
+    ));
+    rethrow; // let the row's finally reset the flag
   }
 }
+
+// 3. _PendingRequestRowState — await with try/finally:
+onPressed: isLoading
+    ? null
+    : () async {
+        setState(() => _rejecting = true);
+        try {
+          await widget.onReject(docId: widget.docId);
+        } finally {
+          if (mounted) setState(() => _rejecting = false);
+        }
+      },
 ```
 
 ---
 
 ## Info
 
-### IN-01: No client-side self-proposal guard in `sendProposal`
+### IN-01: `_acceptProposal` rethrows after displaying snackbar — unused in current callers
 
-**File:** `lib/data/repositories/handshake_repository.dart:41`
+**File:** `lib/presentation/home/home_screen.dart:336`
 
-**Issue:** `sendProposal` validates that `partnerUid` is non-empty but does not check
-whether `partnerUid == _uid`. If the caller passes their own UID, the call is blocked
-server-side by the Firestore rule (`proposerId != partnerId`), but the caller receives
-a generic `NetworkException` (permission-denied wrapped) rather than a meaningful error
-message. The `FindFriendsScreen` UI likely prevents this from happening normally, but
-the repository layer should be defensive.
+**Issue:** `_HomeScreenState._acceptProposal` shows a snackbar in its `catch` block and
+then calls `rethrow`. The only caller is `_PendingRequestRowState`, which wraps the call
+in `try`/`finally` — the `finally` only resets `_accepting = false` and does not re-catch
+the rethrown exception. Dart will swallow the unhandled `Future` error at the boundary
+without crashing. The `rethrow` adds no observable benefit at the current call site: the
+`finally` runs regardless, and the snackbar has already fired. If `_acceptProposal` is
+ever called from a second site without a surrounding `catch`, the rethrow could produce
+a silent unhandled-future error.
 
-**Fix:** Add a self-proposal guard alongside the empty check:
+**Fix:** Remove the `rethrow` for consistency with `_rejectProposal` (once WR-02 is
+fixed, both methods will use the same try/catch + rethrow pattern and the suggestion
+becomes moot). If keeping the current Accept pattern, document the intent:
 
 ```dart
-if (partnerUid.isEmpty) throw AuthException('partnerUid required');
-if (partnerUid == _uid) throw AuthException('Cannot send a connection request to yourself.');
+// Option A: remove rethrow (snackbar is sufficient, finally handles state):
+Future<void> _acceptProposal(
+    {required String docId, required String proposerId}) async {
+  try {
+    await _handshakeRepo.acceptProposal(docId, proposerId);
+  } catch (_) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text("Couldn't accept request. Try again."),
+      backgroundColor: Theme.of(context).colorScheme.error,
+    ));
+    // No rethrow — caller's finally resets _accepting regardless.
+  }
+}
 ```
 
 ---
 
-### IN-02: No test for `sendProposal` called on an already-`connected` doc
-
-**File:** `test/handshake/handshake_repository_test.dart`
-
-**Issue:** The WR-02 bug above (re-proposal resets a `connected` doc to `pending`) is not
-covered by any test. If WR-02 is fixed, a regression test should lock the behaviour to
-prevent future regressions.
-
-**Fix:** Add a test case after fixing WR-02:
-
-```dart
-test('TC-HAND-07: sendProposal on connected doc preserves connected status',
-    () async {
-  await fakeFirestore.collection('neutral_handshakes').doc('user1_user2').set({
-    'proposerId': 'user1',
-    'partnerId': 'user2',
-    'status': 'connected',
-    'proposerUsername': 'testuser1',
-    'partnerUsername': 'alice',
-  });
-
-  final repo = HandshakeRepository(db: fakeFirestore, auth: mockAuth);
-  await repo.sendProposal(partnerUid: 'user2', partnerUsername: 'alice');
-
-  final snap = await fakeFirestore
-      .collection('neutral_handshakes').doc('user1_user2').get();
-  expect(snap.data()!['status'], equals('connected'));
-});
-```
-
----
-
-### IN-03: Hard cast `notif['docId'] as String` is fragile against stream contract changes
-
-**File:** `lib/presentation/home/home_screen.dart:139`
-
-**Issue:** `_showNotifBanner` performs `final docId = notif['docId'] as String;` as a
-hard cast. The cast is currently safe because `NotificationService.latestUnreadStream`
-always populates `'docId'` (line 49 of `notification_service.dart`). However, `_showNotifBanner`
-is also called from `_startOutcomeListener` (line 118) with an inline map that always
-includes `'docId'`. The danger is that if `latestUnreadStream` contract ever changes
-(e.g., the `docId` key is renamed or omitted in a refactor), this becomes a `TypeError`
-crash at runtime rather than a graceful fallback.
-
-**Fix:** Use a null-safe cast and add a guard:
-
-```dart
-final docId = notif['docId'] as String?;
-if (docId == null) return; // defensive guard — skip if contract violated
-final message = notif['message'] as String? ?? 'New notification';
-```
-
----
-
-_Reviewed: 2026-05-13T00:00:00Z_
+_Reviewed: 2026-05-15_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
