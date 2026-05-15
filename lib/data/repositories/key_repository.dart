@@ -442,7 +442,7 @@ class KeyRepository {
   ///
   /// A notification is sent afterward (best-effort, outside the batch).
   /// Throws [KeyNotFoundException] if the receiver has no public key yet.
-  Future<void> selectSenderHandshake({
+  Future<String> selectSenderHandshake({
     required String senderUid,
     required String senderUsername,
   }) async {
@@ -486,11 +486,15 @@ class KeyRepository {
         'receiverUsername': fromUsername,
         'status': 'handshake_complete',
       };
+      String docId;
       if (existing.docs.isNotEmpty) {
+        docId = existing.docs.first.id;
         batch.update(existing.docs.first.reference, keyPayload);
       } else {
         final newRef = _db.collection(FirebaseConstants.handshakes).doc();
+        docId = newRef.id;
         batch.set(newRef, {
+          'receiverReady': false,
           'receiverId': _uid,
           'senderId': senderUid,
           ...keyPayload,
@@ -512,6 +516,7 @@ class KeyRepository {
         'createdAt': FieldValue.serverTimestamp(),
         'read': false,
       });
+      return docId;
     } on KeyNotFoundException {
       rethrow;
     } on FirebaseException catch (e) {
@@ -608,6 +613,25 @@ class KeyRepository {
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Could not update ready status: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Sets `receiverReady: true` on the active handshake document.
+  ///
+  /// [handshakeDocId] is the doc ID returned by [selectSenderHandshake].
+  /// Called from [ReceiverScreen._onSenderSelected] after
+  /// [selectSenderHandshake] completes successfully.
+  ///
+  /// Throws [NetworkException] if the Firestore update fails.
+  Future<void> setReceiverReady(String handshakeDocId) async {
+    try {
+      await _db
+          .collection(FirebaseConstants.handshakes)
+          .doc(handshakeDocId)
+          .update({'receiverReady': true});
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not signal receiver readiness: ${e.message ?? e.code}');
     }
   }
 
