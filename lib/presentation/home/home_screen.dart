@@ -323,14 +323,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _acceptProposal({required String docId, required String proposerId}) {
-    _handshakeRepo.acceptProposal(docId, proposerId).catchError((_) {
+  Future<void> _acceptProposal(
+      {required String docId, required String proposerId}) async {
+    try {
+      await _handshakeRepo.acceptProposal(docId, proposerId);
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Text("Couldn't accept request. Try again."),
         backgroundColor: Theme.of(context).colorScheme.error,
       ));
-    });
+      rethrow;
+    }
   }
 
   void _rejectProposal({required String docId}) {
@@ -1090,7 +1094,7 @@ class _ActiveConnectionRow extends StatelessWidget {
 
 class _PendingRequestsSection extends StatelessWidget {
   final Stream<QuerySnapshot> incomingPendingStream;
-  final void Function({required String docId, required String proposerId}) onAccept;
+  final Future<void> Function({required String docId, required String proposerId}) onAccept;
   final void Function({required String docId}) onReject;
   final void Function(String msg) onShowError;
 
@@ -1162,7 +1166,7 @@ class _PendingRequestRow extends StatefulWidget {
   final String proposerUsername;
   final String docId;
   final String proposerId;
-  final void Function({required String docId, required String proposerId}) onAccept;
+  final Future<void> Function({required String docId, required String proposerId}) onAccept;
   final void Function({required String docId}) onReject;
 
   const _PendingRequestRow({
@@ -1231,10 +1235,14 @@ class _PendingRequestRowState extends State<_PendingRequestRow> {
                 color: Colors.green.shade400,
                 onPressed: isLoading
                     ? null
-                    : () {
+                    : () async {
                         setState(() => _accepting = true);
-                        widget.onAccept(
-                            docId: widget.docId, proposerId: widget.proposerId);
+                        try {
+                          await widget.onAccept(
+                              docId: widget.docId, proposerId: widget.proposerId);
+                        } finally {
+                          if (mounted) setState(() => _accepting = false);
+                        }
                       },
               ),
             ],
