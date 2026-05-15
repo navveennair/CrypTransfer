@@ -69,7 +69,7 @@ Plans:
 
 **Status:** Complete
 
-**Plans:** 5 plans
+**Plans:** 7 plans
 
 Plans:
 - [x] 05-01-PLAN.md — Wave 0 test scaffold: handshake_repository_test.dart (HAND-01–05), sender_prefill_test.dart (HAND-07), receiver_prefill_test.dart (HAND-08)
@@ -77,3 +77,5 @@ Plans:
 - [x] 05-03-PLAN.md — Wave 1 (parallel) session screen integration: SenderScreen.preFilledPartnerUid, ReceiverScreen.preFilledSenderUid pre-fill params
 - [x] 05-04-PLAN.md — Wave 2 HomeScreen restructure: Active Connections + Pending Requests sections, _ProposalBanner listener, _RolePickerSheet, retire role buttons
 - [x] 05-05-PLAN.md — Gap closure: transfers Firestore rule neutral_handshakes auth (CR-01), repo/UI hardening (WR-01–07), stream tests (IN-01, IN-02, IN-04)
+- [x] 05-06-PLAN.md — Gap closure: home_screen.dart bug fixes — Accept spinner reset, hasError branch, stream deduplication, InkWell removal (UAT tests 4, 5, 8)
+- [x] 05-07-PLAN.md — Gap closure: receiver prefill ordering fix — _pendingPrefilledSender deferred to _onToggleReady(true) (UAT test 10)
