@@ -272,6 +272,10 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
   - `SecurityLifecycleMixin.requestNativeClear()` static method added — invokes `clearSession` on the `com.example.cryptransfer/security` MethodChannel; `EncryptionService.closeReceiverSession()` calls it as step 7 after all Firestore/storage wipes complete
   - `MainActivity.kt` `clearSession` handler: no key material is held natively (all RSA/AES runs in Dart `compute()` isolates), so the handler calls `System.gc()` as a best-effort Kotlin heap-release hint
 
+- [x] **Home screen UAT gap fixes (05-06)** — Accept spinner resets after error (async/await + finally); Active Connections surfaces Firestore stream errors (hasError branch); listeners reuse stable initState stream fields; pending-row InkWell removed so cancel confirmation sheet is reachable.
+- [x] **Receiver stepper 3 prefill fix (05-07)** — `_pendingPrefilledSender` defers `_onSenderSelected` until `_onToggleReady(true)` fires after `setupReceiverSession`; eliminates silent `KeyNotFoundException` blocking RSA handshake via Active Connection role picker.
+- [x] **End Session zero-remanence cleanup unblocked** — `transfers` delete rule extended to `receiverId`; receiver can now delete the transfer doc in `endSessionCleanup` without PERMISSION_DENIED. Deployed to `cryptransfer-96e9f` (commit `8fca91a`).
+
 ## ✅ Static Analysis
 
 `flutter analyze` passes with **No issues found** as of 2026-04-20. Fixed in final quality pass:

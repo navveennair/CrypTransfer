@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 05
-current_plan: 07 (gap closure complete)
-status: phase_complete
-last_updated: "2026-05-15T00:00:00.000Z"
+current_plan: 00 (planning complete — ready to execute)
+status: verifying
+last_updated: "2026-05-15T11:57:43.948Z"
 progress:
   total_phases: 5
-  completed_phases: 5
+  completed_phases: 4
   total_plans: 20
   completed_plans: 20
   percent: 100
@@ -41,6 +41,7 @@ See: .planning/PROJECT.md
 - 2026-05-13: 05-05-PLAN.md complete — gap closure: CR-01 transfers rule neutral_handshakes OR branches; WR-01–07 code review warnings; IN-01/IN-02/IN-04 test + stream fixes; 10/10 handshake tests pass; Phase 05 complete
 - 2026-05-15: 05-06-PLAN.md complete — gap closure: Accept spinner reset (Future<void> + finally), hasError branch in _ActiveConnectionsSection, stream deduplication (_incomingPendingStream/_outgoingPendingStream reuse), InkWell removed from pending rows (UAT tests 4, 5, 8)
 - 2026-05-15: 05-07-PLAN.md complete — gap closure: _pendingPrefilledSender deferred consumption in _onToggleReady(true) after setupReceiverSession; stepper 3 prefill now fires after public key written to Firestore (UAT test 10)
+- 2026-05-15: hotfix — transfers Firestore delete rule extended to receiverId; receiver was blocked from deleting the transfer doc during endSessionCleanup (PERMISSION_DENIED on End Session); deployed to cryptransfer-96e9f
 
 ## Accumulated Context
 
