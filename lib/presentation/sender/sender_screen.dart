@@ -75,6 +75,11 @@ class _SenderScreenState extends State<SenderScreen>
   bool get _fileEncrypted => _encryptedBytes != null;
   bool get _readyToSend => _encryptedAESKey != null;
 
+  // Phase 6 — receiver readiness gate
+  bool _receiverReady = false;
+  Timer? _readinessTimer;
+  int _secondsRemaining = 60;
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +104,7 @@ class _SenderScreenState extends State<SenderScreen>
     _handshakeSub?.cancel();
     _progressSub?.cancel();
     _progressCtrl.close();
+    _readinessTimer?.cancel();
     super.dispose();
   }
 
@@ -111,6 +117,13 @@ class _SenderScreenState extends State<SenderScreen>
       QuerySnapshot<Map<String, dynamic>> snap) {
     if (!mounted) return;
     if (snap.docs.isEmpty) {
+      // Phase 6: eject sender if waiting for readiness and session collapses (D-09)
+      if (!_receiverReady) {
+        _readinessTimer?.cancel();
+        _readinessTimer = null;
+        _ejectToHomeScreen();
+        return;
+      }
       final wasConnected = _receiverId != null;
       _revertToWaiting();
       if (wasConnected) {
@@ -140,11 +153,26 @@ class _SenderScreenState extends State<SenderScreen>
           _receiverUsername = receiverUsername;
           _selectedReceiverPublicKeyJson = publicKey;
         });
+
+        // Phase 6: parse receiverReady field and gate/unlock steps (D-06)
+        final receiverReady = doc['receiverReady'] as bool? ?? false;
+
+        if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
+          _startReadinessTimer();
+        }
+
+        if (!_receiverReady && receiverReady) {
+          _onReceiverBecameReady();
+        } else if (_receiverReady != receiverReady) {
+          setState(() => _receiverReady = receiverReady);
+        }
       }
     }
   }
 
   void _revertToWaiting() {
+    _readinessTimer?.cancel();  // Phase 6 addition
+    _readinessTimer = null;     // Phase 6 addition
     _wipeSensitiveData();
     if (mounted) {
       setState(() {
@@ -157,6 +185,8 @@ class _SenderScreenState extends State<SenderScreen>
         _encryptedAESKey = null;
         _encrypting = false;
         _encryptingKey = false;
+        _receiverReady = false;     // Phase 6 addition
+        _secondsRemaining = 60;     // Phase 6 addition
       });
     }
   }
