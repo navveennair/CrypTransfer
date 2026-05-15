@@ -53,6 +53,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
   bool _sessionLocked = false;
   bool _incomingHandled = false;
+  UserModel? _pendingPrefilledSender;
 
   String? _incomingTransferId;
   String? _incomingFileName;
@@ -71,15 +72,18 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     _sessionManager.stateNotifier.addListener(_onSessionStateChanged);
     _checkKeyStatus().then((_) {
       if (mounted && widget.preFilledSenderUid != null) {
-        // Pre-fill from Active Connection role picker (D-14):
-        // calls _onSenderSelected directly, bypassing the
-        // manual "Find & Select Sender" sheet.
-        _onSenderSelected(UserModel(
-          uid: widget.preFilledSenderUid!,
-          username: widget.preFilledSenderUsername ?? '',
-          email: '',
-          phone: '',
-        ));
+        // D-14: defer sender selection until mailbox is open.
+        // _onSenderSelected needs the public key in Firestore (written by
+        // setupReceiverSession inside _onToggleReady(true)). Storing here and
+        // consuming in _onToggleReady(true) prevents the KeyNotFoundException.
+        setState(() {
+          _pendingPrefilledSender = UserModel(
+            uid: widget.preFilledSenderUid!,
+            username: widget.preFilledSenderUsername ?? '',
+            email: '',
+            phone: '',
+          );
+        });
       }
     });
     _subscribeToFriends();
@@ -210,6 +214,13 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             _hasPrivateKey = true;
             _hasPublicKey = true;
           });
+          // Consume deferred pre-fill: public key is now in Firestore,
+          // so selectSenderHandshake will succeed (D-14).
+          final pending = _pendingPrefilledSender;
+          if (pending != null) {
+            _pendingPrefilledSender = null;
+            _onSenderSelected(pending);
+          }
         }
       } else {
         final confirmed = await _showCloseSessionDialog();
