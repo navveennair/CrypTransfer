@@ -1122,6 +1122,10 @@ class _PendingRequestsSection extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
+        if (snapshot.hasError) {
+          onShowError('Could not load pending requests. Check your connection.');
+          return const SizedBox.shrink();
+        }
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) return const SizedBox.shrink();
 
