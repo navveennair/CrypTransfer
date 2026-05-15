@@ -930,6 +930,20 @@ class _ActiveConnectionsSection extends StatelessWidget {
             return StreamBuilder<QuerySnapshot>(
               stream: outgoingPendingStream,
               builder: (context, pendingSnap) {
+                if (proposerSnap.hasError || partnerSnap.hasError || pendingSnap.hasError) {
+                  final cs = Theme.of(context).colorScheme;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'Could not load connections. Check your connection.',
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: cs.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
                 if (proposerSnap.connectionState == ConnectionState.waiting ||
                     partnerSnap.connectionState == ConnectionState.waiting ||
                     pendingSnap.connectionState == ConnectionState.waiting) {
