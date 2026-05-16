@@ -15,6 +15,7 @@ import '../../core/utils/biometric_helper.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/services/transfer_service.dart';
+import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 import 'transfer_progress_screen.dart';
 
@@ -407,6 +408,51 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
+  void _startReadinessTimer() {
+    _secondsRemaining = 60;
+    _readinessTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _secondsRemaining--);
+      if (_secondsRemaining <= 0) {
+        _readinessTimer?.cancel();
+        _readinessTimer = null;
+        _ejectToHomeScreen();
+      }
+    });
+  }
+
+  void _onReceiverBecameReady() {
+    _readinessTimer?.cancel();
+    _readinessTimer = null;
+    setState(() => _receiverReady = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Secure channel established. Receiver is ready.'),
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _ejectToHomeScreen() {
+    _wipeSensitiveData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Session Terminated — receiver closed the session.'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => HomeScreen()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -473,112 +519,126 @@ class _SenderScreenState extends State<SenderScreen>
             StepCard(
               step: 0,
               title: 'Secure Connection',
-              done: _receiverSelected,
+              done: _receiverSelected && _receiverReady,
               child: _receiverSelected
-                  ? _ConnectedBadge(username: _receiverUsername!)
+                  ? (_receiverReady
+                      ? _ConnectedBadge(username: _receiverUsername!)
+                      : _WaitingForReceiverWidget(secondsRemaining: _secondsRemaining))
                   : const _WaitingForConnectionWidget(),
             ),
             const SizedBox(height: 16),
 
-            // ── Step 1: Select File ─────────────────────────────────────
+            // ── Steps 1-4: gated until receiver is ready (Phase 6) ─────
             AnimatedOpacity(
-              opacity: _receiverSelected ? 1.0 : 0.4,
+              opacity: _receiverReady ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 300),
-              child: StepCard(
-                step: 1,
-                title: 'Select File',
-                done: _fileSelected,
+              child: IgnorePointer(
+                ignoring: !_receiverReady,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    GlassButton(
-                      icon: const Icon(Icons.folder_open_rounded, size: 20),
-                      label: Text(_file == null ? 'Browse Files' : 'Change File'),
-                      onPressed: _receiverSelected ? _pickFile : null,
-                      color: cs.primary,
+                    // ── Step 1: Select File ───────────────────────────────
+                    AnimatedOpacity(
+                      opacity: _receiverSelected ? 1.0 : 0.4,
+                      duration: const Duration(milliseconds: 300),
+                      child: StepCard(
+                        step: 1,
+                        title: 'Select File',
+                        done: _fileSelected,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            GlassButton(
+                              icon: const Icon(Icons.folder_open_rounded, size: 20),
+                              label: Text(_file == null ? 'Browse Files' : 'Change File'),
+                              onPressed: _receiverSelected ? _pickFile : null,
+                              color: cs.primary,
+                            ),
+                            if (_file != null) ...[
+                              const SizedBox(height: 16),
+                              _FileCard(file: _file!),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                    if (_file != null) ...[
-                      const SizedBox(height: 16),
-                      _FileCard(file: _file!),
-                    ],
+                    const SizedBox(height: 16),
+
+                    // ── Step 2: Encrypt ───────────────────────────────────
+                    AnimatedOpacity(
+                      opacity: _fileSelected ? 1.0 : 0.4,
+                      duration: const Duration(milliseconds: 300),
+                      child: StepCard(
+                        step: 2,
+                        title: 'AES-256-GCM Encryption',
+                        done: _fileEncrypted,
+                        child: _fileEncrypted
+                            ? _EncryptedBadge(
+                                keyBits: _aesKey!.length * 8,
+                                ivBytes: _iv!.length,
+                                ciphertextBytes: _encryptedBytes!.length,
+                              )
+                            : _encrypting
+                                ? _EncryptionProgressWidget(
+                                    progress: _encryptionProgress)
+                                : GlassButton(
+                                    icon: const Icon(Icons.lock_rounded, size: 20),
+                                    label: const Text('Encrypt with AES Key'),
+                                    onPressed: _fileSelected ? _encryptFile : null,
+                                    color: Colors.amber.shade700,
+                                  ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Step 3: RSA Handshake ─────────────────────────────
+                    AnimatedOpacity(
+                      opacity: _fileEncrypted ? 1.0 : 0.4,
+                      duration: const Duration(milliseconds: 300),
+                      child: StepCard(
+                        step: 3,
+                        title: 'RSA Key Handshake',
+                        done: _readyToSend,
+                        child: _readyToSend
+                            ? _ReceiverBadge(username: _receiverUsername!)
+                            : GlassButton(
+                                icon: _encryptingKey
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.security_rounded, size: 20),
+                                label: Text(_encryptingKey
+                                    ? 'Encrypting key…'
+                                    : 'Encrypt Key for @${_receiverUsername ?? "receiver"}'),
+                                onPressed: _fileEncrypted && !_encryptingKey
+                                    ? _encryptAesKey
+                                    : null,
+                                color: cs.secondary,
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // ── Step 4: Send ──────────────────────────────────────
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      child: _readyToSend
+                          ? GlassButton(
+                              key: const ValueKey('send-btn'),
+                              icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+                              label: const Text('Send Encrypted File', style: TextStyle(color: Colors.white)),
+                              onPressed: _send,
+                              color: Colors.green.shade500,
+                            )
+                          : const SizedBox.shrink(key: ValueKey('send-empty')),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // ── Step 2: Encrypt ─────────────────────────────────────────
-            AnimatedOpacity(
-              opacity: _fileSelected ? 1.0 : 0.4,
-              duration: const Duration(milliseconds: 300),
-              child: StepCard(
-                step: 2,
-                title: 'AES-256-GCM Encryption',
-                done: _fileEncrypted,
-                child: _fileEncrypted
-                    ? _EncryptedBadge(
-                        keyBits: _aesKey!.length * 8,
-                        ivBytes: _iv!.length,
-                        ciphertextBytes: _encryptedBytes!.length,
-                      )
-                    : _encrypting
-                        ? _EncryptionProgressWidget(
-                            progress: _encryptionProgress)
-                        : GlassButton(
-                            icon: const Icon(Icons.lock_rounded, size: 20),
-                            label: const Text('Encrypt with AES Key'),
-                            onPressed: _fileSelected ? _encryptFile : null,
-                            color: Colors.amber.shade700,
-                          ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Step 3: RSA Handshake ──────────────────────────────────
-            AnimatedOpacity(
-              opacity: _fileEncrypted ? 1.0 : 0.4,
-              duration: const Duration(milliseconds: 300),
-              child: StepCard(
-                step: 3,
-                title: 'RSA Key Handshake',
-                done: _readyToSend,
-                child: _readyToSend
-                    ? _ReceiverBadge(username: _receiverUsername!)
-                    : GlassButton(
-                        icon: _encryptingKey
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.security_rounded, size: 20),
-                        label: Text(_encryptingKey
-                            ? 'Encrypting key…'
-                            : 'Encrypt Key for @${_receiverUsername ?? "receiver"}'),
-                        onPressed: _fileEncrypted && !_encryptingKey
-                            ? _encryptAesKey
-                            : null,
-                        color: cs.secondary,
-                      ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // ── Step 4: Send ────────────────────────────────────────────
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: _readyToSend
-                  ? GlassButton(
-                      key: const ValueKey('send-btn'),
-                      icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
-                      label: const Text('Send Encrypted File', style: TextStyle(color: Colors.white)),
-                      onPressed: _send,
-                      color: Colors.green.shade500,
-                    )
-                  : const SizedBox.shrink(key: ValueKey('send-empty')),
-            ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -933,6 +993,122 @@ class _ReceiverBadge extends StatelessWidget {
           ),
           const Icon(Icons.check_circle_rounded,
               color: Colors.green, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaitingForReceiverWidget extends StatefulWidget {
+  final int secondsRemaining;
+  const _WaitingForReceiverWidget({required this.secondsRemaining});
+
+  @override
+  State<_WaitingForReceiverWidget> createState() =>
+      _WaitingForReceiverWidgetState();
+}
+
+class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+    _fade = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final mins = widget.secondsRemaining ~/ 60;
+    final secs = widget.secondsRemaining % 60;
+    final display =
+        '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          ScaleTransition(
+            scale: _scale,
+            child: FadeTransition(
+              opacity: _fade,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.primary.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: cs.primary.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.hourglass_top_rounded,
+                  color: cs.primary,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Waiting for Receiver to prepare secure vault…',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Receiver must open the secure inbox to continue.',
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          GlassContainer(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: cs.primary.withValues(alpha: 0.07),
+            borderColor: cs.primary.withValues(alpha: 0.15),
+            borderRadius: 12,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.timer_outlined, size: 16, color: cs.primary),
+                const SizedBox(width: 8),
+                Text(
+                  display,
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
