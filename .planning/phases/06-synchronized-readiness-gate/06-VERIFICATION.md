@@ -1,83 +1,67 @@
 ---
 phase: 06-synchronized-readiness-gate
-verified: 2026-05-16T00:00:00Z
-status: gaps_found
-score: 5/8 must-haves verified
+verified: 2026-05-16T01:00:00Z
+status: human_needed
+score: 8/8 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "When handshake doc is absent (snap.docs.isEmpty) while !_receiverReady: timer cancelled, red SnackBar shown, Navigator.pushAndRemoveUntil to HomeScreen"
-    status: failed
-    reason: "CR-01 confirmed. No _streamSettled guard or _receiverSelected guard protects the isEmpty branch. The Firestore stream fires an initial empty snapshot synchronously after _startHandshakeListener() in initState. At that point _receiverReady is false, so _ejectToHomeScreen() fires immediately — before the receiver has any chance to act, and before the sender has even opened the FindSenderSheet. This breaks both the pre-filled sender flow (Active Connection role picker) and the normal sender flow (fresh SenderScreen with no pre-fill). The fix recommended in REVIEW.md (a _streamSettled flag) is absent."
-    artifacts:
-      - path: "lib/presentation/sender/sender_screen.dart"
-        issue: "_onHandshakeUpdate isEmpty branch at lines 120-127 ejects on first empty snapshot regardless of whether the stream has ever seen a non-empty doc. No _streamSettled flag, no _receiverSelected guard."
-    missing:
-      - "Add bool _streamSettled = false field to _SenderScreenState"
-      - "In isEmpty branch: if (!_streamSettled) { _streamSettled = true; return; } before the !_receiverReady eject guard"
-      - "In the non-empty else branch (after setState): _streamSettled = true;"
-
-  - truth: "Stale receiverReady: false is guaranteed on every new session for returning sender/receiver pairs"
-    status: failed
-    reason: "WR-01 confirmed. In selectSenderHandshake(), the keyPayload map (lines 480-488) does not include receiverReady: false. When an existing handshake doc is found, batch.update(existing.docs.first.reference, keyPayload) at line 492 leaves the previous session's receiverReady value (true) intact. On a second session between the same pair, _onHandshakeUpdate immediately receives receiverReady: true from the initial snapshot, calls _onReceiverBecameReady(), and unlocks Steps 1-4 without waiting for the receiver to actually signal readiness in the new session. The gate is completely bypassed for returning pairs."
-    artifacts:
-      - path: "lib/data/repositories/key_repository.dart"
-        issue: "keyPayload at lines 480-488 missing 'receiverReady': false. The new-doc batch.set() at line 497 correctly includes it, but the existing-doc batch.update() at line 492 does not reset it."
-    missing:
-      - "Add 'receiverReady': false to keyPayload map so both the batch.update and batch.set paths reset the field on every new session"
-
-  - truth: "WR-03: No frozen-UI state when receiverReady reverts to false after being true"
-    status: failed
-    reason: "WR-03 confirmed. The else if (_receiverReady != receiverReady) branch at line 167-168 calls setState(() => _receiverReady = receiverReady) when the field reverts false. The timer was already cancelled in _onReceiverBecameReady(). After revert, _readinessTimer is null and _secondsRemaining holds its last value (likely 0 or a low number), frozen. The UI shows _WaitingForReceiverWidget with a non-ticking countdown. No timer restart, no revert-to-waiting, no eject path. User is stuck."
-    artifacts:
-      - path: "lib/presentation/sender/sender_screen.dart"
-        issue: "Lines 165-169: else if branch sets _receiverReady = false but does not restart _readinessTimer or call _revertToWaiting(). The sender screen deadlocks with a frozen countdown widget."
-    missing:
-      - "Replace the else if branch body with a call to _revertToWaiting() (which already resets _receiverReady, _secondsRemaining, and cancels timer) and optionally show a SnackBar indicating session reset"
-
-deferred: []
-
+re_verification:
+  previous_status: gaps_found
+  previous_score: 5/8
+  gaps_closed:
+    - "CR-01: _streamSettled guard added — cold-start empty Firestore snapshot no longer triggers _ejectToHomeScreen"
+    - "WR-01: 'receiverReady': false added to keyPayload — both batch.update (existing doc) and batch.set (new doc) paths reset the field on every new session"
+    - "WR-03: else-if branch replaced with _revertToWaiting() call + orange SnackBar — timer restarts and eject path re-activates on revert"
+  gaps_remaining: []
+  regressions: []
 human_verification:
   - test: "CR-01 smoke test: open SenderScreen with preFilledPartnerUid before receiver opens mailbox"
-    expected: "Screen stays at Step 0 showing _WaitingForConnectionWidget; no immediate navigation to HomeScreen"
+    expected: "Screen stays at Step 0 showing _WaitingForConnectionWidget; no immediate navigation to HomeScreen occurs"
     why_human: "Requires a real device/emulator with two Firebase accounts. Cannot simulate the Firestore stream cold-start timing programmatically."
-  - test: "WR-01 regression test: complete a transfer between pair A-B, then initiate a second transfer between A-B immediately"
-    expected: "Sender sees _WaitingForReceiverWidget and countdown timer; Step 0 does NOT show _ConnectedBadge until receiver explicitly signals readiness in the new session"
+  - test: "WR-01 regression test: complete a transfer between pair A-B, then immediately initiate a second transfer between A-B"
+    expected: "Sender sees _WaitingForReceiverWidget with countdown timer; Step 0 does NOT show _ConnectedBadge until receiver explicitly opens ReceiverScreen and selects A again in the new session"
     why_human: "Requires two real accounts with an existing completed-session handshake doc in Firestore. Cannot verify without live Firestore state from a prior session."
+  - test: "WR-03 regression test: sender reaches _ConnectedBadge state (receiverReady == true), then receiver closes session"
+    expected: "Sender screen shows orange SnackBar 'Receiver readiness was reset — waiting for confirmation.' and _WaitingForReceiverWidget with a ticking 60-second countdown restarts; eject fires at 0 or on subsequent doc deletion"
+    why_human: "Requires two real accounts and coordinated session control to force a receiverReady field revert after the gate was unlocked."
 ---
 
 # Phase 06: Synchronized Readiness Gate — Verification Report
 
 **Phase Goal:** Synchronized Readiness Gate — prevent sender from advancing past Step 0 until receiver has signaled cryptographic readiness; eliminate the race condition where sender initiates before receiver has published their RSA key.
-**Verified:** 2026-05-16
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-16T01:00:00Z
+**Status:** human_needed
+**Re-verification:** Yes — after gap closure (Plan 04, commit bb37773)
 
 ---
 
 ## Goal Achievement
 
-The core mechanics of the readiness gate are implemented and correctly wired: the data layer (`setReceiverReady`, `selectSenderHandshake` returning `Future<String>`), the receiver trigger (`_writeReceiverReady` with retry SnackBar), and the sender-side UI gate (`_WaitingForReceiverWidget`, countdown timer, `AnimatedOpacity`/`IgnorePointer` on Steps 1-4) all exist and are substantive. However, **three defects prevent the phase goal from being reliably achieved**:
-
-1. **CR-01** (critical): The eject path fires on the stream's cold-start empty snapshot, immediately removing the sender from `SenderScreen` before the receiver has acted — breaking both the normal and pre-filled sender flows.
-2. **WR-01** (critical for security gate correctness): Returning sender/receiver pairs bypass the gate because `receiverReady: true` from a prior session is never reset.
-3. **WR-03** (correctness): If `receiverReady` reverts to `false` after being `true` (e.g. due to WR-01 cleanup or an unexpected write), the sender screen deadlocks with a non-functional frozen countdown widget.
-
-WR-02 (missing `mounted` guard in retry closure) is a real defect but is a safety concern rather than a goal-blocking race condition — the SnackBar has a 6s auto-dismiss and the failure path is rare.
+All eight must-have truths are now verified in the codebase. The three blockers from the initial verification (CR-01, WR-01, WR-03) have been closed by Plan 04. The synchronized readiness gate is implemented correctly across all code paths: cold-start, pre-filled sender, returning pairs, and post-unlock reverts. What remains is live device smoke testing that cannot be automated.
 
 ### Observable Truths
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | `selectSenderHandshake()` returns Future<String> doc ID | VERIFIED | `Future<String> selectSenderHandshake` at key_repository.dart:445; `return docId;` at line 519 |
-| 2 | `setReceiverReady(docId)` writes `receiverReady: true` to handshake doc | VERIFIED | key_repository.dart:626-636 — targeted `.update({'receiverReady': true})` with `NetworkException` wrapping |
-| 3 | After `selectSenderHandshake` succeeds, receiver writes `receiverReady: true` | VERIFIED | receiver_screen.dart:333-344 — `handshakeDocId` captured, `_writeReceiverReady(handshakeDocId)` called after setState |
-| 4 | Retry SnackBar shown on `receiverReady` write failure | VERIFIED | receiver_screen.dart:404-425 — floating SnackBar with text "Failed to signal readiness — tap to retry." and SnackBarAction "Retry" |
-| 5 | While `_receiverSelected && !_receiverReady`: Step 0 shows `_WaitingForReceiverWidget` with countdown; Steps 1-4 invisible and non-interactive | VERIFIED | sender_screen.dart:519-537 — three-state child switch; AnimatedOpacity(opacity: `_receiverReady ? 1.0 : 0.0`) + IgnorePointer wrapping Steps 1-4 |
-| 6 | When `receiverReady` becomes true: countdown cancelled, green SnackBar, Steps 1-4 fade in | VERIFIED | sender_screen.dart:424-436 — `_onReceiverBecameReady()` cancels timer, sets `_receiverReady = true`, shows "Secure channel established. Receiver is ready." |
-| 7 | When handshake doc disappears while `!_receiverReady`: eject to HomeScreen | FAILED | CR-01: no `_streamSettled` guard. Cold-start empty snapshot triggers eject before receiver can act. Also triggers in normal flow (no pre-fill). |
-| 8 | Returning sender/receiver pairs must not bypass the gate (`receiverReady` reset on new session) | FAILED | WR-01: `keyPayload` at key_repository.dart:480-488 omits `'receiverReady': false`; the `batch.update` path (existing doc) leaves previous session's `receiverReady: true` intact |
+| 1 | `selectSenderHandshake()` returns `Future<String>` doc ID | VERIFIED | `key_repository.dart:445` — `Future<String> selectSenderHandshake`; `return docId;` at line 522 |
+| 2 | `setReceiverReady(docId)` writes `receiverReady: true` to handshake doc | VERIFIED | `key_repository.dart:629-639` — `.update({'receiverReady': true})` with `NetworkException` wrapping |
+| 3 | After `selectSenderHandshake` succeeds, receiver writes `receiverReady: true` | VERIFIED | `receiver_screen.dart:333-344` — `handshakeDocId` captured, `_writeReceiverReady(handshakeDocId)` called after setState |
+| 4 | Retry SnackBar shown on `receiverReady` write failure | VERIFIED | `receiver_screen.dart:406-425` — floating SnackBar with `'Failed to signal readiness — tap to retry.'` and SnackBarAction `'Retry'` |
+| 5 | While `_receiverSelected && !_receiverReady`: Step 0 shows `_WaitingForReceiverWidget` with countdown; Steps 1-4 invisible and non-interactive | VERIFIED | `sender_screen.dart:544-559` — three-state child switch; `AnimatedOpacity(opacity: _receiverReady ? 1.0 : 0.0)` + `IgnorePointer(ignoring: !_receiverReady)` wrapping Steps 1-4 |
+| 6 | When `receiverReady` becomes true: countdown cancelled, green SnackBar, Steps 1-4 fade in | VERIFIED | `sender_screen.dart:445-457` — `_onReceiverBecameReady()` cancels timer, sets `_receiverReady = true`, shows `'Secure channel established. Receiver is ready.'` with `Colors.green.shade700` |
+| 7 | Cold-start empty Firestore snapshot does NOT eject the sender | VERIFIED | `sender_screen.dart:83,124-126` — `bool _streamSettled = false` field; `if (!_streamSettled) { _streamSettled = true; return; }` guard at top of isEmpty branch absorbs first snapshot; eject only fires after `_streamSettled == true` |
+| 8 | Returning sender/receiver pairs cannot bypass the gate (`receiverReady` reset on every new session) | VERIFIED | `key_repository.dart:480-491` — `'receiverReady': false` included in `keyPayload`; both `batch.update` (existing doc, line 495) and `batch.set` (new doc, line 499-504) paths now reset the field |
 
-**Score:** 5/8 truths verified
+**Score:** 8/8 truths verified
+
+---
+
+### Re-verification: Gaps Closed
+
+| Gap | Previous Status | Current Status | Evidence |
+|-----|----------------|----------------|----------|
+| CR-01: cold-start empty-snapshot ejects sender | FAILED | CLOSED | `_streamSettled` field at line 83; guard at lines 124-126; settler at line 164; reset in `_revertToWaiting` at line 211 |
+| WR-01: stale `receiverReady: true` bypasses gate for returning pairs | FAILED | CLOSED | `'receiverReady': false` added to `keyPayload` at line 490; covers both `batch.update` and `batch.set` paths |
+| WR-03: frozen UI when `receiverReady` reverts after unlock | FAILED | CLOSED | Lines 175-188: `else if (_receiverReady != receiverReady)` branch now calls `_revertToWaiting()` + orange SnackBar `'Receiver readiness was reset — waiting for confirmation.'`; bare `setState` one-liner is gone (confirmed by grep returning 0 matches) |
 
 ---
 
@@ -85,9 +69,9 @@ WR-02 (missing `mounted` guard in retry closure) is a real defect but is a safet
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `lib/data/repositories/key_repository.dart` | `setReceiverReady()` + `selectSenderHandshake()` returning `Future<String>` | VERIFIED | Both methods present and substantive. 637 lines. |
-| `lib/presentation/receiver/receiver_screen.dart` | `_writeReceiverReady()` + `_onSenderSelected` capturing docId | VERIFIED | `_writeReceiverReady` at line 406; `handshakeDocId` capture at line 333 |
-| `lib/presentation/sender/sender_screen.dart` | `_WaitingForReceiverWidget`, `_receiverReady` state, `_readinessTimer`, `_startReadinessTimer`, `_onReceiverBecameReady`, `_ejectToHomeScreen`, Steps 1-4 gate | VERIFIED (partially defective) | All artifacts present and substantive; defect is in eject-guard logic, not artifact existence |
+| `lib/data/repositories/key_repository.dart` | `setReceiverReady()` + `selectSenderHandshake()` returning `Future<String>` + `keyPayload` with `receiverReady: false` | VERIFIED | All three present; 640+ lines; substantive implementations |
+| `lib/presentation/receiver/receiver_screen.dart` | `_writeReceiverReady()` + `_onSenderSelected` capturing `handshakeDocId` | VERIFIED | `_writeReceiverReady` at line 406; `handshakeDocId` capture at line 333; retry SnackBar at lines 413-423 |
+| `lib/presentation/sender/sender_screen.dart` | `_WaitingForReceiverWidget`, `_streamSettled`, `_receiverReady`, `_readinessTimer`, `_startReadinessTimer`, `_onReceiverBecameReady`, `_ejectToHomeScreen`, Steps 1-4 gate | VERIFIED | All artifacts present and substantive; `_WaitingForReceiverWidget` class at line 1023 with full animation and countdown display |
 
 ---
 
@@ -95,12 +79,13 @@ WR-02 (missing `mounted` guard in retry closure) is a real defect but is a safet
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `receiver_screen.dart` | `key_repository.dart` | `await _connService.selectSenderHandshake(...)` → captures `handshakeDocId` | WIRED | Line 333-336 |
-| `receiver_screen.dart` | `key_repository.dart` | `await _connService.setReceiverReady(handshakeDocId)` | WIRED | Line 408 inside `_writeReceiverReady` |
-| `sender_screen.dart` | Firestore handshakes doc | `_onHandshakeUpdate` parses `doc['receiverReady'] as bool?` | WIRED | Line 159 |
-| `sender_screen.dart` | `home_screen.dart` | `_ejectToHomeScreen` → `Navigator.pushAndRemoveUntil` → `HomeScreen()` | WIRED | Lines 438-453 |
-| `_onHandshakeUpdate` isEmpty branch | `_ejectToHomeScreen` | `if (!_receiverReady) { ... _ejectToHomeScreen(); return; }` | PARTIALLY BROKEN | Guard fires on cold-start empty snapshot (CR-01) |
-| `selectSenderHandshake` existing-doc branch | Firestore `receiverReady` reset | `keyPayload` should include `'receiverReady': false` | NOT WIRED | `keyPayload` omits the reset; WR-01 bypass |
+| `receiver_screen.dart` | `key_repository.dart` | `await _connService.selectSenderHandshake(...)` captures `handshakeDocId` | WIRED | Lines 333-336 |
+| `receiver_screen.dart` | `key_repository.dart` | `await _connService.setReceiverReady(handshakeDocId)` in `_writeReceiverReady` | WIRED | Lines 407-408 |
+| `sender_screen.dart` | Firestore handshakes doc | `_onHandshakeUpdate` parses `doc['receiverReady'] as bool? ?? false` | WIRED | Line 167 |
+| `sender_screen.dart` | `home_screen.dart` | `_ejectToHomeScreen` → `Navigator.pushAndRemoveUntil` → `HomeScreen()` | WIRED | Lines 459-475 |
+| `_onHandshakeUpdate` isEmpty branch | `_ejectToHomeScreen` | `_streamSettled` guard absorbs cold-start; eject fires only after stream settled AND `!_receiverReady` | WIRED | Lines 122-133; `_streamSettled` guard confirmed at line 124 |
+| `keyPayload` | Firestore `receiverReady` reset | `'receiverReady': false` in `keyPayload` — both `batch.update` and `batch.set` paths | WIRED | Lines 490 (keyPayload) + 495 (update) + 499-504 (set with spread) |
+| `_onHandshakeUpdate` revert branch | `_revertToWaiting()` | `else if (_receiverReady != receiverReady)` calls `_revertToWaiting()` | WIRED | Lines 175-188; old bare-setState one-liner confirmed absent |
 
 ---
 
@@ -108,28 +93,31 @@ WR-02 (missing `mounted` guard in retry closure) is a real defect but is a safet
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |----------|---------------|--------|--------------------|--------|
-| `_WaitingForReceiverWidget` | `widget.secondsRemaining` | `_secondsRemaining` in `_SenderScreenState`, decremented by `Timer.periodic` | Yes — real timer-driven decrement | FLOWING |
-| Step 0 child switch | `_receiverReady` | Parsed from Firestore handshake doc snapshot (`doc['receiverReady'] as bool?`) | Yes — live Firestore stream | FLOWING (when stream settled; defective on cold start) |
-| Steps 1-4 AnimatedOpacity | `_receiverReady` | Same as above | Same | FLOWING (same caveat) |
+| `_WaitingForReceiverWidget` | `widget.secondsRemaining` | `_secondsRemaining` in `_SenderScreenState`, decremented by `Timer.periodic` in `_startReadinessTimer` | Yes — real timer-driven decrement at 1Hz | FLOWING |
+| Step 0 child switch | `_receiverReady` | Parsed from Firestore handshake doc snapshot via `_onHandshakeUpdate` | Yes — live Firestore stream; guarded by `_streamSettled` for cold-start | FLOWING |
+| Steps 1-4 `AnimatedOpacity` | `_receiverReady` | Same Firestore-derived state | Yes | FLOWING |
+| `_writeReceiverReady` → Firestore | `receiverReady: true` | `_connService.setReceiverReady(handshakeDocId)` — targeted Firestore `.update()` | Yes — real Firestore write; `handshakeDocId` from `selectSenderHandshake` return value | FLOWING |
 
 ---
 
 ### Behavioral Spot-Checks
 
-Step 7b skipped — behavioral checks require running the app with live Firestore state. The CR-01 defect makes automated runner-based testing non-viable without a real emulator.
+Step 7b: SKIPPED — behavioral checks require running the Flutter app with live Firestore. The three human verification items below cover the critical behaviors that need real-device confirmation.
 
 ---
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description (derived from plan must_haves) | Status |
-|-------------|------------|---------------------------------------------|--------|
-| SYNC-01 | 06-01-PLAN | `selectSenderHandshake()` returns `Future<String>` doc ID | SATISFIED |
-| SYNC-02 | 06-01-PLAN | `setReceiverReady(docId)` writes `receiverReady: true` to handshake doc | SATISFIED |
-| SYNC-03 | 06-02-PLAN | ReceiverScreen signals readiness after handshake; retry SnackBar on failure | SATISFIED |
-| SYNC-04 | 06-03-PLAN | Steps 1-4 hidden with `AnimatedOpacity`/`IgnorePointer` until `receiverReady` | SATISFIED |
-| SYNC-05 | 06-03-PLAN | Countdown timer ejects sender at 0 seconds; doc deletion ejects while `!_receiverReady` | BLOCKED — doc deletion eject fires spuriously on cold-start empty snapshot (CR-01) |
-| SYNC-06 | 06-03-PLAN | `receiverReady: false` initialized on new sessions; gate not bypassable by prior session | BLOCKED — existing-doc `batch.update` path does not reset `receiverReady` (WR-01) |
+| Requirement | Source Plan | Description | Status | Evidence |
+|-------------|------------|-------------|--------|----------|
+| SYNC-01 | 06-01-PLAN | `selectSenderHandshake()` returns `Future<String>` doc ID | SATISFIED | `key_repository.dart:445` — `Future<String> selectSenderHandshake`; `return docId;` at line 522 |
+| SYNC-02 | 06-01-PLAN | `setReceiverReady(docId)` writes `receiverReady: true` to handshake doc | SATISFIED | `key_repository.dart:629-639` — method present with `.update({'receiverReady': true})` and `NetworkException` |
+| SYNC-03 | 06-02-PLAN | ReceiverScreen signals readiness after handshake; retry SnackBar on failure | SATISFIED | `receiver_screen.dart:333-344` (capture + call); lines 406-425 (SnackBar with Retry action) |
+| SYNC-04 | 06-03-PLAN | Steps 1-4 hidden with `AnimatedOpacity`/`IgnorePointer` until `receiverReady` | SATISFIED | `sender_screen.dart:553-558` — outer `AnimatedOpacity(opacity: _receiverReady ? 1.0 : 0.0)` + `IgnorePointer(ignoring: !_receiverReady)` confirmed |
+| SYNC-05 | 06-03/06-04-PLAN | Countdown timer ejects sender at 0; doc deletion ejects while `!_receiverReady`; cold-start snapshot does NOT eject | SATISFIED | `_startReadinessTimer` at line 432; `_ejectToHomeScreen` called at lines 132 and 440; `_streamSettled` guard at lines 124-126 prevents cold-start eject (CR-01 closed) |
+| SYNC-06 | 06-03/06-04-PLAN | `receiverReady: false` initialized on new sessions; gate not bypassable by prior session | SATISFIED | `keyPayload` at line 480-491 includes `'receiverReady': false`; both `batch.update` and `batch.set` paths covered (WR-01 closed) |
+
+No REQUIREMENTS.md file exists at `.planning/REQUIREMENTS.md`. Requirement IDs are defined exclusively in plan frontmatter. All six IDs (SYNC-01 through SYNC-06) are accounted for across plans 01-04. No orphaned requirements found.
 
 ---
 
@@ -137,51 +125,41 @@ Step 7b skipped — behavioral checks require running the app with live Firestor
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `sender_screen.dart` | 120-127 | `isEmpty` branch ejects without stream-settled guard | Blocker | CR-01: immediate ejection on cold-start breaks both sender flows |
-| `key_repository.dart` | 480-492 | `keyPayload` missing `'receiverReady': false`; `batch.update` path skips reset | Blocker | WR-01: gate bypass for returning pairs — defeats the phase's security goal |
-| `sender_screen.dart` | 165-169 | `else if (_receiverReady != receiverReady)` resets flag without restarting timer | Warning | WR-03: sender screen deadlocks if `receiverReady` reverts to false post-established |
-| `receiver_screen.dart` | 418-421 | `onPressed: () => _writeReceiverReady(handshakeDocId)` retry closure has no `mounted` guard | Warning | WR-02: use-after-dispose risk if ReceiverScreen disposes before SnackBar's 6s duration; recursive call enters `Theme.of(context)` on dead widget |
+| `receiver_screen.dart` | 418-421 | `onPressed: () => _writeReceiverReady(handshakeDocId)` retry closure has no `mounted` guard | Warning | WR-02 (carried from initial review): use-after-dispose risk if ReceiverScreen disposes before SnackBar's 6s duration elapses; `_writeReceiverReady` does check `!mounted` at its top before the catch block's SnackBar show, but the outer retry call itself has no guard. Risk is low in practice (SnackBar 6s auto-dismiss; failure path is rare) and not goal-blocking. |
+
+No blocker anti-patterns found. The WR-02 warning is the same one identified in the initial review and remains a non-blocking safety concern only.
 
 ---
 
 ### Human Verification Required
 
-#### 1. CR-01 Smoke Test
+#### 1. CR-01 Cold-Start Smoke Test
 
-**Test:** Open `SenderScreen` with a `preFilledPartnerUid` (via Active Connection role picker) before the receiver has opened their mailbox. Wait 5 seconds.
-**Expected:** Screen remains on Step 0 showing `_WaitingForConnectionWidget`; no navigation to HomeScreen occurs.
-**Why human:** Requires live Firestore with two real accounts. The cold-start empty-snapshot timing depends on Firestore network behavior.
+**Test:** Open `SenderScreen` with a `preFilledPartnerUid` (via Active Connection role picker on HomeScreen) before the partner receiver has opened their mailbox. Wait 10 seconds on Step 0.
+**Expected:** Screen remains at Step 0 showing `_WaitingForConnectionWidget` (or `_WaitingForReceiverWidget` if the stream settles quickly); no navigation to HomeScreen occurs during that window.
+**Why human:** Requires a real device or emulator with two Firebase accounts. The cold-start empty-snapshot timing depends on Firestore network latency and cannot be simulated programmatically.
 
-#### 2. CR-01 Normal-Flow Smoke Test
+#### 2. WR-01 Returning-Pair Bypass Test
 
-**Test:** Navigate to `SenderScreen` via `const SenderScreen()` (from a notification push, for example). Before tapping any button, wait 5 seconds.
-**Expected:** Screen remains at Step 0; no navigation to HomeScreen.
-**Why human:** Same reason as above.
+**Test:** Complete a full file transfer between users A (sender) and B (receiver). Then immediately have A navigate to `SenderScreen` again with B as a pre-filled partner. Observe Step 0 state when B's handshake doc is found on the stream.
+**Expected:** Sender sees `_WaitingForReceiverWidget` with a ticking 60-second countdown. Steps 1-4 remain invisible and non-interactive. `_ConnectedBadge` must NOT appear until B explicitly opens ReceiverScreen and selects A as sender in the new session.
+**Why human:** Requires live Firestore state with an existing prior-session handshake doc that previously had `receiverReady: true`. The `keyPayload` reset now writes `receiverReady: false` on the new session's batch write, but confirming the field actually arrives as `false` on the stream requires inspecting actual Firestore document state.
 
-#### 3. WR-01 Bypass Test
+#### 3. WR-03 Post-Unlock Revert Test
 
-**Test:** Complete a successful file transfer between users A (sender) and B (receiver). Then immediately have A navigate to `SenderScreen` again with B as pre-filled partner. Observe Step 0 state.
-**Expected:** Sender sees `_WaitingForReceiverWidget` with countdown; Steps 1-4 remain invisible until B explicitly opens ReceiverScreen and selects A again.
-**Why human:** Requires live Firestore state with a completed prior session's handshake doc having `receiverReady: true` persisted.
+**Test:** Have sender A reach `_ConnectedBadge` state (B has opened mailbox, `receiverReady == true`). Then have B close their session (kill-switch). Observe A's SenderScreen.
+**Expected:** A sees the orange SnackBar `'Receiver readiness was reset — waiting for confirmation.'` and `_WaitingForReceiverWidget` reappears with a fresh 60-second countdown ticking down. The eject path activates: if no new connection arrives within 60 seconds, A is navigated to HomeScreen.
+**Why human:** Requires coordinated two-device session control and live Firestore observation to confirm the timer restarts (not frozen at 0) and the eject path is active.
 
 ---
 
 ### Gaps Summary
 
-Three gaps prevent the phase goal from being reliably achieved:
+No automated-verifiable gaps remain. All three blockers from the initial verification (CR-01, WR-01, WR-03) are confirmed closed in the codebase. The remaining items are human smoke tests that could not be run without live Firestore and two real accounts.
 
-**CR-01 (Blocker) — Premature ejection on cold-start empty stream snapshot.**
-`_onHandshakeUpdate` in `sender_screen.dart` has no `_streamSettled` guard. The Firestore stream's first callback fires immediately in `initState` with an empty snapshot. Because `_receiverReady` is always `false` at that point, `_ejectToHomeScreen()` fires before any receiver can act — or before the sender can even pick a receiver in the non-pre-filled flow. The feature is effectively non-functional for most entry paths.
-
-**WR-01 (Blocker for gate correctness) — Stale `receiverReady: true` bypasses gate for returning pairs.**
-In `key_repository.dart`, `keyPayload` does not include `'receiverReady': false`. When an existing handshake doc is found (line 490), `batch.update(..., keyPayload)` leaves the prior session's `receiverReady: true` value on the doc. The sender's first stream snapshot sees `receiverReady: true` and calls `_onReceiverBecameReady()` immediately — unlocking all steps without waiting for the receiver. The race condition this phase aims to prevent is reintroduced for every pair after their first session.
-
-**WR-03 (Warning, near-blocker) — Frozen UI when `receiverReady` reverts.**
-If `receiverReady` flips back to `false` after the gate was unlocked (e.g. due to Firestore correction after a WR-01 bypass, or a concurrent session event), the `else if` branch sets `_receiverReady = false` but neither restarts the countdown timer nor calls `_revertToWaiting()`. The sender is left with a frozen `_WaitingForReceiverWidget` showing a stale countdown value with no tick and no eject path. The screen is stuck.
-
-**Root cause grouping:** CR-01 and WR-03 share the same root — the `_onHandshakeUpdate` isEmpty/else logic lacks defensive guards for edge-case stream states. WR-01 is a separate data-layer omission in `keyPayload`.
+The one open warning (WR-02 — missing `mounted` guard on the retry closure in `_writeReceiverReady`) is a pre-existing non-blocking safety concern. It does not prevent the phase goal from being achieved.
 
 ---
 
-_Verified: 2026-05-16_
+_Verified: 2026-05-16T01:00:00Z_
 _Verifier: Claude (gsd-verifier)_
