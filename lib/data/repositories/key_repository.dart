@@ -485,6 +485,9 @@ class KeyRepository {
         // 'fromUsername' is kept for backward compatibility.
         'receiverUsername': fromUsername,
         'status': 'handshake_complete',
+        // WR-01: reset receiverReady on every new session so returning pairs
+        // cannot bypass the readiness gate via a stale true value.
+        'receiverReady': false,
       };
       String docId;
       if (existing.docs.isNotEmpty) {

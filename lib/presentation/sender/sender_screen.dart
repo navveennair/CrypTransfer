@@ -80,6 +80,7 @@ class _SenderScreenState extends State<SenderScreen>
   bool _receiverReady = false;
   Timer? _readinessTimer;
   int _secondsRemaining = 60;
+  bool _streamSettled = false;   // CR-01: suppress cold-start empty-snapshot eject
 
   @override
   void initState() {
@@ -118,6 +119,12 @@ class _SenderScreenState extends State<SenderScreen>
       QuerySnapshot<Map<String, dynamic>> snap) {
     if (!mounted) return;
     if (snap.docs.isEmpty) {
+      // CR-01: skip the first empty snapshot (Firestore stream fires synchronously
+      // on subscription before any data has loaded — treat it as settled and return).
+      if (!_streamSettled) {
+        _streamSettled = true;
+        return;
+      }
       // Phase 6: eject sender if waiting for readiness and session collapses (D-09)
       if (!_receiverReady) {
         _readinessTimer?.cancel();
@@ -154,6 +161,7 @@ class _SenderScreenState extends State<SenderScreen>
           _receiverUsername = receiverUsername;
           _selectedReceiverPublicKeyJson = publicKey;
         });
+        _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
 
         // Phase 6: parse receiverReady field and gate/unlock steps (D-06)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
@@ -165,7 +173,19 @@ class _SenderScreenState extends State<SenderScreen>
         if (!_receiverReady && receiverReady) {
           _onReceiverBecameReady();
         } else if (_receiverReady != receiverReady) {
-          setState(() => _receiverReady = receiverReady);
+          // WR-03: receiverReady reverted to false after gate was unlocked.
+          // Simply setting the flag leaves the timer cancelled and the countdown
+          // frozen. _revertToWaiting() resets _receiverReady, _secondsRemaining,
+          // cancels any lingering timer, and wipes sensitive data.
+          _revertToWaiting();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Receiver readiness was reset — waiting for confirmation.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         }
       }
     }
@@ -188,6 +208,7 @@ class _SenderScreenState extends State<SenderScreen>
         _encryptingKey = false;
         _receiverReady = false;     // Phase 6 addition
         _secondsRemaining = 60;     // Phase 6 addition
+        _streamSettled = false;   // CR-01: allow next reconnect to re-settle
       });
     }
   }
