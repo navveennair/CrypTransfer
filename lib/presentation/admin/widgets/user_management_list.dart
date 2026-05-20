@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/admin_repository.dart';
+import '../../widgets/shared_widgets.dart';
 
 class UserManagementList extends StatelessWidget {
   const UserManagementList({super.key});
@@ -15,52 +16,89 @@ class UserManagementList extends StatelessWidget {
       stream: adminRepo.streamAllUsers(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final users = snapshot.data!;
+        
+        // Data Validation: Skip malformed or empty user documents
+        final users = snapshot.data!.where((u) => 
+          u.username.isNotEmpty && 
+          u.email.isNotEmpty && 
+          u.username != '@'
+        ).toList();
+
+        if (users.isEmpty) {
+          return Center(
+            child: Text(
+              'No valid users found',
+              style: GoogleFonts.orbitron(color: cs.onSurface.withValues(alpha: 0.5)),
+            ),
+          );
+        }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           itemCount: users.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, i) {
             final user = users[i];
-            return Container(
+            final isSecured = user.hasPublicKey;
+
+            return GlassContainer(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: user.isActive ? cs.outline : Colors.red.withValues(alpha: 0.3),
-                ),
-              ),
+              borderColor: user.isActive 
+                  ? (isSecured ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant)
+                  : Colors.red.withValues(alpha: 0.3),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: user.isAdmin ? cs.tertiary : cs.primary.withValues(alpha: 0.1),
+                  // Unified Iconography
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: (user.isAdmin ? cs.tertiary : cs.primary).withValues(alpha: 0.1),
+                      border: Border.all(
+                        color: (user.isAdmin ? cs.tertiary : cs.primary).withValues(alpha: 0.2),
+                      ),
+                    ),
                     child: Icon(
-                      user.isAdmin ? Icons.admin_panel_settings : Icons.person,
-                      color: user.isAdmin ? Colors.white : cs.primary,
+                      isSecured ? Icons.shield_rounded : (user.isAdmin ? Icons.admin_panel_settings : Icons.person_rounded),
+                      color: user.isAdmin ? cs.tertiary : cs.primary,
+                      size: 24,
                     ),
                   ),
                   const SizedBox(width: 16),
+                  
+                  // Global Font Inheritance
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           '@${user.username}',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.orbitron(
                             color: cs.onSurface,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 1,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           user.email,
-                          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                          style: GoogleFonts.exo2(
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  _RevokeButton(user: user, onToggle: (val) => adminRepo.setUserActiveStatus(user.uid, val)),
+                  
+                  // Standardized Toggle Logic
+                  _RevokeButton(
+                    user: user, 
+                    onToggle: (val) => adminRepo.setUserActiveStatus(user.uid, val)
+                  ),
                 ],
               ),
             );
@@ -79,14 +117,30 @@ class _RevokeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (user.isAdmin) return const SizedBox.shrink(); // Cannot revoke other admins easily here
+    if (user.isAdmin) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'ADMIN',
+          style: GoogleFonts.orbitron(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.tertiary,
+          ),
+        ),
+      );
+    }
 
     return Switch(
       value: user.isActive,
-      activeThumbColor: Colors.green,
-      activeTrackColor: Colors.green.withValues(alpha: 0.3),
-      inactiveThumbColor: Colors.red,
-      inactiveTrackColor: Colors.red.withValues(alpha: 0.3),
+      activeThumbColor: Colors.greenAccent,
+      activeTrackColor: Colors.greenAccent.withValues(alpha: 0.2),
+      inactiveThumbColor: Colors.redAccent,
+      inactiveTrackColor: Colors.redAccent.withValues(alpha: 0.2),
       onChanged: onToggle,
     );
   }
