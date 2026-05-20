@@ -59,6 +59,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   bool _receiverDecrypted = false;
   bool _canEndSession = false;
   bool _sessionEnded = false; // D-06: guard against double-fire on stream reconnect
+  bool _senderWipeSent = false; // guard against double-fire on Turn 2 AES key wipe
   String? _statusMessage;
 
   late AnimationController _successCtrl;
@@ -99,8 +100,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         .collection('transfers')
         .doc(widget.transferId)
         .snapshots()
-        .listen((snapshot) {
-      // D-06: detect receiver cleanup — transfer doc deleted by ReceiverEndSessionScreen step 2
+        .listen((snapshot) async {
+      // Turn 4: doc deleted by receiver — sender navigates to session-ended screen
       if (!snapshot.exists) {
         if (!_done || _sessionEnded) return; // only react after upload completes (Pitfall 1)
         _sessionEnded = true;
@@ -122,7 +123,33 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         }
         return;
       }
+
       final data = snapshot.data()!;
+      final status = data['status'] as String?;
+
+      // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
+      if (status == 'cleanup_initiated' && _done && !_senderWipeSent && !_sessionEnded) {
+        _senderWipeSent = true;
+        try {
+          await FirebaseFirestore.instance
+              .collection('transfers')
+              .doc(widget.transferId)
+              .update({
+            'encryptedAESKey': '',
+            'senderCleanedUp': true,
+            'senderCleanedUpAt': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
+        wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
+        if (mounted) {
+          setState(() {
+            _statusMessage = 'Keys destroyed. Waiting for receiver to terminate session…';
+            _canEndSession = false;
+          });
+        }
+        return;
+      }
+
       final receiverStatus = data['receiverStatus'] as String?;
 
       if (receiverStatus == 'decrypted' && mounted) {
