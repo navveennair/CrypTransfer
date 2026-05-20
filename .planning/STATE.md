@@ -45,6 +45,7 @@ See: .planning/PROJECT.md
 - 2026-05-15: hotfix — reactive connection status in FindFriendsScreen search results; static _statuses map replaced with per-tile StreamSubscription on HandshakeRepository.streamHandshakeWithUser(); "Pending" label pulses via AnimationController; "Connected" badge updates immediately on partner accept without re-search
 - 2026-05-16: Phase 06 planned — 3 plans in 2 waves (Wave 1: 06-01 KeyRepository data layer; Wave 2: 06-02 ReceiverScreen trigger + 06-03 SenderScreen gate); verification passed after 1 targeted fix (D-02 receiverReady: false initialization added to batch.set())
 - 2026-05-15: 06-01-PLAN.md complete — selectSenderHandshake() returns Future<String> doc ID; setReceiverReady() added; receiverReady: false initialized on new doc creation
+- 2026-05-20: Quick task 260520-001 complete — synchronized 4-turn cleanup protocol: receiver sets cleanup_initiated → sender wipes AES key in Firestore + RAM → receiver runs full cleanup → both redirect to HomeScreen
 
 ## Accumulated Context
 
@@ -71,3 +72,9 @@ See: .planning/PROJECT.md
 - selectSenderHandshake returns the Firestore doc ID so ReceiverScreen can pass it to setReceiverReady without a second query
 - receiverReady: false initialized in new-doc batch.set() so the field always exists from creation (D-02)
 - setReceiverReady is a standalone method (not folded into selectSenderHandshake) so ReceiverScreen can call it after session setup completes
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260520-001 | Synchronized turn-based destruction sequence | 2026-05-20 | 6491ab7 | [260520-001-synchronized-turn-based-cleanup](.planning/quick/260520-001-synchronized-turn-based-cleanup/) |
