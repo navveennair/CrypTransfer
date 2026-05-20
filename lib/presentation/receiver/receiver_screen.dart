@@ -140,7 +140,9 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isReadyToReceive) {
+    // Do not fire the kill-switch while a transfer is locked in progress.
+    // The private key must survive until DecryptScreen completes or fails.
+    if (_isReadyToReceive && !_sessionLocked) {
       _sessionManager.handleLifecycleState(state, onBuffersWipe: wipeAll);
     }
   }
