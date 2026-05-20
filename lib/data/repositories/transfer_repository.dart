@@ -223,6 +223,25 @@ class TransferRepository {
     });
   }
 
+  // ─── Synchronized cleanup protocol ────────────────────────────────────────
+
+  /// Turn 1 (Receiver): Signal that receiver has initiated the cleanup sequence.
+  Future<void> initiateCleanup(String transferId) async {
+    await _db.collection(FirebaseConstants.transfers).doc(transferId).update({
+      'status': 'cleanup_initiated',
+      'cleanupInitiatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Turn 2 (Sender): Wipe the AES key from Firestore and mark sender as cleaned up.
+  Future<void> senderWipeAESKey(String transferId) async {
+    await _db.collection(FirebaseConstants.transfers).doc(transferId).update({
+      'encryptedAESKey': '',
+      'senderCleanedUp': true,
+      'senderCleanedUpAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // ─── Real-time listener for pending transfers ──────────────────────────────
 
   Stream<QuerySnapshot<Map<String, dynamic>>> watchPendingTransfers(

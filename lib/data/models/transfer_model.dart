@@ -13,6 +13,7 @@ class TransferModel {
   final String encryptedFileUrl;
   final TransferStatus status;
   final bool sessionActive;
+  final bool senderCleanedUp;
   final DateTime? createdAt;
   final DateTime? receivedAt;
 
@@ -27,6 +28,7 @@ class TransferModel {
     required this.encryptedFileUrl,
     required this.status,
     this.sessionActive = false,
+    this.senderCleanedUp = false,
     this.createdAt,
     this.receivedAt,
   });
@@ -44,6 +46,7 @@ class TransferModel {
       encryptedFileUrl: data['encryptedFileUrl'] as String? ?? '',
       status: _parseStatus(data['status'] as String?),
       sessionActive: data['sessionActive'] as bool? ?? false,
+      senderCleanedUp: data['senderCleanedUp'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       receivedAt: (data['receivedAt'] as Timestamp?)?.toDate(),
     );
