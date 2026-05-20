@@ -210,6 +210,7 @@ class _SenderScreenState extends State<SenderScreen>
         _secondsRemaining = 60;     // Phase 6 addition
         _streamSettled = false;   // CR-01: allow next reconnect to re-settle
       });
+      _startReadinessTimer();
     }
   }
 
