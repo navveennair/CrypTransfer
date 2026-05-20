@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +41,7 @@ class ReceiverEndSessionScreen extends StatefulWidget {
 
 // ─── Screen states ────────────────────────────────────────────────────────────
 
-enum _Phase { ready, cleaning, done }
+enum _Phase { ready, waitingForSender, cleaning, done }
 
 // ─── Cleanup step descriptor ──────────────────────────────────────────────────
 
@@ -71,7 +73,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
     _Step(icon: Icons.person_off_rounded,     label: 'Wipe RSA keys from device and Firestore'),
   ];
 
-  final _repo = TransferRepository();
+  final _transferRepo = TransferRepository();
+  StreamSubscription<DocumentSnapshot>? _docListener;
 
   @override
   void initState() {
@@ -87,6 +90,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
 
   @override
   void dispose() {
+    _docListener?.cancel();
     _doneCtrl.dispose();
     super.dispose();
   }
@@ -101,7 +105,55 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
   //
   // WARNING: Reversing steps 2 and 3 causes null handshakeId (Pitfall 2 — RESEARCH.md).
 
-  Future<void> _endSession() async {
+  // ─── Turn 1: Receiver initiates cleanup ────────────────────────────────────
+
+  Future<void> _initiateCleanup() async {
+    setState(() {
+      _phase = _Phase.waitingForSender;
+      _error = null;
+    });
+    try {
+      await _transferRepo.initiateCleanup(widget.transferId);
+      _docListener = FirebaseFirestore.instance
+          .collection('transfers')
+          .doc(widget.transferId)
+          .snapshots()
+          .listen(_onTransferDocUpdate);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _phase = _Phase.ready;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  // ─── Turn 3 trigger: stream listener waiting for sender wipe confirmation ──
+
+  void _onTransferDocUpdate(DocumentSnapshot snapshot) {
+    if (!snapshot.exists) return; // doc gone — Turn 4 cleanup already happened
+    final data = snapshot.data()! as Map<String, dynamic>;
+    final senderCleanedUp = data['senderCleanedUp'] as bool? ?? false;
+    final aesKey = data['encryptedAESKey'] as String? ?? '';
+    if (senderCleanedUp && aesKey.isEmpty) {
+      _docListener?.cancel();
+      _docListener = null;
+      _runFinalCleanup();
+    }
+  }
+
+  // ─── Turn 3: Run full cleanup sequence (was _endSession) ───────────────────
+  // D-03 security-critical order:
+  //   Step 0: auditBatch.commit()  — MUST be first (immutable record before any deletion)
+  //   Step 1: deleteStorageFile()  — Storage first (large asset, non-atomic)
+  //   Step 2: endSessionCleanup()  — WriteBatch: transfers + handshakes + selectedSenderUid
+  //                                  (This deletion fires the Firestore stream on sender side)
+  //   Step 3: closeReceiverSession — RSA keys LAST (broader handshake sweep — idempotent after step 2)
+  //
+  // WARNING: Reversing steps 2 and 3 causes null handshakeId (Pitfall 2 — RESEARCH.md).
+
+  Future<void> _runFinalCleanup() async {
     setState(() {
       _phase = _Phase.cleaning;
       _error = null;
@@ -173,7 +225,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
 
       // ── Step 1: Delete encrypted file from Firebase Storage ─────────────────
       await tick(1);
-      await _repo.deleteStorageFile(widget.transferId);
+      await _transferRepo.deleteStorageFile(widget.transferId);
       await done(1);
 
       // ── Step 2: Atomic WriteBatch — delete transfer doc + handshake doc ──────
@@ -198,11 +250,13 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       await EncryptionService.closeReceiverSession(widget.receiverId);
       await done(3);
 
-      // ── All done ─────────────────────────────────────────────────────────────
+      // ── Turn 4: Navigate to HomeScreen immediately after cleanup ─────────────
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {
-        setState(() => _phase = _Phase.done);
-        _doneCtrl.forward();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -247,7 +301,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
-          automaticallyImplyLeading: _phase != _Phase.cleaning,
+          automaticallyImplyLeading: _phase != _Phase.cleaning && _phase != _Phase.waitingForSender,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -255,7 +309,9 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
               ? _buildDone(cs)
               : _phase == _Phase.cleaning
                   ? _buildCleaning(cs)
-                  : _buildReady(cs),
+                  : _phase == _Phase.waitingForSender
+                      ? _buildWaitingForSender(cs)
+                      : _buildReady(cs),
         ),
       ),
     );
@@ -413,8 +469,32 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         CrypButton(
           icon: const Icon(Icons.lock_clock_rounded),
           label: Text(_error != null ? 'Retry End Session' : 'End Session'),
-          onPressed: _endSession,
+          onPressed: _initiateCleanup,
           color: Colors.red.shade700,
+        ),
+      ],
+    );
+  }
+
+  // ─── Waiting for sender view ────────────────────────────────────────────
+
+  Widget _buildWaitingForSender(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 40),
+        const Center(child: CircularProgressIndicator()),
+        const SizedBox(height: 24),
+        Text(
+          'Waiting for Sender…',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 22),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Waiting for sender to securely erase cryptographic keys…',
+          style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
+          textAlign: TextAlign.center,
         ),
       ],
     );
