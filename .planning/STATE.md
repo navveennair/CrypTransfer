@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06
-current_plan: 01
-status: executing
-last_updated: "2026-05-15T17:52:39.059Z"
+current_phase: 07
+current_plan: 01 (complete)
+status: complete
+last_updated: "2026-05-23T13:39:06.914Z"
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 23
-  completed_plans: 21
-  percent: 91
+  total_phases: 7
+  completed_phases: 6
+  total_plans: 25
+  completed_plans: 25
+  percent: 100
 ---
 
 # Session State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 06
 **Current plan:** 01 (complete — ready for 06-02)
-**Status:** Phase 06 executing — 06-01 complete (KeyRepository data layer)
+**Status:** Phase 07 complete — all 7 phases done; milestone v1.0 complete
 
 ## Session Log
 
@@ -46,6 +46,8 @@ See: .planning/PROJECT.md
 - 2026-05-16: Phase 06 planned — 3 plans in 2 waves (Wave 1: 06-01 KeyRepository data layer; Wave 2: 06-02 ReceiverScreen trigger + 06-03 SenderScreen gate); verification passed after 1 targeted fix (D-02 receiverReady: false initialization added to batch.set())
 - 2026-05-15: 06-01-PLAN.md complete — selectSenderHandshake() returns Future<String> doc ID; setReceiverReady() added; receiverReady: false initialized on new doc creation
 - 2026-05-20: Quick task 260520-001 complete — synchronized 4-turn cleanup protocol: receiver sets cleanup_initiated → sender wipes AES key in Firestore + RAM → receiver runs full cleanup → both redirect to HomeScreen
+- 2026-05-23: Phase 07 planned — 1 plan in 2 waves (Wave 0: test scaffold; Wave 1: pulsing waiting UI + 300s safety timeout); verification passed after 1 revision (VALIDATION.md + Wave 0 test scaffold added for Nyquist compliance)
+- 2026-05-23: Phase 07 complete — 07-01 executed, code reviewed (5 warnings fixed), debug fix applied (_startTransferListener moved to _startUpload), UAT 3/3 passed; global glassmorphic UI overhaul committed; milestone v1.0 complete
 
 ## Accumulated Context
 
@@ -55,6 +57,7 @@ See: .planning/PROJECT.md
 - Phase 04 added: Zero Remanence reactive session termination — Receiver as Master Cleanup (WriteBatch atomic delete of Transfer + AESKey docs, purge local RSA keys + handshake from secure storage, redirect to SessionEndedScreen); Sender Reactive Listener (StreamListener on Transfers/{sessionId} auto-wipes AES key and navigates to SessionEndedScreen when doc deleted)
 - Phase 05 added: Neutral Handshake Model — decouple connection establishment from sender/receiver role assignment; proposerId/partnerId semantics, pending-approval flow with global listener + approval dialog, role selection deferred to Active Connection tap
 - Phase 06 added: Synchronized Readiness Gate — receiverReady/senderReady fields on Transfers model; receiver sets receiverReady: true after Stepper 3 completes; sender-side stream gate blocks progression until receiverReady; pulsing waiting UI + auto-advance on unlock; safety timer kicks sender to HomeScreen if doc deleted or rejected
+- Phase 07 added: Sender Reactive Cleanup Sync — sender stream listener on receiver's cleanup status after successful transfer; sender verifies AES key wiped and cleans its own artifacts; both parties navigate to HomeScreen; Firebase rules updated for sender cleanup permissions; safety timeout for unresponsive receiver
 
 ### Decisions
 
