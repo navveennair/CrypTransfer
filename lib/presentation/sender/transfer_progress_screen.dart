@@ -60,6 +60,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   bool _canEndSession = false;
   bool _sessionEnded = false; // D-06: guard against double-fire on stream reconnect
   bool _senderWipeSent = false; // guard against double-fire on Turn 2 AES key wipe
+  bool _timeoutStarted = false; // guard: arm cleanup timeout exactly once
   Timer? _cleanupTimeoutTimer; // safety timeout — cancelled on Turn 2/Turn 4/dispose
   String? _statusMessage;
 
@@ -169,7 +170,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           _statusMessage = '✅ Receiver saved the file securely';
           _canEndSession = true;
         });
-        _startCleanupTimeout(); // start safety timeout now that receiver has saved
+        if (!_timeoutStarted) {           // guard: arm cleanup timeout exactly once
+          _timeoutStarted = true;
+          _startCleanupTimeout();
+        }
       }
     });
   }
