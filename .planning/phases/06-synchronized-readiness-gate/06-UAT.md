@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 06-synchronized-readiness-gate
 source: [06-01-SUMMARY.md, 06-02-SUMMARY.md, 06-03-SUMMARY.md, 06-04-SUMMARY.md]
 started: 2026-05-23T00:00:00Z
@@ -65,7 +65,12 @@ blocked: 0
   reason: "User reported: The is pulsing but no countdown that shows reduction in number from 1:00"
   severity: major
   test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "When SenderScreen opens with preFilledPartnerUid, initState sets _receiverId and renders _WaitingForReceiverWidget(secondsRemaining: 60), but _startReadinessTimer() is only called inside _onHandshakeUpdate (when Firestore emits a non-empty handshake doc). If the receiver hasn't yet clicked Send on their side, no doc exists, the timer is never started, and _secondsRemaining stays frozen at 60. The GlassContainer renders a static 1:00 from the initial field value."
+  artifacts:
+    - path: "lib/presentation/sender/sender_screen.dart"
+      issue: "_startReadinessTimer() not called in initState pre-fill path; GlassContainer always renders even when timer is not running"
+  missing:
+    - "Pass timerRunning: _readinessTimer != null to _WaitingForReceiverWidget"
+    - "In _WaitingForReceiverWidget, conditionally show GlassContainer only when timerRunning is true"
+    - "Show a different subtitle (Waiting for receiver to connect…) when timerRunning is false"
   debug_session: ""
