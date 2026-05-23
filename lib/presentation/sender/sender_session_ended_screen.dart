@@ -173,34 +173,52 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.green.shade200),
+              if (widget.timeoutReason != null) ...[
+                // Timeout path: receiver did NOT complete cleanup — show warning
+                // instead of misleading "all done" checkmarks.
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: const Text(
+                    'Receiver cleanup status is unknown — the session ended by timeout before cleanup completed.',
+                    style: TextStyle(fontSize: 13),
+                  ),
                 ),
-                child: const Column(
-                  children: [
-                    _DoneStepRow(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'Audit log written to both users',
-                    ),
-                    _DoneStepRow(
-                      icon: Icons.cloud_off_rounded,
-                      label: 'Encrypted file deleted from storage',
-                    ),
-                    _DoneStepRow(
-                      icon: Icons.delete_forever_rounded,
-                      label: 'Transfer record deleted',
-                    ),
-                    _DoneStepRow(
-                      icon: Icons.person_off_rounded,
-                      label: 'RSA key wiped from receiver device',
-                    ),
-                  ],
+              ] else ...[
+                // Normal path: receiver completed cleanup — show confirmation.
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: const Column(
+                    children: [
+                      _DoneStepRow(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'Audit log written to both users',
+                      ),
+                      _DoneStepRow(
+                        icon: Icons.cloud_off_rounded,
+                        label: 'Encrypted file deleted from storage',
+                      ),
+                      _DoneStepRow(
+                        icon: Icons.delete_forever_rounded,
+                        label: 'Transfer record deleted',
+                      ),
+                      _DoneStepRow(
+                        icon: Icons.person_off_rounded,
+                        label: 'RSA key wiped from receiver device',
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 16),
 
