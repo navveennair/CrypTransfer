@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-23T13:46:16Z",
+  "phase": "07",
+  "phase_name": "sender-reactive-cleanup-sync",
+  "phase_dir": ".planning/phases/07-sender-reactive-cleanup-sync",
+  "plan": 1,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Phase 07 plan execution (07-01-PLAN.md)", "status": "done", "commit": "683015a"},
+    {"id": 2, "name": "Phase 07 code review + 5 warnings fixed (07-REVIEW-FIX.md)", "status": "done", "commit": "8f631e9"},
+    {"id": 3, "name": "Debug: Phase 07 UAT test 1 — listener moved after .set()", "status": "done", "commit": "683015a"},
+    {"id": 4, "name": "Global glassmorphic UI overhaul — GlassContainer, GlassButton, CrypButton, sidebar, auth screens", "status": "done", "commit": "uncommitted"},
+    {"id": 5, "name": "Code review of glassmorphic UI — 6 findings, all applied", "status": "done", "commit": "uncommitted"}
+  ],
+  "remaining_tasks": [
+    {"id": 6, "name": "UAT test 1 retest — confirm sender stream receives receiverStatus/cleanup_initiated after fix", "status": "not_started"},
+    {"id": 7, "name": "UAT test 2 — timeout path with orange banner (change timer to 10s temporarily)", "status": "not_started"},
+    {"id": 8, "name": "UAT test 3 — back-navigation while timer running, no crash", "status": "not_started"},
+    {"id": 9, "name": "Commit glassmorphic UI overhaul changes", "status": "not_started"},
+    {"id": 10, "name": "Update CLAUDE.md completed features for glassmorphic UI and Phase 07", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Re-run UAT test 1 on device — transfer a file and verify pulsing spinner appears after receiver saves, then disappears when cleanup_initiated fires", "context": "Listener was moved from initState() to inside _startUpload() after .set() completes. Fix not yet physically re-tested.", "blocking": true},
+    {"action": "Run UAT test 2 — temporarily change Duration(seconds: 300) to Duration(seconds: 10) in transfer_progress_screen.dart, complete a transfer, do NOT tap End Session on receiver, verify orange timeout banner appears after 10s", "context": "Tests timeout safety path — never been tested end-to-end", "blocking": true},
+    {"action": "Run UAT test 3 — back-navigate from TransferProgressScreen while cleanup timer is running, verify no crash", "context": "Tests dispose() cancels timer and wipeAll() runs cleanly", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "Move _startTransferListener() from initState() to inside _startUpload() after Firestore .set() call", "rationale": "Firestore security rule resource.data.senderId returns null for non-existent doc → permission denied → stream silently cancelled. Listener must subscribe only after doc exists.", "phase": "07"},
+    {"decision": "GlassButton upgraded to StatefulWidget with _isPressed + HapticFeedback.lightImpact()", "rationale": "Tactile 3D press feel requires state for animation; haptic on onTapDown (not onTap) gives immediate feedback", "phase": "UI-overhaul"},
+    {"decision": "transformAlignment: Alignment.center on all AnimatedContainer scale transforms", "rationale": "Without this, Matrix4.diagonal3Values scales from origin (0,0) = top-left corner causing jitter", "phase": "UI-overhaul"},
+    {"decision": "acceptProposal converted from WriteBatch+pre-read to Firestore runTransaction", "rationale": "TOCTOU: reading mutualSnap outside batch let doc change between read and write; transaction makes it atomic", "phase": "UI-overhaul"},
+    {"decision": "New disconnectFromUser(partnerUid) method using WriteBatch to delete both A_B and B_A docs", "rationale": "Mutual-accept pattern can create two connected docs; old cancelProposal only deleted one, leaving orphan", "phase": "UI-overhaul"},
+    {"decision": "_streamReady flag in _SearchResultTile before stream emits first event", "rationale": "Prevents 'Connect' button showing before status is known — could cause duplicate proposal on already-connected user", "phase": "UI-overhaul"}
+  ],
+  "uncommitted_files": [
+    "lib/app_theme.dart",
+    "lib/data/repositories/handshake_repository.dart",
+    "lib/presentation/admin/admin_dashboard.dart",
+    "lib/presentation/auth/login_screen.dart",
+    "lib/presentation/auth/register_screen.dart",
+    "lib/presentation/auth/splash_screen.dart",
+    "lib/presentation/home/find_friends_screen.dart",
+    "lib/presentation/home/home_screen.dart",
+    "lib/presentation/home/sidebar_drawer.dart",
+    "lib/presentation/receiver/receiver_screen.dart",
+    "lib/presentation/sender/sender_screen.dart",
+    "lib/presentation/sender/transfer_progress_screen.dart",
+    "lib/presentation/widgets/shared_widgets.dart",
+    "pubspec.lock",
+    ".planning/phases/07-sender-reactive-cleanup-sync/07-HUMAN-UAT.md",
+    "graphify-out/graph.json",
+    "graphify-out/graph.html",
+    "graphify-out/GRAPH_REPORT.md",
+    "graphify-out/manifest.json",
+    "graphify-out/cost.json",
+    "design-system/cryptransfer/MASTER.md"
+  ],
+  "next_action": "Commit glassmorphic UI overhaul changes, then run UAT test 1 to confirm Phase 07 debug fix works",
+  "context_notes": "Two parallel bodies of work both need attention: (1) Phase 07 UAT needs physical device testing — the debug fix (listener timing) is applied but not yet retested. (2) A large glassmorphic UI overhaul was done across auth screens, sidebar, widgets — code review applied 6 fixes (transformAlignment, transaction acceptProposal, disconnectFromUser, _streamReady guard, ctrl.close(), Material wrapper for InkWell). Both are uncommitted. Commit the UI overhaul first (separate commit from Phase 07 changes), then do UAT."
+}
