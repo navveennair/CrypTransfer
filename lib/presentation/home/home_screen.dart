@@ -370,20 +370,21 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // ── Welcome banner ────────────────────────────────
             GlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              borderRadius: 28,
               color: cs.primary.withValues(alpha: 0.1),
               borderColor: cs.primary.withValues(alpha: 0.2),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.waving_hand_rounded, color: cs.primary, size: 20),
+                    child: Icon(Icons.waving_hand_rounded, color: cs.primary, size: 24),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,16 +392,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           'Hello, $username!',
                           style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: cs.onSurface,
-                            fontSize: 16,
+                            fontSize: 18,
                           ),
                         ),
                         Text(
                           'Welcome back to secure transfers.',
                           style: TextStyle(
                             color: cs.onSurfaceVariant,
-                            fontSize: 12,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -409,28 +410,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // ── Active Connections ─────────────────────────────────────────────
             Row(
               children: [
-                Icon(Icons.link_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
+                Icon(Icons.link_rounded, size: 20, color: cs.primary),
+                const SizedBox(width: 10),
                 Text(
                   'Active Connections',
                   style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: cs.onSurface,
                   ),
                 ),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: _openAddConnectionSheet,
-                  icon: Icon(Icons.add_rounded, size: 16, color: cs.primary),
+                  icon: Icon(Icons.add_rounded, size: 18, color: cs.primary),
                   label: Text(
-                    'Add New Connection',
-                    style: GoogleFonts.poppins(fontSize: 12, color: cs.primary),
+                    'Add New',
+                    style: GoogleFonts.poppins(fontSize: 13, color: cs.primary, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -448,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SnackBar(content: Text(msg), backgroundColor: cs.error),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // ── Pending Requests ───────────────────────────────────────────────
             _PendingRequestsSection(
@@ -465,19 +466,19 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 Icon(Icons.history_rounded, color: cs.primary, size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Text(
                   'Recent Transfers',
                   style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 15),
+                      fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const Spacer(),
                 Text(
                   'View all',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: cs.primary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

@@ -496,20 +496,21 @@ class _SenderScreenState extends State<SenderScreen>
           children: [
             // ── Welcome banner ────────────────────────────────
             GlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              borderRadius: 28,
               color: cs.primary.withValues(alpha: 0.1),
               borderColor: cs.primary.withValues(alpha: 0.2),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.send_rounded, color: cs.primary, size: 20),
+                    child: Icon(Icons.send_rounded, color: cs.primary, size: 24),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,16 +518,16 @@ class _SenderScreenState extends State<SenderScreen>
                         Text(
                           'File Transfer',
                           style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: cs.onSurface,
-                            fontSize: 16,
+                            fontSize: 18,
                           ),
                         ),
                         Text(
                           'Securely encrypt and transmit your data.',
                           style: TextStyle(
                             color: cs.onSurfaceVariant,
-                            fontSize: 12,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -535,7 +536,7 @@ class _SenderScreenState extends State<SenderScreen>
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // ── Step 0: Receiver-Authorized Connection ──────────────────
             StepCard(

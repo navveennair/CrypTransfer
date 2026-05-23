@@ -59,18 +59,20 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
               controller: _tabController,
               indicatorColor: cs.primary,
               indicatorWeight: 3,
-              labelStyle: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold, 
-                fontSize: 11,
-                color: cs.onSurface,
+              labelStyle: GoogleFonts.orbitron(
+                fontWeight: FontWeight.w800, 
+                fontSize: 10,
+                letterSpacing: 1.2,
+                color: cs.primary,
               ),
-              unselectedLabelStyle: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500, 
-                fontSize: 11,
-                color: cs.onSurface.withValues(alpha: 0.6),
+              unselectedLabelStyle: GoogleFonts.orbitron(
+                fontWeight: FontWeight.w600, 
+                fontSize: 10,
+                letterSpacing: 1.2,
+                color: cs.onSurface.withValues(alpha: 0.5),
               ),
-              labelColor: cs.onSurface,
-              unselectedLabelColor: cs.onSurface.withValues(alpha: 0.6),
+              labelColor: cs.primary,
+              unselectedLabelColor: cs.onSurface.withValues(alpha: 0.5),
               tabs: const [
                 Tab(text: 'ANALYTICS'),
                 Tab(text: 'NETWORK'),
@@ -200,7 +202,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.link_rounded, color: cs.primary),
+                  Icon(Icons.link_rounded, color: cs.primary, size: 20),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -208,11 +210,20 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       children: [
                         Text(
                           '@${data['fromUsername'] ?? '...'} → @${data['toUsername'] ?? '...'}',
-                          style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.orbitron(
+                            color: cs.onSurface, 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         Text(
                           'Handshake established',
-                          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 11),
+                          style: GoogleFonts.exo2(
+                            color: cs.onSurface.withValues(alpha: 0.5), 
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),

@@ -1,11 +1,9 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/key_repository.dart';
@@ -28,14 +26,11 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
   List<Map<String, dynamic>> _connectedUsers = [];
   // Each entry: {docId, proposerId, proposerUsername}
   List<Map<String, dynamic>> _pendingRequests = [];
-  final Map<String, String?> _statuses = {};
   bool _searching = false;
 
   StreamSubscription<QuerySnapshot>? _proposerSub;
   StreamSubscription<QuerySnapshot>? _partnerSub;
   StreamSubscription<QuerySnapshot>? _pendingSub;
-
-  String get _myUid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
@@ -119,9 +114,6 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     setState(() => _searching = true);
     try {
       final res = await _keyRepo.searchUsers(query);
-      for (final user in res) {
-        _statuses[user.uid] = await _getConnectionStatus(user.uid);
-      }
       if (mounted) setState(() => _searchResults = res);
     } catch (e) {
       if (mounted) {
@@ -131,54 +123,6 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       }
     } finally {
       if (mounted) setState(() => _searching = false);
-    }
-  }
-
-  /// Returns 'accepted', 'pending_sent', 'pending_received', or null.
-  Future<String?> _getConnectionStatus(String targetUid) async {
-    final coll = FirebaseFirestore.instance
-        .collection(FirebaseConstants.neutralHandshakes);
-
-    final sentSnap = await coll.doc('${_myUid}_$targetUid').get();
-    if (sentSnap.exists) {
-      final s = sentSnap.data()?['status'] as String?;
-      if (s == 'connected') return 'accepted';
-      if (s == 'pending') return 'pending_sent';
-    }
-
-    final receivedSnap = await coll.doc('${targetUid}_$_myUid').get();
-    if (receivedSnap.exists) {
-      final s = receivedSnap.data()?['status'] as String?;
-      if (s == 'connected') return 'accepted';
-      if (s == 'pending') return 'pending_received';
-    }
-
-    return null;
-  }
-
-  Future<void> _sendRequest(UserModel user) async {
-    setState(() => _statuses[user.uid] = 'sending...');
-    try {
-      await _hsRepo.sendProposal(
-        partnerUid: user.uid,
-        partnerUsername: user.username,
-      );
-      if (mounted) {
-        setState(() => _statuses[user.uid] = 'pending_sent');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Request sent to @${user.username}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _statuses[user.uid] = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send: $e')),
-        );
-      }
     }
   }
 
@@ -193,10 +137,6 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        final pid = req['proposerId'] as String;
-        if (_statuses.containsKey(pid)) {
-          setState(() => _statuses[pid] = 'accepted');
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -210,7 +150,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
   Future<void> _disconnect(Map<String, dynamic> conn) async {
     final cs = Theme.of(context).colorScheme;
     final username = conn['username'] as String;
-    final docId = conn['docId'] as String;
+    final uid = conn['uid'] as String;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -233,7 +173,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     if (confirmed != true) return;
 
     try {
-      await _hsRepo.cancelProposal(docId);
+      await _hsRepo.disconnectFromUser(uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -521,40 +461,11 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           else if (_searchResults.isNotEmpty)
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final user = _searchResults[i];
-                  final status = _statuses[user.uid];
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 6),
-                    child: GlassContainer(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: cs.surfaceContainerHigh,
-                          foregroundColor: cs.primary,
-                          child:
-                              Text(user.username[0].toUpperCase()),
-                        ),
-                        title: Text(
-                          '@${user.username}',
-                          style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface),
-                        ),
-                        subtitle: Text(user.email,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: cs.onSurfaceVariant)),
-                        trailing:
-                            _buildAction(user, status, cs),
-                      ),
-                    ),
-                  );
-                },
+                (ctx, i) => _SearchResultTile(
+                  key: ValueKey(_searchResults[i].uid),
+                  user: _searchResults[i],
+                  hsRepo: _hsRepo,
+                ),
                 childCount: _searchResults.length,
               ),
             )
@@ -620,20 +531,166 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildAction(UserModel user, String? status, ColorScheme cs) {
+// ── Search result tile with reactive handshake status ────────────────────────
+
+class _SearchResultTile extends StatefulWidget {
+  final UserModel user;
+  final HandshakeRepository hsRepo;
+
+  const _SearchResultTile({
+    super.key,
+    required this.user,
+    required this.hsRepo,
+  });
+
+  @override
+  State<_SearchResultTile> createState() => _SearchResultTileState();
+}
+
+class _SearchResultTileState extends State<_SearchResultTile>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _pulseOpacity;
+  StreamSubscription<({String status, String docId})?>? _statusSub;
+  ({String status, String docId})? _current;
+  bool _isSending = false;
+  bool _streamReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _pulseOpacity = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+    _statusSub = widget.hsRepo
+        .streamHandshakeWithUser(widget.user.uid)
+        .listen(_onStatus, onError: (_) {});
+  }
+
+  @override
+  void dispose() {
+    _statusSub?.cancel();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  void _onStatus(({String status, String docId})? data) {
+    if (!mounted) return;
+    setState(() { _current = data; _streamReady = true; });
+    if (data?.status == 'pending_sent') {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else if (_pulse.isAnimating) {
+      _pulse.stop();
+      _pulse.value = 1.0;
+    }
+  }
+
+  Future<void> _sendRequest() async {
+    setState(() => _isSending = true);
+    try {
+      await widget.hsRepo.sendProposal(
+        partnerUid: widget.user.uid,
+        partnerUsername: widget.user.username,
+      );
+      // Stream will emit pending_sent automatically after Firestore write.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _accept(String docId) async {
+    try {
+      await widget.hsRepo.acceptProposal(docId, widget.user.uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connection established!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to accept: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _disconnect(String docId) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Disconnect?'),
+        content:
+            Text('Remove @${widget.user.username} from your connections?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: cs.error),
+            child: const Text('Disconnect'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.hsRepo.disconnectFromUser(widget.user.uid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Disconnected from @${widget.user.username}'),
+            backgroundColor: cs.surfaceContainerHigh,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to disconnect: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildTrailing(ColorScheme cs) {
+    if (_isSending || !_streamReady) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    final status = _current?.status;
+    final docId = _current?.docId;
+
     if (status == 'accepted') {
       return PopupMenuButton<String>(
         onSelected: (val) {
-          if (val == 'disconnect') {
-            // Find the docId from _connectedUsers
-            final conn = _connectedUsers
-                .where((c) => c['uid'] == user.uid)
-                .firstOrNull;
-            if (conn != null) _disconnect(conn);
-          }
+          if (val == 'disconnect' && docId != null) _disconnect(docId);
         },
-        itemBuilder: (ctx) => [
+        itemBuilder: (_) => [
           PopupMenuItem(
             value: 'disconnect',
             child: Row(
@@ -674,24 +731,22 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     }
 
     if (status == 'pending_sent') {
-      return Text(
-        'Pending',
-        style: TextStyle(
+      return FadeTransition(
+        opacity: _pulseOpacity,
+        child: Text(
+          'Pending',
+          style: TextStyle(
             color: cs.onSurfaceVariant,
             fontWeight: FontWeight.w600,
-            fontSize: 13),
+            fontSize: 13,
+          ),
+        ),
       );
     }
 
     if (status == 'pending_received') {
       return FilledButton(
-        onPressed: () {
-          // Find in pending requests and accept
-          final req = _pendingRequests
-              .where((r) => r['proposerId'] == user.uid)
-              .firstOrNull;
-          if (req != null) _acceptRequest(req);
-        },
+        onPressed: docId != null ? () => _accept(docId) : null,
         style: FilledButton.styleFrom(
           backgroundColor: cs.secondary,
           shape: RoundedRectangleBorder(
@@ -701,21 +756,44 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       );
     }
 
-    if (status == 'sending...') {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-
     return OutlinedButton(
-      onPressed: () => _sendRequest(user),
+      onPressed: _sendRequest,
       style: OutlinedButton.styleFrom(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8)),
       ),
       child: const Text('Connect'),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: GlassContainer(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: CircleAvatar(
+            backgroundColor: cs.surfaceContainerHigh,
+            foregroundColor: cs.primary,
+            child: Text(widget.user.username[0].toUpperCase()),
+          ),
+          title: Text(
+            '@${widget.user.username}',
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600, color: cs.onSurface),
+          ),
+          subtitle: Text(
+            widget.user.email,
+            style:
+                TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          ),
+          trailing: _buildTrailing(cs),
+        ),
+      ),
     );
   }
 }

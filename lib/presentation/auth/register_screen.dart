@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../app_theme.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'login_screen.dart';
@@ -373,7 +374,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             left: -size.width * 0.2,
             child: _BlurCircle(
               size: 300,
-              color: cs.secondary.withValues(alpha: 0.1),
+              color: AppTheme.accentPurple.withValues(alpha: 0.1),
             ),
           ),
           Positioned(
@@ -381,7 +382,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             right: -size.width * 0.1,
             child: _BlurCircle(
               size: 250,
-              color: cs.primary.withValues(alpha: 0.1),
+              color: AppTheme.primaryGold.withValues(alpha: 0.1),
             ),
           ),
           
@@ -394,12 +395,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 20),
                   Hero(
                     tag: 'app_logo',
-                    child: Icon(Icons.person_add_rounded, size: 64, color: cs.primary),
+                    child: GlassContainer(
+                      padding: const EdgeInsets.all(20),
+                      borderRadius: 100,
+                      color: cs.primary.withValues(alpha: 0.1),
+                      child: Icon(Icons.person_add_rounded, size: 64, color: cs.primary),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
                   GlassContainer(
                     padding: const EdgeInsets.all(24),
+                    borderRadius: 28,
                     child: Column(
                       children: [
                         TextField(
@@ -410,6 +417,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
                             suffixIcon: _statusIcon(_usernameStatus),
                             errorText: _usernameError,
+                            filled: true,
+                            fillColor: cs.onSurface.withValues(alpha: 0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -422,6 +435,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             prefixIcon: const Icon(Icons.email_outlined, size: 20),
                             suffixIcon: _statusIcon(_emailStatus),
                             errorText: _emailError,
+                            filled: true,
+                            fillColor: cs.onSurface.withValues(alpha: 0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -434,6 +453,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                             suffixIcon: _statusIcon(_phoneStatus),
                             errorText: _phoneError,
+                            filled: true,
+                            fillColor: cs.onSurface.withValues(alpha: 0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -450,6 +475,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                             errorText: _passwordError,
+                            filled: true,
+                            fillColor: cs.onSurface.withValues(alpha: 0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -467,38 +498,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               () => setState(() => _obscureConfirm = !_obscureConfirm),
                             ),
                             errorText: _confirmError,
+                            filled: true,
+                            fillColor: cs.onSurface.withValues(alpha: 0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 32),
                         
                         _isLoading
                             ? const CircularProgressIndicator()
-                            : GlassButton(
+                            : CrypButton(
                                 label: const Text('Create Account'),
                                 color: cs.primary,
                                 onPressed: _register,
                               ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
                         Row(
                           children: [
-                            Expanded(child: Divider(color: cs.outlineVariant)),
+                            Expanded(child: Divider(color: cs.outlineVariant.withValues(alpha: 0.5))),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                              child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
-                            Expanded(child: Divider(color: cs.outlineVariant)),
+                            Expanded(child: Divider(color: cs.outlineVariant.withValues(alpha: 0.5))),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        OutlinedButton.icon(
+                        const SizedBox(height: 24),
+                        GlassButton(
                           onPressed: _isLoading ? null : _registerWithGoogle,
                           icon: const _GoogleGIcon(),
                           label: const Text('Sign up with Google'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            side: BorderSide(color: cs.outlineVariant),
-                          ),
                         ),
                       ],
                     ),

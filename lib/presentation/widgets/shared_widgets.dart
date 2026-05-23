@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
@@ -16,6 +17,7 @@ class GlassContainer extends StatelessWidget {
   final double blur;
   final Color? color;
   final Color? borderColor;
+  final List<BoxShadow>? boxShadow;
 
   const GlassContainer({
     super.key,
@@ -28,6 +30,7 @@ class GlassContainer extends StatelessWidget {
     this.blur = AppTheme.glassBlur,
     this.color,
     this.borderColor,
+    this.boxShadow,
   });
 
   @override
@@ -37,6 +40,16 @@ class GlassContainer extends StatelessWidget {
       margin: margin,
       width: width,
       height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: boxShadow ?? [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: BackdropFilter(
@@ -60,7 +73,7 @@ class GlassContainer extends StatelessWidget {
 }
 
 // ─── GlassButton ──────────────────────────────────────────────────────────────
-class GlassButton extends StatelessWidget {
+class GlassButton extends StatefulWidget {
   final Widget label;
   final Widget? icon;
   final VoidCallback? onPressed;
@@ -77,33 +90,67 @@ class GlassButton extends StatelessWidget {
   });
 
   @override
+  State<GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<GlassButton> {
+  bool _isPressed = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    if (widget.onPressed != null) {
+      HapticFeedback.lightImpact();
+      setState(() => _isPressed = true);
+    }
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    if (widget.onPressed != null) {
+      setState(() => _isPressed = false);
+      widget.onPressed!();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.onPressed != null) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Opacity(
-      opacity: onPressed == null ? 0.5 : 1.0,
+      opacity: widget.onPressed == null ? 0.5 : 1.0,
       child: GestureDetector(
-        onTap: onPressed,
-        child: GlassContainer(
-          borderRadius: borderRadius,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          color: color?.withValues(alpha: 0.15),
-          borderColor: color?.withValues(alpha: 0.3),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                icon!,
-                const SizedBox(width: 10),
-              ],
-              DefaultTextStyle(
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: color ?? cs.onSurface,
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          transform: Matrix4.diagonal3Values(_isPressed ? 0.98 : 1.0, _isPressed ? 0.98 : 1.0, 1.0),
+          transformAlignment: Alignment.center,
+          child: GlassContainer(
+            borderRadius: widget.borderRadius,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            color: widget.color?.withValues(alpha: 0.15),
+            borderColor: widget.color?.withValues(alpha: 0.3),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  widget.icon!,
+                  const SizedBox(width: 10),
+                ],
+                DefaultTextStyle(
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: widget.color ?? cs.onSurface,
+                  ),
+                  child: widget.label,
                 ),
-                child: label,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -393,7 +440,10 @@ class _CrypButtonState extends State<CrypButton> {
   }
 
   void _onTapDown(TapDownDetails _) {
-    if (widget.onPressed != null) setState(() => _pressed = true);
+    if (widget.onPressed != null) {
+      HapticFeedback.lightImpact();
+      setState(() => _pressed = true);
+    }
   }
 
   void _onTapUp(TapUpDetails _) {
@@ -455,6 +505,7 @@ class _CrypButtonState extends State<CrypButton> {
     final d = widget.depth;
     final h = widget.height;
     final shift = (_pressed && effectivelyEnabled) ? d : 0.0;
+    final scale = (_pressed && effectivelyEnabled) ? 0.98 : 1.0;
 
     final Widget stateContent;
     switch (widget.sessionState) {
@@ -500,10 +551,14 @@ class _CrypButtonState extends State<CrypButton> {
       onTapDown: effectivelyEnabled ? _onTapDown : null,
       onTapUp: effectivelyEnabled ? _onTapUp : null,
       onTapCancel: effectivelyEnabled ? _onTapCancel : null,
-      child: SizedBox(
-        height: h + d,
-        child: Stack(
-          children: [
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        transform: Matrix4.diagonal3Values(scale, scale, 1.0),
+        transformAlignment: Alignment.center,
+        child: SizedBox(
+          height: h + d,
+          child: Stack(
+            children: [
             Positioned(
               left: 0,
               right: 0,
@@ -544,6 +599,7 @@ class _CrypButtonState extends State<CrypButton> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

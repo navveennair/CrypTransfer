@@ -644,20 +644,21 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             children: [
               // ── Welcome banner ────────────────────────────────
               GlassContainer(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                borderRadius: 28,
                 color: cs.primary.withValues(alpha: 0.1),
                 borderColor: cs.primary.withValues(alpha: 0.2),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.download_rounded, color: cs.primary, size: 20),
+                      child: Icon(Icons.download_rounded, color: cs.primary, size: 24),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,16 +666,16 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                           Text(
                             'Secure Inbox',
                             style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               color: cs.onSurface,
-                              fontSize: 16,
+                              fontSize: 18,
                             ),
                           ),
                           Text(
                             'Establish handshakes and receive data.',
                             style: TextStyle(
                               color: cs.onSurfaceVariant,
-                              fontSize: 12,
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -683,7 +684,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               StepCard(step: 1, title: 'RSA Keypair', done: _step1Done, child: _step1Content()),
               const SizedBox(height: 16),

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../data/repositories/key_repository.dart';
 import '../home/home_screen.dart';
+import '../widgets/shared_widgets.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -65,12 +66,12 @@ class _SplashScreenState extends State<SplashScreen> {
           Positioned(
             top: -size.height * 0.1,
             right: -size.width * 0.2,
-            child: _BlurCircle(size: 300, color: cs.primary.withValues(alpha: 0.15)),
+            child: _BlurCircle(size: 300, color: AppTheme.primaryGold.withValues(alpha: 0.15)),
           ),
           Positioned(
             bottom: -size.height * 0.05,
             left: -size.width * 0.1,
-            child: _BlurCircle(size: 250, color: cs.secondary.withValues(alpha: 0.1)),
+            child: _BlurCircle(size: 250, color: AppTheme.accentPurple.withValues(alpha: 0.1)),
           ),
           Center(
             child: Column(
@@ -78,13 +79,10 @@ class _SplashScreenState extends State<SplashScreen> {
               children: [
                 Hero(
                   tag: 'app_logo',
-                  child: Container(
+                  child: GlassContainer(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 2),
-                    ),
+                    borderRadius: 100,
+                    color: cs.primary.withValues(alpha: 0.1),
                     child: Icon(Icons.shield_rounded, size: 80, color: cs.primary),
                   ),
                 ),
@@ -92,31 +90,33 @@ class _SplashScreenState extends State<SplashScreen> {
                 Text(
                   'CrypTransfer',
                   style: GoogleFonts.poppins(
-                    fontSize: 32,
+                    fontSize: 36,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -1,
                     color: AppTheme.textMain,
                   ),
                 ),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: 140,
+                const SizedBox(height: 64),
+                GlassContainer(
+                  width: 180,
+                  padding: const EdgeInsets.all(20),
+                  borderRadius: 24,
                   child: Column(
                     children: [
                       LinearProgressIndicator(
                         backgroundColor: cs.primary.withValues(alpha: 0.1),
                         valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
                         borderRadius: BorderRadius.circular(10),
-                        minHeight: 3,
+                        minHeight: 4,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Text(
                         _securing ? 'Securing session...' : 'Initializing...',
                         style: TextStyle(
                           color: cs.onSurfaceVariant,
                           fontSize: 12,
                           letterSpacing: 0.5,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

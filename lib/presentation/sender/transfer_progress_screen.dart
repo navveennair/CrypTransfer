@@ -84,8 +84,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       curve: Curves.elasticOut,
     );
 
-    _startUpload();
-    _startTransferListener();
+    _startUpload(); // _startTransferListener() is called inside _startUpload() after doc exists
   }
 
   @override
@@ -260,6 +259,12 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         'sessionActive': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Start the non-repudiation listener NOW — doc exists, security rule can evaluate.
+      // Starting before .set() would subscribe to a non-existent doc, causing
+      // resource.data access in the Firestore rule to return false (null resource),
+      // which silently cancels the subscription before any receiver updates arrive.
+      _startTransferListener();
 
       // Notify receiver (non-critical)
       try {

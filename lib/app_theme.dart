@@ -10,7 +10,7 @@ class AppTheme {
   static const Color lightTextSecondary = Color(0xFF64748B);
 
   // Theme Palette - Dark (Admin/Premium)
-  static const Color darkBg = Color(0xFF0F172A);
+  static const Color darkBg = Color(0xFF0F172A); // Deep Navy
   static const Color darkSurface = Color(0xFF1E293B);
   static const Color darkBorder = Color(0xFF334155);
   static const Color darkTextMain = Color(0xFFF8FAFC); // White font
@@ -20,16 +20,16 @@ class AppTheme {
   static const Color textMain = darkTextMain;
   static const Color textSecondary = darkTextSecondary;
 
-  static const Color primaryGold = Color(0xFFF59E0B);
+  static const Color primaryGold = Color(0xFFCA8A04); // Premium Gold
   static const Color primaryBlue = Color(0xFF3B82F6);
   static const Color accentPurple = Color(0xFF8B5CF6);
 
   // Glass Effects
-  static const double glassBlur = 16.0;
-  static Color get glassBgLight => Colors.white.withValues(alpha: 0.6);
+  static const double glassBlur = 24.0;
+  static Color get glassBgLight => Colors.white.withValues(alpha: 0.5);
   static Color get glassBorderLight => Colors.white.withValues(alpha: 0.3);
-  static Color get glassBgDark => Colors.white.withValues(alpha: 0.08);
-  static Color get glassBorderDark => Colors.white.withValues(alpha: 0.15);
+  static Color get glassBgDark => Colors.white.withValues(alpha: 0.05);
+  static Color get glassBorderDark => Colors.white.withValues(alpha: 0.2);
 
   static ThemeData get light {
     final base = ThemeData.light(useMaterial3: true);

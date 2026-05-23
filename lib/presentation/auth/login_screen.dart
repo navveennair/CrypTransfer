@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
             right: -size.width * 0.2,
             child: _BlurCircle(
               size: 300,
-              color: cs.primary.withValues(alpha: 0.15),
+              color: AppTheme.primaryGold.withValues(alpha: 0.15),
             ),
           ),
           Positioned(
@@ -153,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
             left: -size.width * 0.1,
             child: _BlurCircle(
               size: 250,
-              color: cs.secondary.withValues(alpha: 0.1),
+              color: AppTheme.accentPurple.withValues(alpha: 0.1),
             ),
           ),
 
@@ -172,13 +172,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     // ── Logo & title ────────────────────────────
                     Hero(
                       tag: 'app_logo',
-                      child: Container(
+                      child: GlassContainer(
                         padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
-                        ),
+                        borderRadius: 100,
+                        color: cs.primary.withValues(alpha: 0.1),
                         child: Icon(Icons.shield_rounded, size: 64, color: cs.primary),
                       ),
                     ),
@@ -206,17 +203,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     // ── Login Form ──────────────────────────────
                     GlassContainer(
                       padding: const EdgeInsets.all(24),
+                      borderRadius: 28,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
                             'Sign In',
                             style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 28),
                           TextField(
                             controller: _usernameController,
                             textInputAction: TextInputAction.next,
@@ -224,6 +222,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               labelText: 'Username',
                               prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
                               errorText: _usernameError,
+                              filled: true,
+                              fillColor: cs.onSurface.withValues(alpha: 0.03),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -236,6 +240,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                               errorText: _passwordError,
+                              filled: true,
+                              fillColor: cs.onSurface.withValues(alpha: 0.03),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword
                                     ? Icons.visibility_off_outlined
@@ -245,7 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 28),
 
                           if (_errorMessage.isNotEmpty)
                             Padding(
@@ -262,32 +272,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                 padding: EdgeInsets.all(8.0),
                                 child: CircularProgressIndicator(),
                               ))
-                            : GlassButton(
+                            : CrypButton(
                                 label: const Text('Login'),
                                 color: cs.primary,
                                 onPressed: _login,
                               ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           Row(
                             children: [
-                              Expanded(child: Divider(color: cs.outlineVariant)),
+                              Expanded(child: Divider(color: cs.outlineVariant.withValues(alpha: 0.5))),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                                child: Text('OR', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
-                              Expanded(child: Divider(color: cs.outlineVariant)),
+                              Expanded(child: Divider(color: cs.outlineVariant.withValues(alpha: 0.5))),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
+                          const SizedBox(height: 24),
+                          GlassButton(
                             onPressed: _isLoading ? null : _loginWithGoogle,
                             icon: const _GoogleGIcon(),
                             label: const Text('Sign in with Google'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              side: BorderSide(color: cs.outlineVariant),
-                            ),
                           ),
                         ],
                       ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -87,25 +89,42 @@ class HandshakeRepository {
   /// [proposerId] is required to derive the mutual doc ID.
   Future<void> acceptProposal(String docId, String proposerId) async {
     try {
-      final mutualDocId = '${_uid}_$proposerId';
+      final primaryRef = _db
+          .collection(FirebaseConstants.neutralHandshakes)
+          .doc(docId);
       final mutualRef = _db
           .collection(FirebaseConstants.neutralHandshakes)
-          .doc(mutualDocId);
-      final mutualSnap = await mutualRef.get();
-
-      final batch = _db.batch();
-      batch.update(
-        _db.collection(FirebaseConstants.neutralHandshakes).doc(docId),
-        {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()},
-      );
-      if (mutualSnap.exists) {
-        batch.update(mutualRef,
+          .doc('${_uid}_$proposerId');
+      await _db.runTransaction((txn) async {
+        final mutualSnap = await txn.get(mutualRef);
+        txn.update(primaryRef,
             {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-      }
-      await batch.commit();
+        if (mutualSnap.exists) {
+          txn.update(mutualRef,
+              {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
+        }
+      });
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Failed to accept proposal: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Atomically removes both directional docs for the pair, covering the
+  /// mutual-accept case where two 'connected' docs coexist.
+  Future<void> disconnectFromUser(String partnerUid) async {
+    try {
+      final batch = _db.batch();
+      batch.delete(_db
+          .collection(FirebaseConstants.neutralHandshakes)
+          .doc('${_uid}_$partnerUid'));
+      batch.delete(_db
+          .collection(FirebaseConstants.neutralHandshakes)
+          .doc('${partnerUid}_$_uid'));
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Failed to disconnect: ${e.message ?? e.code}');
     }
   }
 
@@ -194,4 +213,70 @@ class HandshakeRepository {
           .collection(FirebaseConstants.neutralHandshakes)
           .doc(docId)
           .snapshots();
+
+  /// Streams the live handshake status between [_uid] and [partnerUid].
+  ///
+  /// Listens to both directions (`${_uid}_$partnerUid` and `${partnerUid}_$_uid`)
+  /// because Firestore does not support OR queries on document IDs. Emits the
+  /// resolved status + doc ID whenever either document changes. Returns null
+  /// when no relationship exists.
+  Stream<({String status, String docId})?> streamHandshakeWithUser(
+      String partnerUid) {
+    final myUid = _uid;
+    final outRef = _db
+        .collection(FirebaseConstants.neutralHandshakes)
+        .doc('${myUid}_$partnerUid');
+    final inRef = _db
+        .collection(FirebaseConstants.neutralHandshakes)
+        .doc('${partnerUid}_$myUid');
+
+    DocumentSnapshot<Map<String, dynamic>>? outSnap;
+    DocumentSnapshot<Map<String, dynamic>>? inSnap;
+
+    ({String status, String docId})? derive() {
+      if (outSnap?.exists == true) {
+        final s = outSnap!.data()?['status'] as String?;
+        if (s == 'connected') return (status: 'accepted', docId: outSnap!.id);
+        if (s == 'pending') return (status: 'pending_sent', docId: outSnap!.id);
+      }
+      if (inSnap?.exists == true) {
+        final s = inSnap!.data()?['status'] as String?;
+        if (s == 'connected') return (status: 'accepted', docId: inSnap!.id);
+        if (s == 'pending') {
+          return (status: 'pending_received', docId: inSnap!.id);
+        }
+      }
+      return null;
+    }
+
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? outSub;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? inSub;
+    late StreamController<({String status, String docId})?> ctrl;
+
+    ctrl = StreamController(
+      onListen: () {
+        outSub = outRef.snapshots().listen(
+          (snap) {
+            outSnap = snap;
+            ctrl.add(derive());
+          },
+          onError: ctrl.addError,
+        );
+        inSub = inRef.snapshots().listen(
+          (snap) {
+            inSnap = snap;
+            ctrl.add(derive());
+          },
+          onError: ctrl.addError,
+        );
+      },
+      onCancel: () {
+        outSub?.cancel();
+        inSub?.cancel();
+        ctrl.close();
+      },
+    );
+
+    return ctrl.stream;
+  }
 }
