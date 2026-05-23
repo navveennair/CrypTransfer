@@ -140,11 +140,15 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
               .collection('transfers')
               .doc(widget.transferId)
               .update({
-            'encryptedAESKey': '',
+            'encryptedAESKey': FieldValue.delete(), // semantically remove, not blank-string
             'senderCleanedUp': true,
             'senderCleanedUpAt': FieldValue.serverTimestamp(),
           });
-        } catch (_) {}
+        } catch (e) {
+          // Remote AES key erasure failed — local wipe still runs below.
+          // Log so the failure is visible in security review (no key material logged).
+          debugPrint('[Security] Turn 2 Firestore key erasure failed: $e');
+        }
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
         if (mounted) {
           setState(() {
