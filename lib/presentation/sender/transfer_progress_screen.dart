@@ -60,6 +60,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   bool _canEndSession = false;
   bool _sessionEnded = false; // D-06: guard against double-fire on stream reconnect
   bool _senderWipeSent = false; // guard against double-fire on Turn 2 AES key wipe
+  Timer? _cleanupTimeoutTimer; // safety timeout — cancelled on Turn 2/Turn 4/dispose
   String? _statusMessage;
 
   late AnimationController _successCtrl;
@@ -88,6 +89,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
   @override
   void dispose() {
+    _cleanupTimeoutTimer?.cancel();
     _transferListener?.cancel();
     _successCtrl.dispose();
     super.dispose();
@@ -104,6 +106,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       // Turn 4: doc deleted by receiver — sender navigates to session-ended screen
       if (!snapshot.exists) {
         if (!_done || _sessionEnded) return; // only react after upload completes (Pitfall 1)
+        _cleanupTimeoutTimer?.cancel();
         _sessionEnded = true;
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey (registered in initState)
         if (mounted) {
@@ -129,6 +132,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
       // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
       if (status == 'cleanup_initiated' && _done && !_senderWipeSent && !_sessionEnded) {
+        _cleanupTimeoutTimer?.cancel();
         _senderWipeSent = true;
         try {
           await FirebaseFirestore.instance
@@ -165,6 +169,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           _statusMessage = '✅ Receiver saved the file securely';
           _canEndSession = true;
         });
+        _startCleanupTimeout(); // start safety timeout now that receiver has saved
       }
     });
   }
@@ -176,6 +181,34 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         .update({
       'senderStatus': 'metadata_cleared',
       'metadataClearedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Starts a 300-second safety timeout after the receiver saves the file.
+  /// If cleanup_initiated never fires (receiver crash / no connection), we auto-wipe
+  /// and navigate to SenderSessionEndedScreen to unblock the sender.
+  void _startCleanupTimeout() {
+    _cleanupTimeoutTimer?.cancel(); // defensive: should not already be running
+    _cleanupTimeoutTimer = Timer(const Duration(seconds: 300), () {
+      if (!mounted || _senderWipeSent || _sessionEnded) return;
+      _sessionEnded = true;
+      wipeAll();
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SenderSessionEndedScreen(
+              transferId: widget.transferId,
+              fileName: widget.fileName,
+              fileSize: widget.fileSize,
+              receiverUsername: widget.receiverUsername,
+              senderId: widget.senderId,
+              receiverId: widget.receiverId,
+              timeoutReason: 'Session ended by timeout — receiver did not complete cleanup',
+            ),
+          ),
+        );
+      }
     });
   }
 
@@ -445,6 +478,32 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       ),
                     ),
                   ),
+
+                // Pulsing cleanup-wait indicator — shown after receiver saves, before Turn 2 fires
+                if (_canEndSession && !_senderWipeSent) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Waiting for secure session close…',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
 
               ] else ...[
                 Text(

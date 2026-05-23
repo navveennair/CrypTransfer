@@ -28,6 +28,7 @@ class SenderSessionEndedScreen extends StatefulWidget {
   final String receiverUsername;
   final String senderId;
   final String receiverId;
+  final String? timeoutReason; // null = normal cleanup; non-null = timeout message
 
   const SenderSessionEndedScreen({
     super.key,
@@ -37,6 +38,7 @@ class SenderSessionEndedScreen extends StatefulWidget {
     required this.receiverUsername,
     required this.senderId,
     required this.receiverId,
+    this.timeoutReason,
   });
 
   @override
@@ -122,12 +124,38 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
               ),
               const SizedBox(height: 8),
               Text(
-                'The receiver has completed secure cleanup.',
+                widget.timeoutReason != null
+                    ? 'Session ended by safety timeout.'
+                    : 'The receiver has completed secure cleanup.',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 32),
+
+              if (widget.timeoutReason != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.timer_off_rounded, size: 16, color: Colors.orange.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.timeoutReason!,
+                          style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // ── Section 1: Receiver cleaned up ─────────────────────────
               Text(
