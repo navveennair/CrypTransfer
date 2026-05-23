@@ -545,7 +545,7 @@ class _SenderScreenState extends State<SenderScreen>
               child: _receiverSelected
                   ? (_receiverReady
                       ? _ConnectedBadge(username: _receiverUsername!)
-                      : _WaitingForReceiverWidget(secondsRemaining: _secondsRemaining))
+                      : _WaitingForReceiverWidget(secondsRemaining: _secondsRemaining, timerRunning: _readinessTimer != null))
                   : const _WaitingForConnectionWidget(),
             ),
             const SizedBox(height: 16),
@@ -1023,7 +1023,8 @@ class _ReceiverBadge extends StatelessWidget {
 
 class _WaitingForReceiverWidget extends StatefulWidget {
   final int secondsRemaining;
-  const _WaitingForReceiverWidget({required this.secondsRemaining});
+  final bool timerRunning;
+  const _WaitingForReceiverWidget({required this.secondsRemaining, required this.timerRunning});
 
   @override
   State<_WaitingForReceiverWidget> createState() =>
@@ -1103,33 +1104,37 @@ class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
           ),
           const SizedBox(height: 8),
           Text(
-            'Receiver must open the secure inbox to continue.',
+            widget.timerRunning
+                ? 'Receiver must confirm readiness to continue.'
+                : 'Waiting for receiver to connect…',
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-          GlassContainer(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: cs.primary.withValues(alpha: 0.07),
-            borderColor: cs.primary.withValues(alpha: 0.15),
-            borderRadius: 12,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.timer_outlined, size: 16, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  display,
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: cs.primary,
+          if (widget.timerRunning) ...[
+            const SizedBox(height: 16),
+            GlassContainer(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: cs.primary.withValues(alpha: 0.07),
+              borderColor: cs.primary.withValues(alpha: 0.15),
+              borderRadius: 12,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.timer_outlined, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    display,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 16),
         ],
       ),
