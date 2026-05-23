@@ -61,17 +61,23 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
     // D-10: edge-case safety net — verify transfer doc is already gone.
     // Normal path: doc is deleted by ReceiverEndSessionScreen step 2.
     // Edge case: receiver cleanup was interrupted before WriteBatch committed.
-    final doc = await FirebaseFirestore.instance
-        .collection(FirebaseConstants.transfers)
-        .doc(widget.transferId)
-        .get();
-    if (doc.exists) {
-      await FirebaseFirestore.instance
+    try {
+      final doc = await FirebaseFirestore.instance
           .collection(FirebaseConstants.transfers)
           .doc(widget.transferId)
-          .delete();
+          .get();
+      if (doc.exists) {
+        await FirebaseFirestore.instance
+            .collection(FirebaseConstants.transfers)
+            .doc(widget.transferId)
+            .delete();
+      }
+    } catch (_) {
+      // D-10 edge-case cleanup failed — doc may already be gone or network
+      // is unavailable. AES key was already zeroed upstream in TransferProgressScreen.
+    } finally {
+      if (mounted) setState(() => _aesCleanDone = true);
     }
-    if (mounted) setState(() => _aesCleanDone = true);
   }
 
   @override
