@@ -85,6 +85,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('RSA keys regenerated successfully.')),
         );
+        Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
       }
     } catch (e) {
       if (mounted) {
@@ -124,6 +125,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('RSA keys deleted.')),
         );
+        Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
       }
     } catch (e) {
       if (mounted) _showError(e.toString());
