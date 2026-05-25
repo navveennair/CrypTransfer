@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +18,7 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../../data/services/encryption_service.dart';
+import '../home/home_screen.dart';
 import 'receiver_end_session_screen.dart';
 
 // ─── Top-level isolate helper (compute() requires top-level / static) ─────────
@@ -65,17 +68,116 @@ class _DecryptScreenState extends State<DecryptScreen>
 
   bool _saving = false;
   bool _previewing = false;
+  bool _aborting = false;
+  StreamSubscription<DocumentSnapshot>? _failedStatusSub;
 
   @override
   void initState() {
     super.initState();
+    _watchTransferStatus();
     _loadTransfer();
+  }
+
+  @override
+  void dispose() {
+    _failedStatusSub?.cancel();
+    super.dispose();
   }
 
   // Zero remanence: delete temp file whenever buffers are wiped.
   @override
   void onBuffersWiped() {
     _deleteTempFile();
+  }
+
+  // ─── Sender-abort stream watcher ────────────────────────────────────────
+
+  void _watchTransferStatus() {
+    _failedStatusSub = _repo
+        .watchTransferStatus(widget.transferId)
+        .listen((snap) {
+      if (!snap.exists) return;
+      final status = snap.data()?['status'] as String?;
+      if (status == 'failed' && !_aborting && _phase != _Phase.error && mounted) {
+        _aborting = true;
+        wipeAll();
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Transfer aborted — sender terminated the tunnel'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+        );
+      }
+    });
+  }
+
+  // ─── Abort dialog ────────────────────────────────────────────────────────
+
+  Future<void> _showAbortDialog() async {
+    if (_aborting || _phase == _Phase.error) return;
+    final abort = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Abort Transfer?'),
+        content: const Text(
+          'This will destroy all cryptographic material and collapse the secure '
+          'tunnel. The sender will be notified that the transfer failed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Abort & Destroy'),
+          ),
+        ],
+      ),
+    );
+    if (abort == true && mounted) {
+      await _abortSessionDueToDisconnect();
+    }
+  }
+
+  Future<void> _abortSessionDueToDisconnect() async {
+    if (_aborting) return;
+    _aborting = true;
+    try {
+      await _repo.updateTransferStatus(widget.transferId, 'failed');
+      await _repo.updateTransferField(
+        widget.transferId,
+        'encryptedAESKey',
+        FieldValue.delete(),
+      );
+    } catch (_) {
+      // Wipe proceeds regardless.
+    }
+    wipeAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (_) => false,
+      );
+    }
   }
 
   // ─── Step: load transfer metadata ────────────────────────────────────────
@@ -261,17 +363,16 @@ class _DecryptScreenState extends State<DecryptScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: _phase != _Phase.decrypting && !_saving,
+      canPop: _phase == _Phase.error,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) wipeAll();
+        if (!didPop) _showAbortDialog();
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text('Decrypt File',
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           centerTitle: true,
-          automaticallyImplyLeading:
-              _phase != _Phase.decrypting && !_saving,
+          automaticallyImplyLeading: false,
         ),
         body: Padding(
           padding: const EdgeInsets.all(24),
