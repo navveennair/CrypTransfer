@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 07
-current_plan: 01 (complete)
-status: complete
-last_updated: "2026-05-23T13:39:06.914Z"
+current_phase: 07.1
+current_plan: 04 (complete — ready for verification)
+status: executing
+last_updated: "2026-05-25T20:42:15.000Z"
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 25
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 29
+  completed_plans: 29
   percent: 100
 ---
 
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md
 ## Position
 
 **Milestone:** v1.0 milestone
-**Current phase:** 06
-**Current plan:** 01 (complete — ready for 06-02)
-**Status:** Phase 07 complete — all 7 phases done; milestone v1.0 complete
+**Current phase:** 07.1 (executing)
+**Current plan:** 04 (complete — 4/4 waves executed)
+**Status:** Phase 07.1 executing — all 4 waves complete; layer decoupling refactor in progress
 
 ## Session Log
 
@@ -49,6 +49,7 @@ See: .planning/PROJECT.md
 - 2026-05-23: Phase 07 planned — 1 plan in 2 waves (Wave 0: test scaffold; Wave 1: pulsing waiting UI + 300s safety timeout); verification passed after 1 revision (VALIDATION.md + Wave 0 test scaffold added for Nyquist compliance)
 - 2026-05-23: Phase 07 complete — 07-01 executed, code reviewed (5 warnings fixed), debug fix applied (_startTransferListener moved to _startUpload), UAT 3/3 passed; global glassmorphic UI overhaul committed; milestone v1.0 complete
 - 2026-05-25: Quick task 260525-kur complete — removed duplicate _runAesGcm from sender_screen.dart; RSA-OAEP encrypt moved to compute() isolate; dead methods and unused pointycastle import removed
+- 2026-05-25: Phase 07.1 all 4 waves executed — Wave 0 repository expansion, Wave 1 transfer screens migration (16 violations), Wave 2 cleanup screen migration, Wave 3 admin & misc screens migration; total 14 FirebaseFirestore.instance violations eliminated from presentation layer; flutter analyze clean
 
 ## Accumulated Context
 
