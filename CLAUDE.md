@@ -302,7 +302,7 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 
 ### Pre-Viva
 
-- [ ] Face ID re-enable (`biometric_helper.dart` — bypassed for thesis testing; see `lib/core/utils/biometric_helper.dart`)
+- [x] Face ID re-enabled (`biometric_helper.dart` — local_auth 3.0.1 API: `persistAcrossBackgrounding` replaces `stickyAuth`, no `options:` wrapper)
 - [ ] Chapter 3 thesis update
 - [ ] Chapter 5 testing results
 - [ ] Fix figure numbering in thesis

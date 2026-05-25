@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app_theme.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../core/utils/tofu_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
@@ -50,12 +51,10 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     }
   }
 
-  // Delegates to AuthRepository.computeFingerprint() per Architectural Responsibility Map.
-  // Fingerprint computation belongs in Data layer, not presentation layer.
-  String _fingerprint(String publicKeyJson) {
-    final full = AuthRepository.computeFingerprint(publicKeyJson);
-    return full.substring(0, 16).toUpperCase(); // display: 16 hex chars uppercase
-  }
+  // Uses TofuService.displayFingerprint() so Key Vault and sender Verify dialog
+  // show the same grouped format ("AB12 CD34 EF56 7890") for side-by-side comparison.
+  String _fingerprint(String publicKeyJson) =>
+      TofuService.displayFingerprint(publicKeyJson);
 
   Future<void> _onRegenerate() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
