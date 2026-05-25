@@ -1,10 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/constants/firebase_constants.dart';
+import '../../../data/repositories/admin_repository.dart';
 
 class TransferVolumeChart extends StatelessWidget {
-  const TransferVolumeChart({super.key});
+  final _adminRepo = AdminRepository();
+
+  TransferVolumeChart({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,11 +21,7 @@ class TransferVolumeChart extends StatelessWidget {
         border: Border.all(color: cs.outline),
       ),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(FirebaseConstants.transferLogs)
-            .orderBy('loggedAt', descending: true)
-            .limit(20)
-            .snapshots(),
+        stream: _adminRepo.streamTransferLogsDetail(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           
