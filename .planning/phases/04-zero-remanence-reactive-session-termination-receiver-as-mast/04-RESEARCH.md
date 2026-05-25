@@ -789,20 +789,20 @@ All other claims are VERIFIED against source files.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **ReceiverEndSessionScreen: 4 steps or 6?**
    - What we know: `EndSessionScreen` has 6 steps. D-03 specifies 4 logical phases for receiver cleanup. D-13 says "6 steps matching `EndSessionScreen._steps`".
    - What's unclear: D-03 and D-13 appear to conflict — D-03 has 4 numbered items; D-13 says "6 steps." The reconciled interpretation: receiver has 4 steps (audit log, storage delete, WriteBatch delete, closeReceiverSession). "Matching EndSessionScreen._steps" in D-13 refers to the pattern (same `_CleanStepTile` widget), not the count.
-   - Recommendation: Use 4 steps to match the D-03 sequence exactly. Planner should confirm with implementer.
+   - **RESOLVED (Plan 02): 4 steps** — D-03 sequence takes precedence; D-13 references the `_CleanStepTile` pattern, not the step count.
 
 2. **SenderSessionEndedScreen: Apply SecurityLifecycleMixin?**
    - What we know: No sensitive buffers are held in this screen. Claude's discretion per analysis.
-   - Recommendation: Apply `SecurityLifecycleMixin` as defensive practice (no buffers to register, but mixin adds dispose safety net). The class mixin is low-cost.
+   - **RESOLVED (Plan 03): Applied** — `SecurityLifecycleMixin<SenderSessionEndedScreen>` applied as defensive practice; no buffers registered (AES already zeroed upstream).
 
 3. **Receiver username source**
    - What we know: `FirebaseAuth.instance.currentUser?.displayName` may not match `users/{uid}.username` (they are set independently).
-   - Recommendation: For audit log consistency, load receiver username from `AuthRepository.getUserProfile(receiverUid)` or read from the user doc in `_endSession()`, same as `_loadTransfer()` does for sender.
+   - **RESOLVED (Plan 02): `FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown'`** — consistent with `EndSessionScreen` pattern; acceptable for audit log context.
 
 ---
 

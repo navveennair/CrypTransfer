@@ -1,0 +1,126 @@
+DOCX ANALYSIS - HIGHLIGHTED & CORRECTION LINES
+==================================================
+
+Paragraph 25 (Color=True, Highlight=False, Keyword=False):
+UNIVERSITI TEKNOLOGI MALAYSIA
+------------------------------
+Paragraph 27 (Color=True, Highlight=False, Keyword=False):
+the organization with period and reasons for confidentiality or restriction
+------------------------------
+Paragraph 29 (Color=True, Highlight=False, Keyword=False):
+“I hereby declare that we have read this thesis and in my
+------------------------------
+Paragraph 30 (Color=True, Highlight=False, Keyword=False):
+opinion this thesis is sufficient in term of scope and quality for the
+------------------------------
+Paragraph 31 (Color=True, Highlight=False, Keyword=False):
+award of the degree of Bachelor of Computer Science (Computer Networks & Security)”
+------------------------------
+Paragraph 57 (Color=True, Highlight=False, Keyword=False):
+A thesis submitted in fulfilment of the
+------------------------------
+Paragraph 58 (Color=True, Highlight=False, Keyword=False):
+requirements for the award of the degree of
+------------------------------
+Paragraph 59 (Color=True, Highlight=False, Keyword=False):
+Bachelor of Computer Science (Computer Networks & Security)
+------------------------------
+Paragraph 62 (Color=True, Highlight=False, Keyword=False):
+Faculty of Computing
+------------------------------
+Paragraph 63 (Color=True, Highlight=False, Keyword=False):
+Universiti Teknologi Malaysia
+------------------------------
+Paragraph 69 (Color=True, Highlight=False, Keyword=False):
+DECLARATION
+------------------------------
+Paragraph 77 (Color=True, Highlight=False, Keyword=False):
+I declare that this thesis entitled “CrypTransfer - File Transfer using Hybrid Encryption/Decryption Technique (AES & RSA Algorithm)” is the result of my own research except as cited in the references. The thesis has not been accepted for any degree and is not concurrently submitted in candidature of any other degree.
+------------------------------
+Paragraph 81 (Color=True, Highlight=False, Keyword=False):
+DEDICATION
+------------------------------
+Paragraph 84 (Color=True, Highlight=False, Keyword=False):
+This thesis is dedicated to my brother, who told me that there never is a limit for someone to gain knowledge. He has been the wind beneath my wings, encouraging me to rise when the path seemed unclear.
+------------------------------
+Paragraph 85 (Color=True, Highlight=False, Keyword=False):
+ACKNOWLEDGEMENT
+------------------------------
+Paragraph 88 (Color=False, Highlight=False, Keyword=True):
+I was in communication with my advisor while writing this thesis. Some of that I’ve learned and thought about thanks to her. I would especially like to thank my co main supervisor, Dr. Rashidah Binti Kadir for her encouragement, guide, critics and friendship. Without her unwavering help and interest, this thesis could not have been the same as presented here.
+------------------------------
+Paragraph 91 (Color=True, Highlight=False, Keyword=False):
+ABSTRACT
+------------------------------
+Paragraph 95 (Color=True, Highlight=False, Keyword=False):
+ABSTRAK
+------------------------------
+Paragraph 99 (Color=True, Highlight=False, Keyword=False):
+TABLE OF CONTENTS
+------------------------------
+Paragraph 102 (Color=True, Highlight=False, Keyword=False):
+LIST OF TABLES
+------------------------------
+Paragraph 106 (Color=True, Highlight=False, Keyword=False):
+LIST OF FIGURES
+------------------------------
+Paragraph 113 (Color=True, Highlight=False, Keyword=False):
+LIST OF ABBREVIATIONS
+------------------------------
+Paragraph 115 (Color=True, Highlight=False, Keyword=False):
+LIST OF APPENDICES
+------------------------------
+Paragraph 147 (Color=True, Highlight=False, Keyword=False):
+The objectives of the project are:
+------------------------------
+Paragraph 151 (Color=True, Highlight=False, Keyword=False):
+To design a system that is capable of encrypting and decrypting files using Hybrid AES RSA algorithm in order to send important files securely between two users such that sensitive information can be sent securely.
+------------------------------
+Paragraph 157 (Color=True, Highlight=False, Keyword=False):
+The scopes of the project are:
+------------------------------
+Paragraph 557 (Color=True, Highlight=False, Keyword=False):
+REFERENCES
+------------------------------
+Paragraph 577 (Color=True, Highlight=False, Keyword=False):
+Appendix B:	Survey Evidences
+------------------------------
+Paragraph 582 (Color=True, Highlight=False, Keyword=False):
+Figure 1.1
+------------------------------
+Paragraph 587 (Color=True, Highlight=False, Keyword=False):
+Figure 1.2
+------------------------------
+Paragraph 591 (Color=True, Highlight=False, Keyword=False):
+Figure 1.3
+------------------------------
+Paragraph 597 (Color=True, Highlight=False, Keyword=False):
+Figure 1.4
+------------------------------
+Paragraph 603 (Color=True, Highlight=False, Keyword=False):
+Figure 1.5
+------------------------------
+Paragraph 608 (Color=True, Highlight=False, Keyword=False):
+Figure 1.6
+------------------------------
+Paragraph 613 (Color=True, Highlight=False, Keyword=False):
+Figure 1.7
+------------------------------
+Paragraph 618 (Color=True, Highlight=False, Keyword=False):
+Figure 1.8
+------------------------------
+Paragraph 623 (Color=True, Highlight=False, Keyword=False):
+Figure 1.9
+------------------------------
+Paragraph 627 (Color=True, Highlight=False, Keyword=False):
+Figure 2.0
+------------------------------
+Paragraph 640 (Color=True, Highlight=False, Keyword=False):
+Figure 2.1
+------------------------------
+Paragraph 642 (Color=True, Highlight=False, Keyword=False):
+Appendix C: Sequence Diagram of CrypTransfer System
+------------------------------
+Paragraph 726 (Color=True, Highlight=False, Keyword=False):
+Appendix D: Activity Diagram of CrypTransfer system
+------------------------------

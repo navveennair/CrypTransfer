@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
-import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/models/user_model.dart';

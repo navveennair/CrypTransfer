@@ -36,38 +36,6 @@ service cloud.firestore {
                          request.resource.data.toUserId == userId;
       }
 
-      // ── users/{userId}/friend_requests ────────────────────────────────────
-      // Stored under the RECEIVER's path (userId == receiver).
-      // Sender writes to receiver's subcollection and can read back their own
-      // sent requests (senderId == auth.uid).  Receiver owns the subcollection.
-      match /friend_requests/{reqId} {
-        allow read:   if isOwner(userId) ||
-                         (isAuthenticated() &&
-                          resource.data.senderId == request.auth.uid);
-        // Any authenticated user may create a request in another user's
-        // subcollection, provided the senderId field is their own UID.
-        allow create: if isAuthenticated() &&
-                         request.resource.data.senderId == request.auth.uid;
-        allow update: if isOwner(userId) || isAdmin();
-        allow delete: if isOwner(userId) || isAdmin();
-      }
-
-      // ── users/{userId}/connections ─────────────────────────────────────────
-      // A user can read their own connections.
-      // Other authenticated users can read to verify connection status.
-      // Owner/Admin can write.  The accepting party can also create the
-      // bilateral entry — verified by the existence of a pending friend request
-      // from themselves in the target user's subcollection.
-      match /connections/{connId} {
-        allow read: if isAuthenticated();
-        allow create: if isOwner(userId) ||
-                         isAdmin() ||
-                         (isAuthenticated() &&
-                          request.resource.data.uid == request.auth.uid &&
-                          exists(/databases/$(database)/documents/users/$(request.auth.uid)/friend_requests/$(userId)));
-        allow update, delete: if isOwner(userId) || isAdmin();
-      }
-
       // ── users/{userId}/audit_logs ──────────────────────────────────────────
       // Immutable personal transfer history. Each user owns their own copy.
       // EndSessionScreen writes one record here for the sender AND one for
@@ -118,24 +86,10 @@ service cloud.firestore {
       }
     }
 
-    // Collection-group rule so senders can query their sent requests
-    // across all receivers' subcollections via collectionGroup().
-    match /{path=**}/friend_requests/{reqId} {
-      allow read: if isAuthenticated() &&
-                     (resource.data.senderId == request.auth.uid ||
-                      resource.data.receiverId == request.auth.uid);
-    }
-
-    // Collection-group rule so any authenticated user can query connections
-    // across subcollections (needed for getConnectionStatus cross-user lookups).
-    match /{path=**}/connections/{connId} {
-      allow read: if isAuthenticated();
-    }
-
     // ─── transfers ──────────────────────────────────────────────────────────
     // Only the sender or receiver of a transfer may read/write it.
     // RULE: Create allowed if receiver has explicitly authorized this sender
-    //       (selectedSenderUid == auth.uid) OR both users share a connection.
+    //       (selectedSenderUid == auth.uid) OR a neutral_handshake exists.
     match /transfers/{transferId} {
       allow read:   if isAuthenticated() &&
                        (resource.data.senderId == request.auth.uid ||
@@ -146,10 +100,7 @@ service cloud.firestore {
                        (
                          // Handshake-authorized: receiver explicitly selected this sender
                          get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data['selectedSenderUid'] == request.auth.uid
-                         // Connection-based fallback for pre-established social connections
-                         || (exists(/databases/$(database)/documents/users/$(request.resource.data.senderId)/connections/$(request.resource.data.receiverId)) &&
-                             exists(/databases/$(database)/documents/users/$(request.resource.data.receiverId)/connections/$(request.resource.data.senderId)))
-                         // Phase 5 neutral handshake: either party may have proposed
+                         // Neutral handshake: either party may have proposed
                          || exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
                          || exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
                        );
@@ -222,9 +173,13 @@ service cloud.firestore {
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
       );
 
-      // Either party may delete (cancel proposal or post-session cleanup)
+      // Either party may delete (cancel proposal or post-session cleanup).
+      // resource == null guard: batch.delete() on a non-existent mirror doc
+      // (e.g. B_A when only A_B exists) is evaluated with resource=null,
+      // making field comparisons return false → PERMISSION_DENIED without this guard.
       allow delete: if isAuthenticated() &&
-                       (resource.data.proposerId == request.auth.uid ||
+                       (resource == null ||
+                        resource.data.proposerId == request.auth.uid ||
                         resource.data.partnerId == request.auth.uid);
     }
 

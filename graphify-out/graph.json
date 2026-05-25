@@ -1,156 +1,186 @@
 {
   "directed": false,
   "multigraph": false,
-  "graph": {},
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "kill_switch_chain",
+        "label": "Kill Switch Execution Chain",
+        "nodes": [
+          "claude_session_manager",
+          "claude_encryption_service",
+          "claude_security_lifecycle_mixin"
+        ],
+        "relation": "implement",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "CLAUDE.md"
+      },
+      {
+        "id": "core_data_entities",
+        "label": "Core Data Entities",
+        "nodes": [
+          "claude_rsa_key_transfers",
+          "claude_transfers",
+          "claude_transfers_log",
+          "claude_users"
+        ],
+        "relation": "form",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "CLAUDE.md"
+      }
+    ]
+  },
   "nodes": [
     {
       "label": "build.gradle.kts",
       "file_type": "code",
       "source_file": "android\\build.gradle.kts",
       "source_location": "L1",
-      "id": "android_build_gradle_kts",
-      "community": 7
+      "community": 11,
+      "id": "android_build_gradle_kts"
     },
     {
       "label": "settings.gradle.kts",
       "file_type": "code",
       "source_file": "android\\settings.gradle.kts",
       "source_location": "L1",
-      "id": "android_settings_gradle_kts",
-      "community": 8
+      "community": 12,
+      "id": "android_settings_gradle_kts"
     },
     {
       "label": "build.gradle.kts",
       "file_type": "code",
       "source_file": "android\\app\\build.gradle.kts",
       "source_location": "L1",
-      "id": "android_app_build_gradle_kts",
-      "community": 9
+      "community": 13,
+      "id": "android_app_build_gradle_kts"
     },
     {
       "label": "GeneratedPluginRegistrant.java",
       "file_type": "code",
       "source_file": "android\\app\\src\\main\\java\\io\\flutter\\plugins\\GeneratedPluginRegistrant.java",
       "source_location": "L1",
-      "id": "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java",
-      "community": 1
+      "community": 1,
+      "id": "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java"
     },
     {
       "label": "GeneratedPluginRegistrant",
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L69",
-      "id": "generatedpluginregistrant_generatedpluginregistrant",
-      "community": 1
+      "community": 1,
+      "id": "generatedpluginregistrant_generatedpluginregistrant"
     },
     {
       "label": ".registerWith()",
       "file_type": "code",
       "source_file": "android\\app\\src\\main\\java\\io\\flutter\\plugins\\GeneratedPluginRegistrant.java",
       "source_location": "L17",
-      "id": "generatedpluginregistrant_generatedpluginregistrant_registerwith",
-      "community": 1
+      "community": 1,
+      "id": "generatedpluginregistrant_generatedpluginregistrant_registerwith"
     },
     {
       "label": "com.example.cryptransfer/security",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "id": "kotlin_security_channel",
-      "community": 5
+      "community": 7,
+      "id": "kotlin_security_channel"
     },
     {
       "label": "MainActivity",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "id": "main_activity",
-      "community": 5
+      "community": 7,
+      "id": "main_activity"
     },
     {
       "label": "isFlagSecureActive",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "id": "kotlin_is_flag_secure_active",
-      "community": 10
+      "community": 14,
+      "id": "kotlin_is_flag_secure_active"
     },
     {
       "label": "flutter_lldb_helper.py",
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L1",
-      "id": "ios_flutter_ephemeral_flutter_lldb_helper_py",
-      "community": 2
+      "community": 3,
+      "id": "ios_flutter_ephemeral_flutter_lldb_helper_py"
     },
     {
       "label": "handle_new_rx_page()",
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L7",
-      "id": "flutter_lldb_helper_handle_new_rx_page",
-      "community": 2
+      "community": 3,
+      "id": "flutter_lldb_helper_handle_new_rx_page"
     },
     {
       "label": "__lldb_init_module()",
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L24",
-      "id": "flutter_lldb_helper_lldb_init_module",
-      "community": 2
+      "community": 3,
+      "id": "flutter_lldb_helper_lldb_init_module"
     },
     {
       "label": "Intercept NOTIFY_DEBUGGER_ABOUT_RX_PAGES and touch the pages.",
       "file_type": "rationale",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L8",
-      "id": "flutter_lldb_helper_rationale_8",
-      "community": 2
+      "community": 3,
+      "id": "flutter_lldb_helper_rationale_8"
     },
     {
       "label": "AppDelegate.swift",
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L1",
-      "id": "ios_runner_appdelegate_swift",
-      "community": 0
+      "community": 0,
+      "id": "ios_runner_appdelegate_swift"
     },
     {
       "label": "AppDelegate",
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L4",
-      "id": "appdelegate_appdelegate",
-      "community": 0
+      "community": 0,
+      "id": "appdelegate_appdelegate"
     },
     {
       "label": "FlutterAppDelegate",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "id": "flutterappdelegate",
-      "community": 0
+      "community": 0,
+      "id": "flutterappdelegate"
     },
     {
       "label": "FlutterImplicitEngineDelegate",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "id": "flutterimplicitenginedelegate",
-      "community": 0
+      "community": 0,
+      "id": "flutterimplicitenginedelegate"
     },
     {
       "label": ".application()",
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L6",
-      "id": "appdelegate_appdelegate_application",
-      "community": 0
+      "community": 0,
+      "id": "appdelegate_appdelegate_application"
     },
     {
       "label": ".didInitializeImplicitFlutterEngine()",
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L13",
-      "id": "appdelegate_appdelegate_didinitializeimplicitflutterengine",
-      "community": 0
+      "community": 0,
+      "id": "appdelegate_appdelegate_didinitializeimplicitflutterengine"
     },
     {
       "label": "iOS GeneratedPluginRegistrant Header",
@@ -161,24 +191,24 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "ios_plugin_registrant_h",
-      "community": 6
+      "community": 8,
+      "id": "ios_plugin_registrant_h"
     },
     {
       "label": "GeneratedPluginRegistrant.m",
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L1",
-      "id": "ios_runner_generatedpluginregistrant_m",
-      "community": 1
+      "community": 1,
+      "id": "ios_runner_generatedpluginregistrant_m"
     },
     {
       "label": "-registerWithRegistry",
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L71",
-      "id": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
-      "community": 1
+      "community": 1,
+      "id": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry"
     },
     {
       "label": "iOS Runner Bridging Header",
@@ -189,78 +219,346 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "ios_bridging_header",
-      "community": 6
+      "community": 8,
+      "id": "ios_bridging_header"
     },
     {
       "label": "SceneDelegate.swift",
       "file_type": "code",
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L1",
-      "id": "ios_runner_scenedelegate_swift",
-      "community": 4
+      "community": 6,
+      "id": "ios_runner_scenedelegate_swift"
     },
     {
       "label": "SceneDelegate",
       "file_type": "code",
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L4",
-      "id": "scenedelegate_scenedelegate",
-      "community": 4
+      "community": 6,
+      "id": "scenedelegate_scenedelegate"
     },
     {
       "label": "FlutterSceneDelegate",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "id": "flutterscenedelegate",
-      "community": 4
+      "community": 6,
+      "id": "flutterscenedelegate"
     },
     {
       "label": "RunnerTests.swift",
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L1",
-      "id": "ios_runnertests_runnertests_swift",
-      "community": 3
+      "community": 4,
+      "id": "ios_runnertests_runnertests_swift"
     },
     {
       "label": "RunnerTests",
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L5",
-      "id": "runnertests_runnertests",
-      "community": 3
+      "community": 4,
+      "id": "runnertests_runnertests"
     },
     {
       "label": "XCTestCase",
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "id": "xctestcase",
-      "community": 3
+      "community": 4,
+      "id": "xctestcase"
     },
     {
       "label": ".testExample()",
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L7",
-      "id": "runnertests_runnertests_testexample",
-      "community": 3
+      "community": 4,
+      "id": "runnertests_runnertests_testexample"
     },
     {
       "label": "silent_guardian.ps1",
       "file_type": "code",
       "source_file": "scripts/silent_guardian.ps1",
-      "id": "silent_guardian_script",
-      "community": 11
+      "community": 15,
+      "id": "silent_guardian_script"
     },
     {
       "label": "update_status.ps1",
       "file_type": "code",
       "source_file": "scripts/update_status.ps1",
-      "id": "update_status_script",
-      "community": 12
+      "community": 16,
+      "id": "update_status_script"
+    },
+    {
+      "label": "generate_flowchart.py",
+      "file_type": "code",
+      "source_file": "android\\generate_flowchart.py",
+      "source_location": "L1",
+      "community": 9,
+      "id": "android_generate_flowchart_py"
+    },
+    {
+      "label": "create_flowchart_docx()",
+      "file_type": "code",
+      "source_file": "android\\generate_flowchart.py",
+      "source_location": "L5",
+      "community": 9,
+      "id": "generate_flowchart_create_flowchart_docx"
+    },
+    {
+      "label": "Flutter UI Framework",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "UI Framework section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 17,
+      "id": "claude_ui_framework"
+    },
+    {
+      "label": "GitHub Dark Theme Palette",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "UI Framework section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 10,
+      "id": "claude_github_dark_theme"
+    },
+    {
+      "label": "Impeller Rendering Backend",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "UI Framework section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 5,
+      "id": "claude_impeller_backend"
+    },
+    {
+      "label": "Admin Dashboard",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Admin Dashboard section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 18,
+      "id": "claude_admin_dashboard"
+    },
+    {
+      "label": "RSA Key Transfers Data Model",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Data Model section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
+      "id": "claude_rsa_key_transfers"
+    },
+    {
+      "label": "Transfers Data Model",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Data Model section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 19,
+      "id": "claude_transfers"
+    },
+    {
+      "label": "User Audit Log Model",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Data Model section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 20,
+      "id": "claude_transfers_log"
+    },
+    {
+      "label": "User Profiles Data Model",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Data Model section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 21,
+      "id": "claude_users"
+    },
+    {
+      "label": "Security Lifecycle Mixin",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 5,
+      "id": "claude_security_lifecycle_mixin"
+    },
+    {
+      "label": "Session Manager",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
+      "id": "claude_session_manager"
+    },
+    {
+      "label": "Encryption Service",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
+      "id": "claude_encryption_service"
+    },
+    {
+      "label": "Transfer Service",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 22,
+      "id": "claude_transfer_service"
+    },
+    {
+      "label": "Receiver Screen",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
+      "id": "claude_receiver_screen"
+    },
+    {
+      "label": "Sender Screen",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 23,
+      "id": "claude_sender_screen"
+    },
+    {
+      "label": "Android MainActivity",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Android Entry Point section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 5,
+      "id": "claude_main_activity"
+    },
+    {
+      "label": "Silent Guardian Security Scanner",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "source_location": "Automation Scripts section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 24,
+      "id": "claude_silent_guardian"
+    },
+    {
+      "label": "Closed Mailbox Kill Switch",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Kill Switch section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
+      "id": "claude_kill_switch"
+    },
+    {
+      "label": "Android FLAG_SECURE",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "Security hardening section",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 5,
+      "id": "claude_flag_secure"
+    },
+    {
+      "label": "Design System Color Palette",
+      "file_type": "document",
+      "source_file": "design-system/cryptransfer/MASTER.md",
+      "source_location": "Color Palette section",
+      "source_url": null,
+      "captured_at": "2026-05-23 21:06:07",
+      "author": null,
+      "contributor": null,
+      "community": 25,
+      "id": "master_color_palette"
+    },
+    {
+      "label": "Cyberpunk UI Style",
+      "file_type": "document",
+      "source_file": "design-system/cryptransfer/MASTER.md",
+      "source_location": "Style Guidelines section",
+      "source_url": null,
+      "captured_at": "2026-05-23 21:06:07",
+      "author": null,
+      "contributor": null,
+      "community": 10,
+      "id": "master_cyberpunk_ui"
+    },
+    {
+      "label": "Immersive Page Pattern",
+      "file_type": "document",
+      "source_file": "design-system/cryptransfer/MASTER.md",
+      "source_location": "Page Pattern section",
+      "source_url": null,
+      "captured_at": "2026-05-23 21:06:07",
+      "author": null,
+      "contributor": null,
+      "community": 26,
+      "id": "master_immersive_experience"
     }
   ],
   "links": [
@@ -272,9 +570,9 @@
       "weight": 1.0,
       "_src": "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant",
+      "confidence_score": 1.0,
       "source": "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java",
-      "target": "generatedpluginregistrant_generatedpluginregistrant",
-      "confidence_score": 1.0
+      "target": "generatedpluginregistrant_generatedpluginregistrant"
     },
     {
       "relation": "method",
@@ -284,9 +582,9 @@
       "weight": 1.0,
       "_src": "generatedpluginregistrant_generatedpluginregistrant",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant_registerwith",
+      "confidence_score": 1.0,
       "source": "generatedpluginregistrant_generatedpluginregistrant",
-      "target": "generatedpluginregistrant_generatedpluginregistrant_registerwith",
-      "confidence_score": 1.0
+      "target": "generatedpluginregistrant_generatedpluginregistrant_registerwith"
     },
     {
       "relation": "contains",
@@ -296,9 +594,9 @@
       "weight": 1.0,
       "_src": "ios_runner_generatedpluginregistrant_m",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant",
+      "confidence_score": 1.0,
       "source": "generatedpluginregistrant_generatedpluginregistrant",
-      "target": "ios_runner_generatedpluginregistrant_m",
-      "confidence_score": 1.0
+      "target": "ios_runner_generatedpluginregistrant_m"
     },
     {
       "relation": "method",
@@ -308,9 +606,9 @@
       "weight": 1.0,
       "_src": "generatedpluginregistrant_generatedpluginregistrant",
       "_tgt": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
+      "confidence_score": 1.0,
       "source": "generatedpluginregistrant_generatedpluginregistrant",
-      "target": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
-      "confidence_score": 1.0
+      "target": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry"
     },
     {
       "relation": "implements",
@@ -330,9 +628,9 @@
       "weight": 1.0,
       "_src": "ios_flutter_ephemeral_flutter_lldb_helper_py",
       "_tgt": "flutter_lldb_helper_handle_new_rx_page",
+      "confidence_score": 1.0,
       "source": "ios_flutter_ephemeral_flutter_lldb_helper_py",
-      "target": "flutter_lldb_helper_handle_new_rx_page",
-      "confidence_score": 1.0
+      "target": "flutter_lldb_helper_handle_new_rx_page"
     },
     {
       "relation": "contains",
@@ -342,9 +640,9 @@
       "weight": 1.0,
       "_src": "ios_flutter_ephemeral_flutter_lldb_helper_py",
       "_tgt": "flutter_lldb_helper_lldb_init_module",
+      "confidence_score": 1.0,
       "source": "ios_flutter_ephemeral_flutter_lldb_helper_py",
-      "target": "flutter_lldb_helper_lldb_init_module",
-      "confidence_score": 1.0
+      "target": "flutter_lldb_helper_lldb_init_module"
     },
     {
       "relation": "rationale_for",
@@ -354,9 +652,9 @@
       "weight": 1.0,
       "_src": "flutter_lldb_helper_rationale_8",
       "_tgt": "flutter_lldb_helper_handle_new_rx_page",
+      "confidence_score": 1.0,
       "source": "flutter_lldb_helper_handle_new_rx_page",
-      "target": "flutter_lldb_helper_rationale_8",
-      "confidence_score": 1.0
+      "target": "flutter_lldb_helper_rationale_8"
     },
     {
       "relation": "contains",
@@ -366,9 +664,9 @@
       "weight": 1.0,
       "_src": "ios_runner_appdelegate_swift",
       "_tgt": "appdelegate_appdelegate",
+      "confidence_score": 1.0,
       "source": "ios_runner_appdelegate_swift",
-      "target": "appdelegate_appdelegate",
-      "confidence_score": 1.0
+      "target": "appdelegate_appdelegate"
     },
     {
       "relation": "inherits",
@@ -378,9 +676,9 @@
       "weight": 1.0,
       "_src": "appdelegate_appdelegate",
       "_tgt": "flutterappdelegate",
+      "confidence_score": 1.0,
       "source": "appdelegate_appdelegate",
-      "target": "flutterappdelegate",
-      "confidence_score": 1.0
+      "target": "flutterappdelegate"
     },
     {
       "relation": "inherits",
@@ -390,9 +688,9 @@
       "weight": 1.0,
       "_src": "appdelegate_appdelegate",
       "_tgt": "flutterimplicitenginedelegate",
+      "confidence_score": 1.0,
       "source": "appdelegate_appdelegate",
-      "target": "flutterimplicitenginedelegate",
-      "confidence_score": 1.0
+      "target": "flutterimplicitenginedelegate"
     },
     {
       "relation": "method",
@@ -402,9 +700,9 @@
       "weight": 1.0,
       "_src": "appdelegate_appdelegate",
       "_tgt": "appdelegate_appdelegate_application",
+      "confidence_score": 1.0,
       "source": "appdelegate_appdelegate",
-      "target": "appdelegate_appdelegate_application",
-      "confidence_score": 1.0
+      "target": "appdelegate_appdelegate_application"
     },
     {
       "relation": "method",
@@ -414,9 +712,9 @@
       "weight": 1.0,
       "_src": "appdelegate_appdelegate",
       "_tgt": "appdelegate_appdelegate_didinitializeimplicitflutterengine",
+      "confidence_score": 1.0,
       "source": "appdelegate_appdelegate",
-      "target": "appdelegate_appdelegate_didinitializeimplicitflutterengine",
-      "confidence_score": 1.0
+      "target": "appdelegate_appdelegate_didinitializeimplicitflutterengine"
     },
     {
       "relation": "references",
@@ -438,9 +736,9 @@
       "weight": 1.0,
       "_src": "ios_runner_scenedelegate_swift",
       "_tgt": "scenedelegate_scenedelegate",
+      "confidence_score": 1.0,
       "source": "ios_runner_scenedelegate_swift",
-      "target": "scenedelegate_scenedelegate",
-      "confidence_score": 1.0
+      "target": "scenedelegate_scenedelegate"
     },
     {
       "relation": "inherits",
@@ -450,9 +748,9 @@
       "weight": 1.0,
       "_src": "scenedelegate_scenedelegate",
       "_tgt": "flutterscenedelegate",
+      "confidence_score": 1.0,
       "source": "scenedelegate_scenedelegate",
-      "target": "flutterscenedelegate",
-      "confidence_score": 1.0
+      "target": "flutterscenedelegate"
     },
     {
       "relation": "contains",
@@ -462,9 +760,9 @@
       "weight": 1.0,
       "_src": "ios_runnertests_runnertests_swift",
       "_tgt": "runnertests_runnertests",
+      "confidence_score": 1.0,
       "source": "ios_runnertests_runnertests_swift",
-      "target": "runnertests_runnertests",
-      "confidence_score": 1.0
+      "target": "runnertests_runnertests"
     },
     {
       "relation": "inherits",
@@ -474,9 +772,9 @@
       "weight": 1.0,
       "_src": "runnertests_runnertests",
       "_tgt": "xctestcase",
+      "confidence_score": 1.0,
       "source": "runnertests_runnertests",
-      "target": "xctestcase",
-      "confidence_score": 1.0
+      "target": "xctestcase"
     },
     {
       "relation": "method",
@@ -486,10 +784,170 @@
       "weight": 1.0,
       "_src": "runnertests_runnertests",
       "_tgt": "runnertests_runnertests_testexample",
+      "confidence_score": 1.0,
       "source": "runnertests_runnertests",
-      "target": "runnertests_runnertests_testexample",
-      "confidence_score": 1.0
+      "target": "runnertests_runnertests_testexample"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "android\\generate_flowchart.py",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_src": "android_generate_flowchart_py",
+      "_tgt": "generate_flowchart_create_flowchart_docx",
+      "confidence_score": 1.0,
+      "source": "android_generate_flowchart_py",
+      "target": "generate_flowchart_create_flowchart_docx"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "design-system/cryptransfer/MASTER.md",
+      "source_location": "Style Guidelines section",
+      "weight": 1.0,
+      "_src": "master_cyberpunk_ui",
+      "_tgt": "claude_github_dark_theme",
+      "source": "claude_github_dark_theme",
+      "target": "master_cyberpunk_ui"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "CLAUDE.md",
+      "source_location": "UI Framework section",
+      "weight": 1.0,
+      "_src": "claude_impeller_backend",
+      "_tgt": "claude_flag_secure",
+      "source": "claude_impeller_backend",
+      "target": "claude_flag_secure"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "CLAUDE.md",
+      "source_location": "UI Framework section",
+      "weight": 1.0,
+      "_src": "claude_security_lifecycle_mixin",
+      "_tgt": "claude_impeller_backend",
+      "source": "claude_impeller_backend",
+      "target": "claude_security_lifecycle_mixin"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "CLAUDE.md",
+      "source_location": "Kill Switch section",
+      "weight": 1.0,
+      "_src": "claude_encryption_service",
+      "_tgt": "claude_rsa_key_transfers",
+      "source": "claude_rsa_key_transfers",
+      "target": "claude_encryption_service"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Kill Switch section",
+      "weight": 1.0,
+      "_src": "claude_session_manager",
+      "_tgt": "claude_security_lifecycle_mixin",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "claude_session_manager"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Native\u00e2\u20ac\u201cDart bridge table",
+      "weight": 1.0,
+      "_src": "claude_security_lifecycle_mixin",
+      "_tgt": "claude_flag_secure",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "claude_flag_secure"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Layer Architecture section",
+      "weight": 1.0,
+      "_src": "claude_receiver_screen",
+      "_tgt": "claude_session_manager",
+      "source": "claude_session_manager",
+      "target": "claude_receiver_screen"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Kill Switch section",
+      "weight": 1.0,
+      "_src": "claude_session_manager",
+      "_tgt": "claude_encryption_service",
+      "source": "claude_session_manager",
+      "target": "claude_encryption_service"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Kill Switch section",
+      "weight": 1.0,
+      "_src": "claude_kill_switch",
+      "_tgt": "claude_session_manager",
+      "source": "claude_session_manager",
+      "target": "claude_kill_switch"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "source_location": "Security hardening section",
+      "weight": 1.0,
+      "_src": "claude_main_activity",
+      "_tgt": "claude_flag_secure",
+      "source": "claude_main_activity",
+      "target": "claude_flag_secure"
     }
   ],
-  "hyperedges": []
+  "hyperedges": [
+    {
+      "id": "kill_switch_chain",
+      "label": "Kill Switch Execution Chain",
+      "nodes": [
+        "claude_session_manager",
+        "claude_encryption_service",
+        "claude_security_lifecycle_mixin"
+      ],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md"
+    },
+    {
+      "id": "core_data_entities",
+      "label": "Core Data Entities",
+      "nodes": [
+        "claude_rsa_key_transfers",
+        "claude_transfers",
+        "claude_transfers_log",
+        "claude_users"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md"
+    }
+  ]
 }

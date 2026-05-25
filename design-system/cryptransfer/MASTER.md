@@ -7,8 +7,8 @@
 ---
 
 **Project:** CrypTransfer
-**Generated:** 2026-05-02 13:18:32
-**Category:** Fintech/Crypto
+**Generated:** 2026-05-23 21:06:07
+**Category:** NFT/Web3 Platform
 
 ---
 
@@ -18,24 +18,24 @@
 
 | Role | Hex | CSS Variable |
 |------|-----|--------------|
-| Primary | `#F59E0B` | `--color-primary` |
-| Secondary | `#FBBF24` | `--color-secondary` |
-| CTA/Accent | `#8B5CF6` | `--color-cta` |
-| Background | `#0F172A` | `--color-background` |
-| Text | `#F8FAFC` | `--color-text` |
+| Primary | `#1C1917` | `--color-primary` |
+| Secondary | `#44403C` | `--color-secondary` |
+| CTA/Accent | `#CA8A04` | `--color-cta` |
+| Background | `#FAFAF9` | `--color-background` |
+| Text | `#0C0A09` | `--color-text` |
 
-**Color Notes:** Gold trust + purple tech
+**Color Notes:** Premium dark + gold accent
 
 ### Typography
 
-- **Heading Font:** Orbitron
-- **Body Font:** Exo 2
-- **Mood:** crypto, web3, futuristic, tech, blockchain, digital
-- **Google Fonts:** [Orbitron + Exo 2](https://fonts.google.com/share?selection.family=Exo+2:wght@300;400;500;600;700|Orbitron:wght@400;500;600;700)
+- **Heading Font:** Inter
+- **Body Font:** Inter
+- **Mood:** spatial, legible, glass, system, clean, neutral
+- **Google Fonts:** [Inter + Inter](https://fonts.google.com/share?selection.family=Inter:wght@300;400;500;600)
 
 **CSS Import:**
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 ```
 
 ### Spacing Variables
@@ -68,7 +68,7 @@
 ```css
 /* Primary Button */
 .btn-primary {
-  background: #8B5CF6;
+  background: #CA8A04;
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
@@ -85,8 +85,8 @@
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #F59E0B;
-  border: 2px solid #F59E0B;
+  color: #1C1917;
+  border: 2px solid #1C1917;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -99,7 +99,7 @@
 
 ```css
 .card {
-  background: #0F172A;
+  background: #FAFAF9;
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-md);
@@ -125,9 +125,9 @@
 }
 
 .input:focus {
-  border-color: #F59E0B;
+  border-color: #1C1917;
   outline: none;
-  box-shadow: 0 0 0 3px #F59E0B20;
+  box-shadow: 0 0 0 3px #1C191720;
 }
 ```
 
@@ -153,27 +153,28 @@
 
 ## Style Guidelines
 
-**Style:** Glassmorphism
+**Style:** Cyberpunk UI
 
-**Keywords:** Frosted glass, transparent, blurred background, layered, vibrant background, light source, depth, multi-layer
+**Keywords:** Neon, dark mode, terminal, HUD, sci-fi, glitch, dystopian, futuristic, matrix, tech noir
 
-**Best For:** Modern SaaS, financial dashboards, high-end corporate, lifestyle apps, modal overlays, navigation
+**Best For:** Gaming platforms, tech products, crypto apps, sci-fi applications, developer tools, entertainment
 
-**Key Effects:** Backdrop blur (10-20px), subtle border (1px solid rgba white 0.2), light reflection, Z-depth
+**Key Effects:** Neon glow (text-shadow), glitch animations (skew/offset), scanlines (::before overlay), terminal fonts
 
 ### Page Pattern
 
-**Pattern Name:** Conversion-Optimized
+**Pattern Name:** Immersive/Interactive Experience
 
-- **CTA Placement:** Above fold
-- **Section Order:** Hero > Features > CTA
+- **Conversion Strategy:** 40% higher engagement. Performance trade-off. Provide skip option. Mobile fallback essential.
+- **CTA Placement:** After interaction complete + Skip option for impatient users
+- **Section Order:** 1. Full-screen interactive element, 2. Guided product tour, 3. Key benefits revealed, 4. CTA after completion
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Light backgrounds
-- ❌ No security indicators
+- ❌ Light mode default
+- ❌ No transaction status
 
 ### Additional Forbidden Patterns
 

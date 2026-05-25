@@ -1,0 +1,148 @@
+[356]: CHAPTER 4
+
+[357]: REQUIREMENT ANALYSIS AND DESIGN
+
+[358]: 4.1   Introduction
+
+[359]: This chapter explains how the CrypTransfer application operates on a full-scale basis. It provides information about the user case diagrams, sequence diagram, activity diagrams and their interface designs through Figma. By including all the models, we achieve a comprehensive understanding of the applications needs.
+
+[360]: 4.2   Requirement Analysis
+
+[361]: The requirements analysis section describes the capability and limitations of the system and what the CrypTransfer application is expected to achieve. It consists of both functional and non-functional requirements which is from user sign-up to file encryption/decryption, RSA/AES key generation, secure file transfer, to security, performance and usability. This phase articulates the user-system requirements and behaviors as well as related interactions using techniques such as use case diagrams to make sure everything designed is transparent, exhaustive, and corresponds to the consumer expectations.
+
+[367]: 4.3   Project Design
+
+[368]: The architecture of CrypTransfer is described with the help of some important UML diagrams. The Use Case Diagram establishes the interactions of the system with the users, and it illustrates the roles of user and admin. The Sequence Diagram shows the sequence of the steps of the actions that are performed when such tasks as file encryption and transfer are carried out. The Activity Diagram outlines the flow of work of the activities like encryption, file transfer and decryption. Finally, the Class Diagram gives an overview of the structure of the system, including how such classes as User, File, and TransferSession will relate and hold crucial data like encryption keys and file metadata. All these diagrams give an overall picture of the design and data flow of the system.
+
+[371]: 4.3.1   Use Case Diagram
+
+[373]: The use case diagram in the UML (Unified Modeling Language) is used for visualizing the interaction between the user and the systems. It describes what the system should do, not how it should do it (that comes later!), from the viewpoint of the user, as use cases. Use case diagrams are used to determine what the system will do, who will interact with it and in what manner the interactions will take place.     This diagram offers assistance in establishing system boundaries, specifying requirements, and directing the design and development effort.
+
+[374]: Figure 4.1 gives a complete overview about how users are enabled to contact the system, according to the way in which a developer will be able to delineate and arrange the necessities of the system.
+
+[376]: Figure 4.1 Use Case Diagram of CrypTransfer system
+
+[377]: The CrypTransfer Use Case Diagram shows the common functions of the user and admin. The user can be either a sender or a receiver at a time. If the user wants to be the sender, the user can attach a file and generate AES keys subsequently. Hence, the system now acknowledges the user as a sender.
+
+[378]: The receiver one the other hand must generate RSA keys and send it to another user, in which by default the system acknowledges it as a receiver, enabling the receiver to receive the encrypted file once the transfer occurs. This distinction ensures that the correct processes are followed for secure file exchange.
+
+[379]: 4.3.2   Class Diagram
+
+[381]: A class diagram is a graphical notation used to describe types of objects in a system and the various kinds of static relationships that exist between them. It represents the objects of the classes, the data they keep, and the functions of the classes are the things through which individual objects can interact.  It explains how these elements are used in terms of encryption keys. This chart serves to structure the system, direct the development, and elucidate the data exchange between features with one tidy, efficient way of constructing and testing CrypTransfer.
+
+[407]: 4.3.2.1 Class Diagram of CrpyTransfer system
+
+[409]: The class diagram below here explains how Class Diagram of the CrypTransfer system.
+
+[411]: Figure 4.1: Class Diagram of CrypTransfer System
+
+[420]: 4.3.3   Sequence Diagram
+
+[422]: A sequence diagram is a UML diagram that records the behaviour that objects may have in the life of system and shows object interactions arranged in time sequence to achieve task as per system requirements. It consists of actors, objects, messages, lifelines and activation bars. The interaction chart presents an arrangement separating interactions in a top-down manner in order to help understand the sequential order and combination of elements involved in a process. The following sequence diagrams have been attached below in Appendix B.
+
+[424]: 4.3.3.1   SD001: Login Account
+
+[425]: It displays the interaction once a user enters the system. The user provides credentials of which the system checks and allows him access in case it is valid.
+
+[427]: 4.3.3.2   SD002: Register Account
+
+[428]: Explains how user can register an account. When the user needs to sign up, he/she provides the information, the system verifies properly whether the information is unique, and a new account is created.
+
+[430]: 4.3.3.3   SD003: Choose File
+
+[431]: Description of how the user can pick a file on device to proceed with the encryption and transfer.
+
+[433]: 4.3.3.4   SD004: Generate AES Key
+
+[434]: The system generates a distinctive AES key to the chosen file preparing it to be encrypted.
+
+[436]: 4.3.3.5   SD005: Encrypt File
+
+[437]: Encryption procedure in which the AES key is used on the file and sequesters the file.
+
+[439]: 4.3.3.6   SD006: Generate RSA Key
+
+[440]: Generate a pair of public-private RSA keys that are utilized in securely encrypting the AES key.
+
+[442]: 4.3.3.7   SD007: Transfer File
+
+[443]: Gives an account of transmission of the encrypted file and the encryption of AES key with RSA over a secure TLS to the recipient.
+
+[445]: 4.3.3.8   SD008: Receive File
+
+[446]: Acts as a receiver of the encrypted file and an AES key with which they can later decrypt the said system.
+
+[449]: 4.3.3.9   SD009: Decrypt File
+
+[450]: Shows decryption of AES key with the help of RSA private key and decryption of the file.
+
+[452]: 4.3.3.10   SD010: Cleanup Temporary Memory
+
+[453]: Explains such security settings as the temporary files and memory traces that the system removes after the decryption.
+
+[455]: 4.3.3.11   SD011: Generate and Transfer RSA Public Key
+
+[456]: Demonstrates the user to create and exchange his/her public RSA key with a friend in order to establish secure communication.
+
+[458]: 4.3.3.12   SD012: Manage User Profiles
+
+[459]: Records the way users may view or update their profiles among the software.
+
+[470]: 4.3.4   Activity Diagram
+
+[472]: Activity Diagram illustrates the flow of activities in a component or system and reflects how work gets done and how it is connected with such system processes. It is employed to specify workflows, business processes, and decision paths. It may also display activities that occur simultaneously. The Activity Diagram are attached at Appendix C for reference.
+
+[474]: 4.3.4.1   AD001: Activity Diagram for Login Account
+
+[475]: This diagram shows logging-in flow of actions, such as credential entry, authentication and moving the user in the case of successful and failure.
+
+[477]: 4.3.4.2    AD005: Activity Diagram of Encrypt File
+
+[478]: This diagram stages the encryption of a file and selection of the file to encryption.
+
+[480]: 4.3.4.3    AD007: Activity Diagram of Transfer File
+
+[481]: This diagram shows the steps taken to transfer the file securely, by choosing the recipient and monitoring transfer process.
+
+[483]: 4.3.4.4    AD008: Activity Diagram for Receive File
+
+[484]: This diagram shows how the receiver handles the incoming encrypted key and encrypted file. With being notified, the receiver prepares for decryption process.
+
+[486]: 4.3.4.5    AD010: Activity Diagram for Cleanup Temporary Memory
+
+[487]: This diagram shows temporary data cleanup post decryption from a receiver’s side.
+
+[489]: 4.3.4.6     AD011: Activity Diagram for Generate and Transfer RSA Public Key
+
+[490]: This diagram shows how a user can use to create a public RSA key and then safely deliver the key to the recipient so that the two can communicate through encryption.
+
+[492]: 4.4   Database Design
+
+[493]: The schema enlists five fundamental tables, such as User, TransferSession, File, RSAKey and AESKey. The user stores have user details, with TransferSession showing every transfer transaction, sender and receiver, and the time window of that transfer. File stores metadata about each moved item (name, size, MIME type and storage destination) and contains a foreign key to its TransferSession. RSAKeys contains the RSA key pair consisting of user RSA public and secret keys as applicable to a particular session and refers to TransferSession, as well as user. The symmetric key that is used to encrypt the file contents, is present in AESKey, which is also associated with the corresponding user and session. Such connections make all file transfers to be in encrypted, trackable and safe connected form to the participants of the transmissions.
+
+[495]: Figure 4.21 Database Design for CrpyTransfer system
+
+[496]: The user class is associated with TransferSession class with forreign key ON TransferSession tabel. Particularity here is that the foreign keys senderID and receiverID refer to the User model. This reliance ensures that any user is capable to initiate a transfer session or oblige to transfer data. This allows the system to track which users participate in a file transfer instance.
+
+[497]: The TransferSession class encapsulate a single-file transfer event. A TransferSession may have many File records, and the File table will have a backreference to it (transferSessionID). This relationship also ensures that every file is linked to one transfer session and we are able to track send and receive session behavior.
+
+[498]: We also have a relationship between the User object and the RSAKeys table by the userID foreign key on the RSAKeys table. A user may have several RSA KeyPairs which are used to encrypt/decrypt AESKeys during transfer. In this manner, user can be assured that data are secure with the appropriate encryption keys per user.
+
+[499]: The TransferSession class correlates to the RSAKeys table. Two RSA key record can be utilized for a particular transfer session. These are the RSA keys used to securely exchange and encrypt the AES key we've encrypted the file data with in-session (to send). Which is how user make sure that the AES key that have been used to encrypt a file is safe for the decrypt only by the receiver.
+
+[500]: The RSAKeys class is the one responsible for encrypting the AESKey class. The RSA keys will be used by the receiver to decrypt the AES key. The receiver can decrypt the AES key with their private RSA key and so decrypt the content of the messages file.
+
+[501]: The AESKey table into File table one more foreign key aesKeyID is placed in the File table. This foreign key connects them to each file a precise with an AESKey to which the file is associated, connecting the key which was used to encrypt the file with it. The file is first encrypted with the file contents by an AESKey,then by foreign key to ensure which AES key to encrypt which file,which is better tracked and secure.
+
+[502]: The class AESKey is associated with the class User by means of the foreign key userID within the table AESKey. Each user has one AES key for encrypting files that s/he has sent or received. Said relation accomplishes the storage of encryption keys in such a manner that to each AES key is assigned a user and the transferring sessions.
+
+[503]: Finally, the relationship of the User, TransferSession, File, RSAKeys and AESKey provides a safe and traceable transfer. The ERD will support the secure encryption process, its corresponding key management and session handling needed to satisfy the data confidentiality, integrity and non-repudiation requirements of the entire system.
+
+[505]: 4.5   Interface Design
+
+[506]: CrypTransfer’s interface is developed using Figma, providing a clean and user-friendly experience. Each step of each screen was deliberately created to walk a user through the process of visiting in, choosing a file, making a key and encrypting. Design emphasis was on simplicity, clarity and ease of use, particularly for non-technical users. Interactive prototypes in Figma enabled simulating real user flows to show how the system works in detail. The implementation was kept in mind before designing UI. All design interfaces are attached below in Appendix E for further reference.
+
+[507]: 4.6    Chapter Summary
+
+[508]: In this Chapter a design and requirement analysis for CrypTransfer (secure peer-to-peer file transfer) was introduced. It brought you UML diagrams to visualize interaction, data flow, and business processes. The design Key entities in the class diagram such as User, File, TransferSession, RSAKeys, AESKey demonstrate how the encryption and session handling are organized. Sequence diagrams specified processes such as login, file encryption, key generation, transfer, and cleanup and described ways to operate safely in the context of sessions. CrypTransfer uses a hybrid encryption, AES-256 as for the file encryption and RSA for the key exchange. The transport Layer Security protocol is used to keep the transmitted data secure and threaten attacks such as MITM. Each session has unique key pairs to provide traceability and confidentiality. Transient data is erased from memory post-decryption, to prevent remanence. The foreign keys are also exploited to connect all encryption ‘goodies’ in the database schema, thereby enforcing access control and data integrity as well. In Figma, interface designs that emphasise usability and secure workflow and access to non-technical users at login, through the encryption, on through file management and key handling. P2P architecture, the system implemented a peer-to-peer network to facilitate end-to-end encrypted communications that took the middleman (the server) out of the loop and increases privacy and security compared to traditional, server-dependent IM systems.
+

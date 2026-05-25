@@ -339,7 +339,7 @@ class EncryptionService {
   ///                          EncryptionService.closeReceiverSession()
   ///                             ├── Firestore: delete publicKey + selectedSenderUid
   ///                             ├── SecureStorage: delete private key
-  ///                             ├── Batch-delete rsa_key_transfers
+  ///                             ├── Batch-delete handshakes
   ///                             └── Batch-delete notifications
   /// ```
   ///

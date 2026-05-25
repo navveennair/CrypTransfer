@@ -1,0 +1,1 @@
+{"nodes": [{"id": "devops_guardian", "label": "Silent Guardian Script", "file_type": "document", "source_file": "docs/modules/devops.md"}], "edges": [{"source": "devops_guardian", "target": "transfer_repo", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "docs/modules/devops.md"}], "hyperedges": []}

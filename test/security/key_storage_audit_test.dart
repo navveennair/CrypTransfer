@@ -296,7 +296,7 @@ void main() {
       await db
           .collection(FirebaseConstants.users)
           .doc('u1')
-          .collection(FirebaseConstants.connections)
+          .collection(FirebaseConstants.friendships)
           .doc('u2')
           .set({
         'status': 'connected',
@@ -310,7 +310,7 @@ void main() {
         FirebaseConstants.transferLogs,
         FirebaseConstants.handshakes,
         FirebaseConstants.notifications,
-        FirebaseConstants.friendRequests,
+        FirebaseConstants.neutralHandshakes,
       ];
 
       for (final col in collections) {

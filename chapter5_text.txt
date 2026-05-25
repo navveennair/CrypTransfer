@@ -1,0 +1,23 @@
+[510]: CHAPTER 5
+
+
+CONCLUSION
+
+[511]: 5.1   Introduction
+
+[512]: With the increased need for secure and honest file transfer solutions, the CrypTransfer project is the answer. Available applications like SHAREit, Zapya, and Send Anywhere worked perfectly as a file sharing tool, but had insufficient amount of encryption and transparency into the security process (Norton, 2022). The objective of this project was to produce a secure mobile application with file content security via hybrid encryption, with AES for encryption of the files and RSA for key exchange in a peer-to-peer design. The system is aimed at users like small business proprietors who want to encrypt sensitive data during online communication. The project is divided into tasks to meet these challenges with an approach of clear system specification, secure design, and usable interface elements.
+
+[513]: 5.2    Achievements
+
+[514]: The literature study showed that a great many file transfer systems do not implement sufficient data protection, or secure key handling. Instances like the malware being utilized in Zapya and un-updated vulnerabilities found in SHAREit justified security fears (MITRE, 2023). In the course of this work, the CrypTransfer concept to unite encryption and peer-to-peer transfer has been established. Crucial elements such as encryption (AES-256), key exchange (RSA) and secure file transfer, TLS protection have been integrated into the system design. The project has multiple objectives Chapter 1. The existing systems were compared. The hybrid encryption framework was designed in form of UML diagrams and complemented by a comprehensive database schema. Figma, interfaces are supplementary material for this article is available online interfaces designed to illustrate the secure transfer flow. All except system testing and operational activities have been performed for PSM 2 in the areas of overall analysis, overall design and documentation
+
+[515]: 5.3    Suggested Implementation Plan for Project PSM 2
+
+[516]: In PSM2, the system also will migrate the backend to complete implementation with Dart by use of Pointycastle library for cryptographic operations. User profile, RSA key storage, AES key binding and file metadata will be stored at the SQL Server Express database. This mobile front-end would be attached to backend encryption logic so that it can do end-to-end testing. Modules for this system (key generation, file selection, encryption, transfer, decryption, session cleanup) will be constructed and tested. TLS protocol will be set up for secure channels of communication. When the app is to a stage of functional completeness, we'll do a staged roll-out and user testing in the wild to test usability and performance in actual use. This phase will also cover any system bugs or performance concerns to be addressed prior to going live.
+
+[535]: 5.4   Summary of Network and Security Elements
+
+[537]: To conclude about the security and networking capabilities of CrypTransfer, the most essential aspects that were incorporated into the system architecture can be outlined in the following table:
+
+[539]: Figure 5.0 Network and Security Elements
+
