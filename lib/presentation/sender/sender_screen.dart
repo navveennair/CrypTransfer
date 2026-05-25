@@ -12,6 +12,7 @@ import '../../app_theme.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
+import '../../data/repositories/transfer_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/services/encryption_service.dart';
 import '../../data/services/transfer_service.dart';
@@ -47,6 +48,7 @@ class SenderScreen extends StatefulWidget {
 class _SenderScreenState extends State<SenderScreen>
     with SecurityLifecycleMixin<SenderScreen> {
   final _connService = KeyRepository();
+  final _transferRepo = TransferRepository();
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _handshakeSub;
   String? _selectedReceiverPublicKeyJson;
@@ -362,8 +364,7 @@ class _SenderScreenState extends State<SenderScreen>
       return;
     }
 
-    final transferId =
-        FirebaseFirestore.instance.collection('transfers').doc().id;
+    final transferId = _transferRepo.generateId();
 
     final encryptedAESKeyB64 = base64Encode(encryptedAESKey);
     final ivB64 = base64Encode(iv);
