@@ -252,5 +252,119 @@ class TransferRepository {
         .where('status', isEqualTo: 'pending')
         .snapshots();
   }
+
+  // ─── Watch transfer doc for reactive updates ───────────────────────────────
+
+  /// Stream the transfer document for reactive UI updates
+  Stream<DocumentSnapshot> watchTransferStatus(String transferId) {
+    return _db
+        .collection(FirebaseConstants.transfers)
+        .doc(transferId)
+        .snapshots();
+  }
+
+  // ─── Stream recent transfers for HomeScreen ───────────────────────────────
+
+  /// Stream user's recent transfers from audit_logs collection for HomeScreen
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamRecentTransfers(
+      String userId) {
+    return _db
+        .collection(FirebaseConstants.users)
+        .doc(userId)
+        .collection(FirebaseConstants.auditLogs)
+        .orderBy('loggedAt', descending: true)
+        .limit(10)
+        .snapshots();
+  }
+
+  // ─── Generic field update ───────────────────────────────────────────────────
+
+  /// Update a single field on a transfer document (replaces scattered .update() calls)
+  Future<void> updateTransferField(
+    String transferId,
+    String field,
+    dynamic value,
+  ) async {
+    try {
+      await _db
+          .collection(FirebaseConstants.transfers)
+          .doc(transferId)
+          .update({field: value});
+    } on FirebaseException catch (e) {
+      throw TransferException(
+        'Failed to update transfer field $field: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
+  }
+
+  // ─── Update transfer status with validation ────────────────────────────────
+
+  /// Update transfer status with validation (encapsulates valid status values)
+  Future<void> updateTransferStatus(
+    String transferId,
+    String status,
+  ) async {
+    try {
+      // Validate status values
+      const validStatuses = [
+        'pending',
+        'in-progress',
+        'completed',
+        'cancelled',
+        'rejected'
+      ];
+      if (!validStatuses.contains(status)) {
+        throw TransferException('Invalid status: $status', code: 'invalid-status');
+      }
+
+      await _db
+          .collection(FirebaseConstants.transfers)
+          .doc(transferId)
+          .update({'status': status});
+    } on TransferException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw TransferException(
+        'Failed to update transfer status: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
+  }
+
+  // ─── Cancel transfer ───────────────────────────────────────────────────────
+
+  /// Cancel a transfer (set status to cancelled and optionally delete from Storage)
+  Future<void> cancelTransfer(String transferId) async {
+    try {
+      await _db
+          .collection(FirebaseConstants.transfers)
+          .doc(transferId)
+          .update({'status': 'cancelled'});
+    } on FirebaseException catch (e) {
+      throw TransferException(
+        'Failed to cancel transfer: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
+  }
+
+  // ─── Fetch transfer document ───────────────────────────────────────────────
+
+  /// Check if a transfer document exists (for cleanup verification)
+  Future<bool> getTransferDoc(String transferId) async {
+    try {
+      final doc = await _db
+          .collection(FirebaseConstants.transfers)
+          .doc(transferId)
+          .get();
+      return doc.exists;
+    } on FirebaseException catch (e) {
+      throw TransferException(
+        'Failed to fetch transfer: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
+  }
 }
 
