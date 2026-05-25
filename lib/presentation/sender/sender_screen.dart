@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../core/utils/biometric_helper.dart';
+import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/services/encryption_service.dart';
@@ -78,6 +79,9 @@ class _SenderScreenState extends State<SenderScreen>
   Timer? _readinessTimer;
   int _secondsRemaining = 60;
   bool _streamSettled = false;   // CR-01: suppress cold-start empty-snapshot eject
+
+  TofuStatus? _tofuStatus;
+  String? _receiverFingerprint;
 
   @override
   void initState() {
@@ -159,6 +163,7 @@ class _SenderScreenState extends State<SenderScreen>
           _selectedReceiverPublicKeyJson = publicKey;
         });
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
+        _checkTofuStatus(receiverId, publicKey);
 
         // Phase 6: parse receiverReady field and gate/unlock steps (D-06)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
@@ -206,6 +211,8 @@ class _SenderScreenState extends State<SenderScreen>
         _receiverReady = false;     // Phase 6 addition
         _secondsRemaining = 60;     // Phase 6 addition
         _streamSettled = false;   // CR-01: allow next reconnect to re-settle
+        _tofuStatus = null;
+        _receiverFingerprint = null;
       });
       _startReadinessTimer();
     }
@@ -449,6 +456,132 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
+  Future<void> _checkTofuStatus(String receiverUid, String publicKeyJson) async {
+    final status = await TofuService.check(receiverUid, publicKeyJson);
+    if (status == TofuStatus.firstContact) {
+      await TofuService.pin(receiverUid, publicKeyJson);
+    }
+    if (!mounted) return;
+    if (status == TofuStatus.keyChanged) {
+      _showKeyChangedDialog(receiverUid, publicKeyJson);
+    } else {
+      final fp = TofuService.displayFingerprint(publicKeyJson);
+      setState(() {
+        _tofuStatus = status;
+        _receiverFingerprint = fp;
+      });
+    }
+  }
+
+  void _showVerifyDialog() {
+    final uid = _receiverId;
+    final fp = _receiverFingerprint;
+    if (uid == null || fp == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Verify Receiver Identity'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Compare this fingerprint with your receiver out-of-band (call, in person):',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                fp,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await TofuService.markVerified(uid);
+              if (!mounted) return;
+              setState(() => _tofuStatus = TofuStatus.verified);
+              Navigator.pop(context);
+            },
+            child: const Text('It Matches'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showKeyChangedDialog(String uid, String keyJson) {
+    final fp = TofuService.displayFingerprint(keyJson);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Key Changed!', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This receiver\'s public key has changed since your last session. '
+              'This could indicate a legitimate key rotation or a man-in-the-middle attack.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'New fingerprint: $fp',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _revertToWaiting();
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await TofuService.repin(uid, keyJson);
+              if (!mounted) return;
+              final display = TofuService.displayFingerprint(keyJson);
+              setState(() {
+                _tofuStatus = TofuStatus.trusted;
+                _receiverFingerprint = display;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Re-verify & Trust'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -519,7 +652,19 @@ class _SenderScreenState extends State<SenderScreen>
               done: _receiverSelected && _receiverReady,
               child: _receiverSelected
                   ? (_receiverReady
-                      ? _ConnectedBadge(username: _receiverUsername!)
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _ConnectedBadge(username: _receiverUsername!),
+                            if (_tofuStatus != null) ...[
+                              const SizedBox(height: 8),
+                              _TofuStatusBanner(
+                                status: _tofuStatus!,
+                                onVerify: _showVerifyDialog,
+                              ),
+                            ],
+                          ],
+                        )
                       : _WaitingForReceiverWidget(secondsRemaining: _secondsRemaining, timerRunning: _readinessTimer != null))
                   : const _WaitingForConnectionWidget(),
             ),
@@ -1111,6 +1256,67 @@ class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
             ),
           ],
           const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── TOFU status banner ──────────────────────────────────────────────────────
+
+class _TofuStatusBanner extends StatelessWidget {
+  final TofuStatus status;
+  final VoidCallback onVerify;
+
+  const _TofuStatusBanner({required this.status, required this.onVerify});
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == TofuStatus.verified) {
+      return GlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        color: Colors.green.withValues(alpha: 0.08),
+        borderColor: Colors.green.withValues(alpha: 0.2),
+        child: Row(
+          children: const [
+            Icon(Icons.verified_rounded, color: Colors.green, size: 16),
+            SizedBox(width: 8),
+            Text(
+              'Identity verified',
+              style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    }
+    // firstContact or trusted — amber nudge, transfer allowed
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      color: Colors.amber.withValues(alpha: 0.08),
+      borderColor: Colors.amber.withValues(alpha: 0.2),
+      child: Row(
+        children: [
+          const Icon(Icons.fingerprint_rounded, color: Colors.amber, size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Identity not verified',
+              style: TextStyle(fontSize: 12, color: Colors.amber),
+            ),
+          ),
+          GestureDetector(
+            onTap: onVerify,
+            child: const Text(
+              'Verify',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.amber,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.amber,
+              ),
+            ),
+          ),
         ],
       ),
     );
