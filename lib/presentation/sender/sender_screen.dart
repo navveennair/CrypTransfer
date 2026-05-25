@@ -167,24 +167,16 @@ class _SenderScreenState extends State<SenderScreen>
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
         _checkTofuStatus(receiverId, publicKey);
 
-        // Check receiver's mailbox status (isReadyToReceive on user doc)
-        _checkReceiverReadiness(receiverId);
-      }
-    }
-  }
+        // Parse receiverReady from handshake doc (set automatically if mailbox is open)
+        final receiverReady = doc['receiverReady'] as bool? ?? false;
 
-  Future<void> _checkReceiverReadiness(String receiverId) async {
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(receiverId)
-          .get();
-      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
+        if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
+          _startReadinessTimer();
+        }
 
-      if (mounted) {
-        if (!_receiverReady && isReadyToReceive) {
+        if (!_receiverReady && receiverReady) {
           _onReceiverBecameReady();
-        } else if (_receiverReady && !isReadyToReceive) {
+        } else if (_receiverReady != receiverReady) {
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -196,8 +188,6 @@ class _SenderScreenState extends State<SenderScreen>
           }
         }
       }
-    } catch (_) {
-      // Silently handle fetch errors; readiness check can retry on next handshake update
     }
   }
 

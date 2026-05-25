@@ -447,7 +447,7 @@ class KeyRepository {
     required String senderUsername,
   }) async {
     try {
-      // Read receiver's current public key and display name.
+      // Read receiver's current public key, display name, and mailbox status.
       final userDoc =
           await _db.collection(FirebaseConstants.users).doc(_uid).get();
       final publicKey = userDoc.data()?['publicKey'] as String?;
@@ -457,6 +457,8 @@ class KeyRepository {
       final fromUsername = userDoc.data()?['username'] as String? ??
           _auth.currentUser?.displayName ??
           'Unknown';
+      // Check if receiver's mailbox is open
+      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
       // Find existing key-transfer doc to reuse its reference in the batch.
       final existing = await _db
@@ -477,6 +479,7 @@ class KeyRepository {
 
       // Write 2 — publish receiver's public key to the sender with
       // handshake_complete status so the sender's stream fires immediately.
+      // If receiver's mailbox is open, automatically signal readiness on this handshake.
       final keyPayload = <String, dynamic>{
         'publicKey': publicKey,
         'sentAt': FieldValue.serverTimestamp(),
@@ -485,9 +488,7 @@ class KeyRepository {
         // 'fromUsername' is kept for backward compatibility.
         'receiverUsername': fromUsername,
         'status': 'handshake_complete',
-        // WR-01: reset receiverReady on every new session so returning pairs
-        // cannot bypass the readiness gate via a stale true value.
-        'receiverReady': false,
+        'receiverReady': isReadyToReceive,
       };
       String docId;
       if (existing.docs.isNotEmpty) {
@@ -572,6 +573,8 @@ class KeyRepository {
       final fromUsername = userDoc.data()?['username'] as String? ??
           _auth.currentUser?.displayName ??
           'Unknown';
+      // Check if receiver's mailbox is open
+      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
       // Deterministic doc ID ensures idempotent re-sends without duplicates.
       final docId = '${_uid}_$targetUserId';
@@ -583,6 +586,7 @@ class KeyRepository {
         'fromUsername': fromUsername,
         'status': 'handshake_complete',
         'sentAt': FieldValue.serverTimestamp(),
+        'receiverReady': isReadyToReceive,
       }, SetOptions(merge: true));
     } on KeyNotFoundException {
       rethrow;
