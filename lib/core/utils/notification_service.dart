@@ -17,9 +17,10 @@ class NotificationService {
       .snapshots()
       .map((s) => s.size);
 
-  /// All notifications for [uid], newest first (client-side sort).
+  /// Unread notifications for [uid], newest first. Read notifications are
+  /// excluded — marking a notification read removes it from this stream.
   static Stream<List<Map<String, dynamic>>> allStream(String uid) =>
-      _notifs(uid).snapshots().map((s) {
+      _notifs(uid).where('read', isEqualTo: false).snapshots().map((s) {
         final list =
             s.docs.map((d) => {'docId': d.id, ...d.data()}).toList();
         list.sort((a, b) {

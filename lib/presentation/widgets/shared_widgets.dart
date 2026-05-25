@@ -439,6 +439,10 @@ class _CrypButtonState extends State<CrypButton> {
         .toColor();
   }
 
+  // Returns black or white for maximum contrast against bg (W3C luminance threshold).
+  static Color _contrastFg(Color bg) =>
+      bg.computeLuminance() > 0.179 ? Colors.black87 : Colors.white;
+
   void _onTapDown(TapDownDetails _) {
     if (widget.onPressed != null) {
       HapticFeedback.lightImpact();
@@ -472,11 +476,11 @@ class _CrypButtonState extends State<CrypButton> {
     if (effectivelyEnabled) {
       face = widget.color ?? cs.primary;
       shadow = _shadowOf(face);
-      fg = Colors.white;
+      fg = _contrastFg(face);
     } else if (widget.disabledColor != null && !sessionActive) {
       face = widget.disabledColor!;
       shadow = _shadowOf(face);
-      fg = Colors.white.withValues(alpha: 0.70);
+      fg = _contrastFg(face).withValues(alpha: 0.70);
     } else {
       face = cs.onSurface.withValues(alpha: 0.12);
       shadow = cs.onSurface.withValues(alpha: 0.06);

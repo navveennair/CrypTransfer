@@ -1,9 +1,11 @@
 ---
-status: diagnosed
+status: complete
 phase: 06-synchronized-readiness-gate
 source: [06-01-SUMMARY.md, 06-02-SUMMARY.md, 06-03-SUMMARY.md, 06-04-SUMMARY.md]
 started: 2026-05-23T00:00:00Z
-updated: 2026-05-23T00:10:00Z
+updated: 2026-05-25T00:00:00Z
+retest_session: true
+retest_reason: "Fix 022a09ab applied on 2026-05-23 — retesting countdown visibility (test 1) and previously skipped tests 2 and 4"
 ---
 
 ## Current Test
@@ -17,11 +19,13 @@ expected: After the sender selects a receiver (handshake initiated), Steps 1–4
 result: issue
 reported: "The is pulsing but no countdown that shows reduction in number from 1:00"
 severity: major
+fix_applied: "022a09ab — timerRunning flag added to _WaitingForReceiverWidget; GlassContainer countdown only renders when timerRunning is true; subtitle shows 'Waiting for receiver to connect…' until timer starts"
+retest_expected: "In pre-fill path: hourglass shows with 'Waiting for receiver to connect…' and NO countdown until receiver's handshake doc appears; once receiver connects, countdown GlassContainer appears and ticks from 1:00"
+result_retest: pass
 
 ### 2. Countdown timer ticks in real time
 expected: The MM:SS countdown in the hourglass widget decrements by 1 second each second (1:00 → 0:59 → 0:58 …). Step 0 indicator stays blue (incomplete) while waiting.
-result: skipped
-reason: related to test 1 countdown issue
+result_retest: pass
 
 ### 3. Receiver ready unlocks sender
 expected: When the receiver selects the sender from their side (triggering setReceiverReady), Steps 1–4 fade in and become fully interactive on the SenderScreen. A green floating SnackBar reads "Secure channel established. Receiver is ready." Step 0 switches to the connected badge and its indicator turns green/done.
@@ -29,8 +33,7 @@ result: pass
 
 ### 4. 60-second timeout ejects sender to HomeScreen
 expected: If the receiver does not signal readiness within 60 seconds, the sender is navigated to HomeScreen (stack cleared) and a red/error floating SnackBar reads "Session Terminated — receiver closed the session."
-result: skipped
-reason: countdown display not working (test 1 issue); 60s wait not practical to verify
+result_retest: pass
 
 ### 5. Cold-start no false eject
 expected: When the sender selects a receiver for the first time in a session, the initial Firestore cold-start empty snapshot does NOT immediately eject to HomeScreen. The sender stays on SenderScreen in the waiting/hourglass state.

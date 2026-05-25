@@ -68,7 +68,7 @@ class SidebarDrawer extends StatelessWidget {
                         Text(
                           username,
                           style: GoogleFonts.poppins(
-                            color: cs.onSurface,
+                            color: AppTheme.darkTextMain,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -77,7 +77,7 @@ class SidebarDrawer extends StatelessWidget {
                         Text(
                           email,
                           style: TextStyle(
-                            color: cs.onSurfaceVariant,
+                            color: AppTheme.darkTextSecondary,
                             fontSize: 12,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -280,7 +280,7 @@ class _DrawerItem extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
+                        color: AppTheme.darkTextMain,
                       ),
                     ),
                     if (subtitle != null)
@@ -288,7 +288,7 @@ class _DrawerItem extends StatelessWidget {
                         subtitle!,
                         style: TextStyle(
                           fontSize: 11,
-                          color: cs.onSurfaceVariant,
+                          color: AppTheme.darkTextSecondary,
                         ),
                       ),
                   ],
