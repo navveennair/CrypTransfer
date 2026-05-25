@@ -649,7 +649,8 @@ class KeyRepository {
   /// updates with senderUid/receiverUid/rolesAssignedAt, and returns the docId.
   ///
   /// Queries both directions since the handshake doc may be initiated by either party.
-  /// Throws [NetworkException] if no handshake found or update fails.
+  /// If no handshake doc exists yet, creates one with roles pre-assigned.
+  /// Throws [NetworkException] on Firestore failure.
   Future<String> assignTransferRole({
     required String partnerUid,
     required bool isSender,
@@ -664,7 +665,6 @@ class KeyRepository {
           .collection(FirebaseConstants.handshakes)
           .where('receiverId', isEqualTo: partnerUid)
           .where('senderId', isEqualTo: currentUid)
-          .where('status', isEqualTo: 'handshake_complete')
           .limit(1)
           .get();
 
@@ -674,14 +674,24 @@ class KeyRepository {
             .collection(FirebaseConstants.handshakes)
             .where('receiverId', isEqualTo: currentUid)
             .where('senderId', isEqualTo: partnerUid)
-            .where('status', isEqualTo: 'handshake_complete')
             .limit(1)
             .get();
       }
 
       if (snap.docs.isEmpty) {
-        throw NetworkException(
-            'No active handshake found with $partnerUid');
+        // No handshake doc exists yet — create one with roles pre-assigned
+        // Use deterministic ID to prevent duplicates if both users tap simultaneously
+        final docId = '${currentUid}_$partnerUid';
+        await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
+          'receiverId': partnerUid,
+          'senderId': currentUid,
+          'status': 'handshake_pending',
+          'senderUid': senderUid,
+          'receiverUid': receiverUid,
+          'rolesAssignedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return docId;
       }
 
       final docId = snap.docs.first.id;
