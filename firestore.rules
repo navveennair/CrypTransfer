@@ -125,9 +125,10 @@ service cloud.firestore {
                         resource.data.receiverId == request.auth.uid ||
                         isAdmin());
       
-      // Receiver creates the handshake document (receiverId == auth.uid)
+      // Either party may create (receiver publishes key OR role assignment creates handshake)
       allow create: if isAuthenticated() &&
-                       request.resource.data.receiverId == request.auth.uid;
+                       (request.resource.data.receiverId == request.auth.uid ||
+                        request.resource.data.senderId == request.auth.uid);
       
       // Either participant may update (receiver publishes key; sender may ack)
       allow update: if isAuthenticated() &&
