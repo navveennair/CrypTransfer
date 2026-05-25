@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -17,8 +16,9 @@ class SidebarDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final user = FirebaseAuth.instance.currentUser;
-    final username = user?.displayName ?? 'User';
+    final authRepo = AuthRepository();
+    final user = authRepo.currentUser;
+    final username = authRepo.currentDisplayName ?? 'User';
     final email = user?.email ?? '';
 
     return Drawer(
@@ -120,7 +120,7 @@ class SidebarDrawer extends StatelessWidget {
 
             if (user != null)
               StreamBuilder<UserModel?>(
-                stream: AuthRepository().streamUserProfile(user.uid),
+                stream: authRepo.streamUserProfile(user.uid),
                 builder: (context, snapshot) {
                   final isAdmin = snapshot.data?.isAdmin ?? false;
                   if (!isAdmin) return const SizedBox.shrink();
@@ -211,7 +211,7 @@ class SidebarDrawer extends StatelessWidget {
                 );
 
                 if (confirmed == true) {
-                  await AuthRepository().logout();
+                  await authRepo.logout();
                   if (nav.context.mounted) {
                     nav.pushAndRemoveUntil(
                       MaterialPageRoute(

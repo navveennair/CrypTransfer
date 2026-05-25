@@ -167,31 +167,37 @@ class _SenderScreenState extends State<SenderScreen>
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
         _checkTofuStatus(receiverId, publicKey);
 
-        // Phase 6: parse receiverReady field and gate/unlock steps (D-06)
-        final receiverReady = doc['receiverReady'] as bool? ?? false;
+        // Check receiver's mailbox status (isReadyToReceive on user doc)
+        _checkReceiverReadiness(receiverId);
+      }
+    }
+  }
 
-        if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
-          _startReadinessTimer();
-        }
+  Future<void> _checkReceiverReadiness(String receiverId) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(receiverId)
+          .get();
+      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
-        if (!_receiverReady && receiverReady) {
+      if (mounted) {
+        if (!_receiverReady && isReadyToReceive) {
           _onReceiverBecameReady();
-        } else if (_receiverReady != receiverReady) {
-          // WR-03: receiverReady reverted to false after gate was unlocked.
-          // Simply setting the flag leaves the timer cancelled and the countdown
-          // frozen. _revertToWaiting() resets _receiverReady, _secondsRemaining,
-          // cancels any lingering timer, and wipes sensitive data.
+        } else if (_receiverReady && !isReadyToReceive) {
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Receiver readiness was reset — waiting for confirmation.'),
+                content: Text('Receiver closed their mailbox — waiting for confirmation.'),
                 backgroundColor: Colors.orange,
               ),
             );
           }
         }
       }
+    } catch (_) {
+      // Silently handle fetch errors; readiness check can retry on next handshake update
     }
   }
 

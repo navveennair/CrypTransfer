@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/cleanup_repository.dart';
 import '../../data/repositories/key_repository.dart';
@@ -197,35 +196,14 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       await tick(0);
       final receiverUsername =
           FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
-      final auditPayload = <String, dynamic>{
-        'senderId': widget.senderId,
-        'receiverId': widget.receiverId,
-        'senderUsername': widget.senderUsername,
-        'receiverUsername': receiverUsername,
-        'fileName': widget.fileName,
-        'fileSize': widget.fileSize,
-        'status': 'completed',
-        'timestamp': FieldValue.serverTimestamp(),
-        'loggedAt': FieldValue.serverTimestamp(),
-      };
-      final auditBatch = FirebaseFirestore.instance.batch();
-      auditBatch.set(
-        FirebaseFirestore.instance
-            .collection(FirebaseConstants.users)
-            .doc(widget.senderId)
-            .collection(FirebaseConstants.auditLogs)
-            .doc(),
-        auditPayload,
+      await _transferRepo.writeFinalAuditLog(
+        senderId: widget.senderId,
+        receiverId: widget.receiverId,
+        senderUsername: widget.senderUsername,
+        receiverUsername: receiverUsername,
+        fileName: widget.fileName,
+        fileSize: widget.fileSize,
       );
-      auditBatch.set(
-        FirebaseFirestore.instance
-            .collection(FirebaseConstants.users)
-            .doc(widget.receiverId)
-            .collection(FirebaseConstants.auditLogs)
-            .doc(),
-        auditPayload,
-      );
-      await auditBatch.commit();
       await done(0);
 
       // ── Step 1: Delete encrypted file from Firebase Storage ─────────────────

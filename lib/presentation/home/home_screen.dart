@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/notification_service.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../widgets/shared_widgets.dart';
@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _handshakeRepo = HandshakeRepository();
   final _transferRepo = TransferRepository();
+  final _authRepo = AuthRepository();
   StreamSubscription<QuerySnapshot>? _pendingProposalSub;
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _recentTransfersStream;
@@ -43,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = _authRepo.currentUid ?? '';
     _recentTransfersStream = _transferRepo.streamRecentTransfers(uid);
     _activeAsProposerStream = _handshakeRepo.streamActiveConnectionsAsProposer();
     _activeAsPartnerStream = _handshakeRepo.streamActiveConnectionsAsPartner();
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startNotifListener() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
     if (uid == null) return;
     _notifSub =
         NotificationService.latestUnreadStream(uid).listen((notif) {
@@ -151,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           if (type != 'outcome') {
-            final uid = FirebaseAuth.instance.currentUser?.uid;
+            final uid = _authRepo.currentUid;
             if (uid != null) NotificationService.markRead(uid, docId);
           }
         },
@@ -159,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           if (type != 'outcome') {
-            final uid = FirebaseAuth.instance.currentUser?.uid;
+            final uid = _authRepo.currentUid;
             if (uid != null) NotificationService.markRead(uid, docId);
           }
           if (!mounted) return;
@@ -348,14 +349,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final username =
-        FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+    final username = _authRepo.currentDisplayName ?? 'User';
 
     return Scaffold(
       appBar: AppBar(
         title: Text('CrypTransfer', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         centerTitle: true,
-        actions: const [_NotifBellButton(), SizedBox(width: 8)],
+        actions: [_NotifBellButton(authRepo: _authRepo), const SizedBox(width: 8)],
       ),
       drawer: const SidebarDrawer(),
       body: SingleChildScrollView(
@@ -436,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
               activeAsProposerStream: _activeAsProposerStream,
               activeAsPartnerStream: _activeAsPartnerStream,
               outgoingPendingStream: _outgoingPendingStream,
-              currentUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+              currentUid: _authRepo.currentUid ?? '',
               onConnectionTap: _openRolePicker,
               onCancelTap: _cancelProposal,
               onAddPressed: _openAddConnectionSheet,
@@ -508,8 +508,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                 }
-                final uid =
-                    FirebaseAuth.instance.currentUser?.uid ?? '';
+                final uid = _authRepo.currentUid ?? '';
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -608,11 +607,12 @@ class _HomeScreenState extends State<HomeScreen> {
 // ─── Notification bell button (AppBar action) ─────────────────────────────────
 
 class _NotifBellButton extends StatelessWidget {
-  const _NotifBellButton();
+  final AuthRepository authRepo;
+  const _NotifBellButton({required this.authRepo});
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = authRepo.currentUid ?? '';
     return StreamBuilder<int>(
       stream: NotificationService.unreadCountStream(uid),
       builder: (context, snapshot) {

@@ -32,6 +32,8 @@ class AuthRepository {
   // ─── Auth state ────────────────────────────────────────────────────────────
 
   User? get currentUser => _auth.currentUser;
+  String? get currentUid => _auth.currentUser?.uid;
+  String? get currentDisplayName => _auth.currentUser?.displayName;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   // ─── Register ──────────────────────────────────────────────────────────────

@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/notification_service.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../receiver/receiver_screen.dart';
 import '../sender/sender_screen.dart';
 
@@ -12,7 +12,8 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final authRepo = AuthRepository();
+    final uid = authRepo.currentUid ?? '';
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(

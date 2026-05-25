@@ -1,9 +1,9 @@
 import 'dart:ui';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -18,6 +18,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   bool _securing = false;
+  final _authRepo = AuthRepository();
 
   @override
   void initState() {
@@ -27,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _init() async {
     await Future.delayed(const Duration(milliseconds: 1500));
-    final user = await FirebaseAuth.instance.authStateChanges().first;
+    final user = await _authRepo.authStateChanges.first;
     if (!mounted) return;
 
     if (user == null) {

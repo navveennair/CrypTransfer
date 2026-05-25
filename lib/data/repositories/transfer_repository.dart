@@ -199,6 +199,47 @@ class TransferRepository {
     });
   }
 
+  /// Write final immutable audit log to both users' collections in a batch (D-03).
+  Future<void> writeFinalAuditLog({
+    required String senderId,
+    required String receiverId,
+    required String senderUsername,
+    required String receiverUsername,
+    required String fileName,
+    required int fileSize,
+  }) async {
+    final auditPayload = <String, dynamic>{
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'senderUsername': senderUsername,
+      'receiverUsername': receiverUsername,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'status': 'completed',
+      'timestamp': FieldValue.serverTimestamp(),
+      'loggedAt': FieldValue.serverTimestamp(),
+    };
+
+    final batch = _db.batch();
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(senderId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      auditPayload,
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      auditPayload,
+    );
+    await batch.commit();
+  }
+
   // ─── Delete transfer document ──────────────────────────────────────────────
 
   Future<void> deleteTransfer(String transferId) async {

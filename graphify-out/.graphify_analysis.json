@@ -1,0 +1,235 @@
+{
+  "communities": {
+    "0": [
+      "appdelegate_appdelegate",
+      "appdelegate_appdelegate_application",
+      "appdelegate_appdelegate_didinitializeimplicitflutterengine",
+      "flutterappdelegate",
+      "flutterimplicitenginedelegate",
+      "ios_runner_appdelegate_swift"
+    ],
+    "1": [
+      "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java",
+      "generatedpluginregistrant_generatedpluginregistrant",
+      "generatedpluginregistrant_generatedpluginregistrant_registerwith",
+      "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry",
+      "ios_runner_generatedpluginregistrant_m"
+    ],
+    "2": [
+      "claude_encryption_service",
+      "claude_kill_switch",
+      "claude_receiver_screen",
+      "claude_rsa_key_transfers",
+      "claude_session_manager"
+    ],
+    "3": [
+      "flutter_lldb_helper_handle_new_rx_page",
+      "flutter_lldb_helper_lldb_init_module",
+      "flutter_lldb_helper_rationale_8",
+      "ios_flutter_ephemeral_flutter_lldb_helper_py"
+    ],
+    "4": [
+      "ios_runnertests_runnertests_swift",
+      "runnertests_runnertests",
+      "runnertests_runnertests_testexample",
+      "xctestcase"
+    ],
+    "5": [
+      "claude_flag_secure",
+      "claude_impeller_backend",
+      "claude_main_activity",
+      "claude_security_lifecycle_mixin"
+    ],
+    "6": [
+      "flutterscenedelegate",
+      "ios_runner_scenedelegate_swift",
+      "scenedelegate_scenedelegate"
+    ],
+    "7": [
+      "kotlin_security_channel",
+      "main_activity"
+    ],
+    "8": [
+      "ios_bridging_header",
+      "ios_plugin_registrant_h"
+    ],
+    "9": [
+      "android_generate_flowchart_py",
+      "generate_flowchart_create_flowchart_docx"
+    ],
+    "10": [
+      "claude_github_dark_theme",
+      "master_cyberpunk_ui"
+    ],
+    "11": [
+      "android_build_gradle_kts"
+    ],
+    "12": [
+      "android_settings_gradle_kts"
+    ],
+    "13": [
+      "android_app_build_gradle_kts"
+    ],
+    "14": [
+      "kotlin_is_flag_secure_active"
+    ],
+    "15": [
+      "silent_guardian_script"
+    ],
+    "16": [
+      "update_status_script"
+    ],
+    "17": [
+      "claude_ui_framework"
+    ],
+    "18": [
+      "claude_admin_dashboard"
+    ],
+    "19": [
+      "claude_transfers"
+    ],
+    "20": [
+      "claude_transfers_log"
+    ],
+    "21": [
+      "claude_users"
+    ],
+    "22": [
+      "claude_transfer_service"
+    ],
+    "23": [
+      "claude_sender_screen"
+    ],
+    "24": [
+      "claude_silent_guardian"
+    ],
+    "25": [
+      "master_color_palette"
+    ],
+    "26": [
+      "master_immersive_experience"
+    ]
+  },
+  "cohesion": {
+    "0": 0.33,
+    "1": 0.4,
+    "2": 0.4,
+    "3": 0.5,
+    "4": 0.5,
+    "5": 0.67,
+    "6": 0.67,
+    "7": 1.0,
+    "8": 1.0,
+    "9": 1.0,
+    "10": 1.0,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0,
+    "25": 1.0,
+    "26": 1.0
+  },
+  "gods": [
+    {
+      "id": "appdelegate_appdelegate",
+      "label": "AppDelegate",
+      "edges": 5
+    },
+    {
+      "id": "generatedpluginregistrant_generatedpluginregistrant",
+      "label": "GeneratedPluginRegistrant",
+      "edges": 4
+    },
+    {
+      "id": "claude_session_manager",
+      "label": "Session Manager",
+      "edges": 4
+    },
+    {
+      "id": "runnertests_runnertests",
+      "label": "RunnerTests",
+      "edges": 3
+    },
+    {
+      "id": "claude_security_lifecycle_mixin",
+      "label": "Security Lifecycle Mixin",
+      "edges": 3
+    },
+    {
+      "id": "claude_flag_secure",
+      "label": "Android FLAG_SECURE",
+      "edges": 3
+    },
+    {
+      "id": "flutter_lldb_helper_handle_new_rx_page",
+      "label": "handle_new_rx_page()",
+      "edges": 2
+    },
+    {
+      "id": "scenedelegate_scenedelegate",
+      "label": "SceneDelegate",
+      "edges": 2
+    },
+    {
+      "id": "claude_impeller_backend",
+      "label": "Impeller Rendering Backend",
+      "edges": 2
+    },
+    {
+      "id": "claude_encryption_service",
+      "label": "Encryption Service",
+      "edges": 2
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Cyberpunk UI Style",
+      "target": "GitHub Dark Theme Palette",
+      "source_files": [
+        "design-system/cryptransfer/MASTER.md",
+        "CLAUDE.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "iOS Runner Bridging Header",
+      "target": "iOS GeneratedPluginRegistrant Header",
+      "source_files": [
+        "ios/Runner/Runner-Bridging-Header.h",
+        "ios/Runner/GeneratedPluginRegistrant.h"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `Session Manager` connect `Community 2` to `Community 5`?",
+      "why": "High betweenness centrality (0.015) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `Security Lifecycle Mixin` connect `Community 5` to `Community 2`?",
+      "why": "High betweenness centrality (0.010) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `com.example.cryptransfer/security`, `MainActivity`, `isFlagSecureActive` to the rest of the system?",
+      "why": "23 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

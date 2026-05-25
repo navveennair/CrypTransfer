@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -43,7 +42,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   }
 
   Future<void> _updateLastVaultAccess() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
     if (uid == null) return;
     try {
       await _authRepo.updateLastVaultAccess(uid);
@@ -58,7 +57,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
       TofuService.displayFingerprint(publicKeyJson);
 
   Future<void> _onRegenerate() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
     if (uid == null) return;
 
     // TODO: Re-enable biometric authentication after debugging
@@ -125,7 +124,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   }
 
   Future<void> _onDelete() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
     if (uid == null) return;
 
     // TODO: Re-enable biometric authentication after debugging
@@ -284,7 +283,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
 
     return Scaffold(
       backgroundColor: AppTheme.darkBg,

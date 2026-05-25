@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/utils/theme_service.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -18,6 +18,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   final _userRepo = UserRepository();
+  final _authRepo = AuthRepository();
   int _currentPage = 0;
 
   @override
@@ -98,7 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _completeOnboarding() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _authRepo.currentUid;
     if (uid != null) {
       await _userRepo.updateUser(uid, {'isFirstTime': false});
     }
