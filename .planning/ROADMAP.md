@@ -94,6 +94,56 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Wave 1: KeyRepository data layer — selectSenderHandshake returns Future<String>, new setReceiverReady() method
-- [ ] 06-02-PLAN.md — Wave 2: ReceiverScreen trigger — _onSenderSelected captures docId, _writeReceiverReady() with retry SnackBar
-- [ ] 06-03-PLAN.md — Wave 2 (parallel): SenderScreen gate — _receiverReady state, _WaitingForReceiverWidget, countdown timer, Steps 1-4 AnimatedOpacity gate, eject logic
+- [x] 06-01-PLAN.md — Wave 1: KeyRepository data layer — selectSenderHandshake returns Future<String>, new setReceiverReady() method
+- [x] 06-02-PLAN.md — Wave 2: ReceiverScreen trigger — _onSenderSelected captures docId, _writeReceiverReady() with retry SnackBar
+- [x] 06-03-PLAN.md — Wave 2 (parallel): SenderScreen gate — _receiverReady state, _WaitingForReceiverWidget, countdown timer, Steps 1-4 AnimatedOpacity gate, eject logic
+
+### Phase 07: Sender Reactive Cleanup Sync
+**Goal:** Implement a real-time stream on SenderScreen that listens to the receiver's cleanup status after a successful transfer. When the receiver (master) marks cleanup complete in Firestore, the sender verifies and wipes its own critical key/hashed data, then both parties navigate back to HomeScreen. Update Firebase security rules to grant the sender the necessary delete/write permissions for its cleanup documents.
+
+**Depends on:** Phase 06
+
+**Scope:**
+1. **Firestore Cleanup Signal** — Define a cleanup status field or document that the receiver writes when its cleanup is complete (e.g., `cleanupComplete: true` on the transfer doc, or a dedicated `session_cleanup/{sessionId}` document). Sender streams this field.
+2. **Sender Stream Listener** — On `TransferProgressScreen` / "File sent successfully" state, attach a `StreamSubscription` on the receiver's cleanup signal. While waiting, show a "Waiting for receiver to complete secure cleanup..." UI (pulsing indicator).
+3. **Sender Cleanup Logic** — When the stream emits `cleanupComplete: true`, sender: (a) verifies AES key doc is deleted from Firestore; (b) wipes local AES key bytes from memory (zero-fill); (c) deletes its own sender-side transfer artifacts if any remain; (d) navigates to HomeScreen.
+4. **Firebase Security Rules** — Extend Firestore rules to allow the sender to read the cleanup signal document and delete/update any sender-owned transfer artifacts needed for cleanup.
+5. **Safety Timeout** — If the receiver cleanup signal is not received within a configurable timeout, sender auto-wipes local keys and navigates home with a "Session ended by timeout" notification.
+
+**Status:** Complete
+
+**Plans:** 1 plan
+
+Plans:
+- [x] 07-01-PLAN.md — Wave 1: pulsing waiting UI + 300s safety timeout — TransferProgressScreen + SenderSessionEndedScreen timeoutReason
+
+### Phase 07.1: Layer Decoupling Refactor
+**Goal:** Fix critical layer coupling violations where the Presentation Layer calls `FirebaseFirestore.instance` directly instead of delegating to the Repository layer. After this phase, all Firestore operations are centralized in Repositories, enabling schema changes without edits to 14 UI files, centralizing security filters, and enabling unit testing of screens.
+
+**Status:** Ready for execution
+
+**Depends on:** Phase 07
+
+**Scope:**
+1. **Repository Layer Expansion** — Create CleanupRepository with 3 methods (initiateReceiverCleanup, watchTransferForDeletion, completeReceiverCleanup). Extend TransferRepository with 6 new methods (watchTransferStatus, streamRecentTransfers, updateTransferField, updateTransferStatus, cancelTransfer, getTransferDoc, deleteStorageFile). Extend AdminRepository with 4 new methods (streamTransferLogs, streamActiveHandshakes, streamUserConnections, streamSecurityAuditLog). Create UserRepository with 2 methods (updateUser, streamUserWithFriendships).
+
+2. **Transfer Screens Migration** — Migrate 7 transfer-related UI files to use TransferRepository: transfer_progress_screen.dart (6 calls), sender_session_ended_screen.dart (2 calls), sender_screen.dart (1 call), receiver_transfer_screen.dart (2 calls), receiver_screen.dart (2 calls), decrypt_screen.dart (2 calls), home_screen.dart (1 call).
+
+3. **End Session Cleanup** — Migrate receiver_end_session_screen.dart (4 calls) to use CleanupRepository, preserving D-03 security-critical cleanup sequence (audit log → storage → transfer doc → RSA).
+
+4. **Admin & Misc Screens** — Migrate 6 remaining UI files to use AdminRepository and UserRepository: admin_dashboard.dart (3 calls), admin_dashboard_screen.dart (1 call), connection_node_map.dart (2 calls), security_pulse_feed.dart (1 call), transfer_volume_chart.dart (1 call), onboarding_screen.dart (1 call).
+
+**Success Criteria:**
+- [ ] Zero `FirebaseFirestore.instance` calls in `lib/presentation/`
+- [ ] 15 new Repository methods created and tested
+- [ ] 14 UI files refactored to use Repositories
+- [ ] `flutter analyze` returns "No issues found"
+- [ ] D-03 cleanup order preserved in receiver_end_session_screen.dart
+
+**Plans:** 4 plans
+
+Plans:
+- [ ] 07.1-01-PLAN.md — Wave 0: Repository expansion — CleanupRepository (3 methods), TransferRepository (7 methods), AdminRepository (4 methods), UserRepository (2 methods)
+- [ ] 07.1-02-PLAN.md — Wave 1: Transfer screens migration — transfer_progress_screen (6 calls), sender_session_ended_screen (2 calls), sender_screen (1 call), receiver_transfer_screen (2 calls), receiver_screen (2 calls), decrypt_screen (2 calls), home_screen (1 call)
+- [ ] 07.1-03-PLAN.md — Wave 2: Cleanup screen migration — receiver_end_session_screen (4 calls) using CleanupRepository, preserving D-03 order
+- [ ] 07.1-04-PLAN.md — Wave 3: Admin & misc screens — admin_dashboard (3 calls), admin_dashboard_screen (1 call), connection_node_map (2 calls), security_pulse_feed (1 call), transfer_volume_chart (1 call), onboarding_screen (1 call)
