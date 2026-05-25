@@ -253,6 +253,19 @@ class TransferRepository {
         .snapshots();
   }
 
+  /// Watch pending transfers from a specific sender to a specific receiver.
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchPendingTransfersFromSender(
+    String receiverId,
+    String senderId,
+  ) {
+    return _db
+        .collection(FirebaseConstants.transfers)
+        .where('receiverId', isEqualTo: receiverId)
+        .where('senderId', isEqualTo: senderId)
+        .where('status', isEqualTo: 'pending')
+        .snapshots();
+  }
+
   // ─── Watch transfer doc for reactive updates ───────────────────────────────
 
   /// Stream the transfer document for reactive UI updates

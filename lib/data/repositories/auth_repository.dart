@@ -327,6 +327,16 @@ class AuthRepository {
         .map((doc) => doc.exists ? UserModel.fromDoc(doc) : null);
   }
 
+  /// Fetch the isReadyToReceive status for the user.
+  Future<bool> getIsReadyToReceive(String uid) async {
+    try {
+      final doc = await _db.collection(FirebaseConstants.users).doc(uid).get();
+      return doc.data()?['isReadyToReceive'] as bool? ?? false;
+    } on FirebaseException {
+      return false;
+    }
+  }
+
   /// Updates the lastVaultAccessAt timestamp in users/{uid}/profile/preferences.
   /// Uses set(merge: true) so it creates the doc if missing (safe for users
   /// who registered before Phase 03 and lack the profile/preferences document).
