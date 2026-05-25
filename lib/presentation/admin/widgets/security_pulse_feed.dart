@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../../core/constants/firebase_constants.dart';
+import '../../../data/repositories/admin_repository.dart';
 
 class SecurityPulseFeed extends StatelessWidget {
-  const SecurityPulseFeed({super.key});
+  final _adminRepo = AdminRepository();
+
+  SecurityPulseFeed({super.key});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(FirebaseConstants.securityAuditLog)
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+      stream: _adminRepo.streamSecurityAuditLog(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         
