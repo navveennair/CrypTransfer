@@ -7,9 +7,8 @@ abstract class FirebaseConstants {
   static const String transferLogs = 'transfer_logs';
   static const String auditLogs = 'audit_logs';
   static const String notifications = 'notifications';
-  static const String friendRequests = 'friend_requests';
-  static const String connections = 'connections';
   static const String friendships = 'friendships';
+  static const String connections = 'connections';  // subcollection: users/{uid}/connections
   static const String handshakes = 'handshakes';
   static const String neutralHandshakes = 'neutral_handshakes';
   static const String securityAuditLog = 'security_audit_log';
