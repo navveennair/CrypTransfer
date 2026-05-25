@@ -7,7 +7,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/transfer_repository.dart';
 import 'sender_session_ended_screen.dart';

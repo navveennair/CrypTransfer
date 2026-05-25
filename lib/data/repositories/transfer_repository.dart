@@ -269,7 +269,7 @@ class TransferRepository {
   // ─── Watch transfer doc for reactive updates ───────────────────────────────
 
   /// Stream the transfer document for reactive UI updates
-  Stream<DocumentSnapshot> watchTransferStatus(String transferId) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchTransferStatus(String transferId) {
     return _db
         .collection(FirebaseConstants.transfers)
         .doc(transferId)
