@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/handshake_repository.dart';
+import '../../data/repositories/transfer_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'find_friends_screen.dart';
 import 'notifications_screen.dart';
@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _lastBannerDocId;
 
   final _handshakeRepo = HandshakeRepository();
+  final _transferRepo = TransferRepository();
   StreamSubscription<QuerySnapshot>? _pendingProposalSub;
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _recentTransfersStream;
@@ -43,13 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    _recentTransfersStream = FirebaseFirestore.instance
-        .collection(FirebaseConstants.users)
-        .doc(uid)
-        .collection(FirebaseConstants.auditLogs)
-        .orderBy('loggedAt', descending: true)
-        .limit(10)
-        .snapshots();
+    _recentTransfersStream = _transferRepo.streamRecentTransfers(uid);
     _activeAsProposerStream = _handshakeRepo.streamActiveConnectionsAsProposer();
     _activeAsPartnerStream = _handshakeRepo.streamActiveConnectionsAsPartner();
     _outgoingPendingStream = _handshakeRepo.streamOutgoingPending();
