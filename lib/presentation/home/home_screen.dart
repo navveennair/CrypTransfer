@@ -849,9 +849,13 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                   TextButton(
                     onPressed: (_accepting || _rejecting)
                         ? null
-                        : () {
+                        : () async {
                             setState(() => _accepting = true);
-                            widget.onAccept();
+                            try {
+                              await widget.onAccept();
+                            } finally {
+                              if (mounted) setState(() => _accepting = false);
+                            }
                           },
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.green.shade400,
@@ -868,9 +872,13 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                   TextButton(
                     onPressed: (_accepting || _rejecting)
                         ? null
-                        : () {
+                        : () async {
                             setState(() => _rejecting = true);
-                            widget.onReject();
+                            try {
+                              await widget.onReject();
+                            } finally {
+                              if (mounted) setState(() => _rejecting = false);
+                            }
                           },
                     style: TextButton.styleFrom(
                       foregroundColor: cs.error,
