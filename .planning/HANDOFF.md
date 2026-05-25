@@ -1,7 +1,7 @@
 # Session Handoff — Phase 07.1 UAT & Role Assignment
 
 **Date:** 2026-05-26  
-**Status:** Mid-implementation — bottleneck fixed, role assignment ready to implement
+**Status:** Role assignment architecture implemented — ready for UAT Test 3 and beyond
 
 ---
 
@@ -27,109 +27,66 @@
 - **Rejected:** Global `isReadyToReceive` gate for all senders
 - **Implemented:** Per-handshake `receiverReady` coupled to specific sender/receiver pair (cleaner)
 
-### 3. UAT Status
+### 3. Role Assignment Architecture Implemented
+- **What:** File transfer roles (`senderUid`/`receiverUid`) now assigned via HomeScreen role picker
+- **KeyRepository:** Added `assignTransferRole(partnerUid, isSender)` (queries for handshake doc, updates with role fields)
+- **KeyRepository:** Added `clearTransferRoles(handshakeDocId)` (FieldValue.delete on role fields)
+- **HomeScreen:** Converted `_RolePickerSheet` to StatefulWidget with async callbacks + loading spinner
+- **HomeScreen:** Calls `assignTransferRole()` before navigation, threads `handshakeDocId` to screens
+- **SenderScreen:** Added `handshakeDocId` constructor param, captures from stream, validates `senderUid`
+- **SenderScreen:** PopScope with warning dialog on back — clears roles before popping
+- **ReceiverScreen:** Added `handshakeDocId` constructor param, captures from `selectSenderHandshake()` return value
+- **ReceiverScreen:** Role validation after handshake — verifies `receiverUid == currentUser`
+- **ReceiverScreen:** Updated PopScope to clear roles when mailbox not yet opened
+
+**Commit:** `0bd1c72` — feat(07.1): role assignment architecture
+
+### 4. UAT Status
 - Test 1: ✅ PASS (Cold Start)
 - Test 2: ✅ PASS (Transfer Flow - biometric disabled)
-- Test 3: ⏳ PENDING (Decrypt & Save Flow - ready to re-test after fix)
+- Test 3: ⏳ PENDING (Decrypt & Save Flow - ready to re-test with bottleneck fix)
 - Test 4: ✅ PASS (Admin Dashboard)
 - Test 5: ⏳ BLOCKED (depends on Test 3)
 - Test 6: ✅ PASS (Onboarding)
 
 ---
 
-## 🔄 What's Next: Role Assignment Architecture
+## 🔄 What's Next: UAT Tests 3-6
 
-### Requirement
-When user clicks partner in HomeScreen → popup shows "Send File" / "Receive File"  
-User chooses role → **Update handshake doc with `senderUid` and `receiverUid`**  
-Other user's UI locks to opposite role  
-If back button → show warning → clear roles → return to HomePage
+Role assignment is now wired end-to-end. Next is manual UAT to verify all flows:
 
-### Current HomeScreen Structure
-- File: `lib/presentation/home/home_screen.dart` lines 1355-1429
-- Two buttons: `onSendFile` (line 1357) and `onReceiveFile` (line 1395)
-- Both are callbacks passed to a dialog/sheet widget
+1. **Test 3 — Decrypt & Save Flow** (priority)
+   - Confirm bottleneck fix works: receiver opens mailbox, sender Step 3 advances automatically
+   - Run through full transfer flow (select sender → Step 3 → encryption → upload → decrypt & save)
 
-### Implementation Steps (In Order)
+2. **Test 5 — Role Assignment Happy Path** (after Test 3)
+   - User A taps connection → picks "Send File" → navigates to SenderScreen with role assigned
+   - User B taps connection → role picker shows (no locking in MVP) → picks "Receive File" → navigates
+   - Transfer proceeds normally; both users can see their assigned roles in the handshake doc
 
-1. **Add method to KeyRepository** (`key_repository.dart`)
-   ```dart
-   Future<void> setTransferRoles({
-     required String handshakeDocId,
-     required String senderUid,
-     required String receiverUid,
-   }) async {
-     // Update handshake doc: senderUid, receiverUid
-   }
-   ```
+3. **Test 6 — Back Button Role Clearing**
+   - User navigates to SenderScreen/ReceiverScreen via role picker
+   - Presses back before opening mailbox / uploading
+   - Warning dialog appears: "Going back will clear your role assignment. Connection remains."
+   - On confirm: roles cleared from Firestore, both users return to HomeScreen
+   - Connection still exists; can pick roles again
 
-2. **Update HomeScreen callbacks** (lines 244-256)
-   ```dart
-   onSendFile: () {
-     // Call: setTransferRoles(docId, currentUser, partner)
-     // Then: Navigator.push(SenderScreen(...))
-   }
-   onReceiveFile: () {
-     // Call: setTransferRoles(docId, partner, currentUser)
-     // Then: Navigator.push(ReceiverScreen(...))
-   }
-   ```
-
-3. **Add validation in SenderScreen**
-   - Fetch handshake doc
-   - Verify: `senderUid == currentUser.uid` AND `receiverUid == partner.uid`
-   - If mismatch: show error, pop back
-
-4. **Add validation in ReceiverScreen**
-   - Fetch handshake doc
-   - Verify: `receiverUid == currentUser.uid` AND `senderUid == partner.uid`
-   - If mismatch: show error, pop back
-
-5. **Add back button warning**
-   - PopScope or WillPopScope on both screens
-   - Dialog: "Going back will clear role assignment. Connection remains. Continue?"
-   - On confirm: clear `senderUid`/`receiverUid` → navigate to HomePage
-
-### Key Files to Modify
-- `lib/data/repositories/key_repository.dart` — add `setTransferRoles()`
-- `lib/presentation/home/home_screen.dart` — update callbacks (lines 244-256)
-- `lib/presentation/sender/sender_screen.dart` — add role validation
-- `lib/presentation/receiver/receiver_screen.dart` — add role validation
-
-### Current Handshake Doc Structure
-```
-{
-  receiverId: <connection initiator>,
-  senderId: <connection target>,
-  publicKey: <RSA key>,
-  status: 'handshake_complete',
-  receiverReady: <true if mailbox open>,
-  
-  // TO ADD:
-  senderUid: <who will send the file>,
-  receiverUid: <who will receive the file>
-}
-```
-
-### Role Assignment Logic
-- User A clicks "Send File" → `senderUid: A, receiverUid: B`
-- User B sees partner chose sender role → UI shows only "Receive File" (locked)
-- If User B also wants to send → must go back, break connection, create new one
+4. **Edge Case — Role Conflict**
+   - Manually push both users to SenderScreen (e.g., via direct links or rapid clicking)
+   - Whichever user's handshake stream processes second sees role conflict
+   - SnackBar error: "Role conflict — partner also chose Sender. Go back and pick again."
+   - User auto-reverts to waiting state
 
 ---
 
 ## Quick Reference
 
-**Last commit:** `825b645`  
+**Last commit:** `0bd1c72` — feat(07.1): role assignment architecture  
 **Current branch:** main  
 **Test file:** `.planning/phases/07.1-layer-decoupling-refactor/07.1-UAT.md`  
-**Debug docs:** `.planning/debug/` (check sender-stepper3-button-unresponsive.md)  
 
 **To resume:**
-1. Review this handoff
-2. Implement KeyRepository.setTransferRoles()
-3. Update HomeScreen callbacks
-4. Test with manual UAT (Test 3-6)
-5. Commit atomic changes
-6. Resume /gsd:verify-work 07.1 when ready
+1. Run `flutter pub get` + `flutter build apk` (optional — test on device)
+2. Manual UAT: Test 3 (bottleneck), then 5-6 (role assignment)
+3. When tests pass, run `/gsd:verify-work 07.1` for phase verification
 
