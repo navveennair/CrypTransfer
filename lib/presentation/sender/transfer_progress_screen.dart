@@ -9,7 +9,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/transfer_repository.dart';
 import 'sender_session_ended_screen.dart';
+import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 
 class TransferProgressScreen extends StatefulWidget {
@@ -48,6 +50,8 @@ class TransferProgressScreen extends StatefulWidget {
 class _TransferProgressScreenState extends State<TransferProgressScreen>
     with SingleTickerProviderStateMixin,
         SecurityLifecycleMixin<TransferProgressScreen> {
+  final _transferRepo = TransferRepository();
+
   double _progress = 0.0;
   int _bytesTransferred = 0;
   int _totalBytes = 0;
@@ -63,6 +67,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   bool _timeoutStarted = false; // guard: arm cleanup timeout exactly once
   Timer? _cleanupTimeoutTimer; // safety timeout — cancelled on Turn 2/Turn 4/dispose
   String? _statusMessage;
+  bool _aborting = false; // true while our own abort is in flight — prevents double-fire from stream
+  UploadTask? _uploadTask; // held so abort can cancel the in-flight Storage task
 
   late AnimationController _successCtrl;
   late Animation<double> _scaleAnim;
@@ -98,30 +104,29 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   // ─── Non-repudiation: real-time receiver status ───────────────────────────
 
   void _startTransferListener() {
-    _transferListener = FirebaseFirestore.instance
-        .collection('transfers')
-        .doc(widget.transferId)
-        .snapshots()
+    _transferListener = _transferRepo
+        .watchTransferStatus(widget.transferId)
         .listen((snapshot) async {
-      // Turn 4: doc deleted by receiver — sender navigates to session-ended screen
+      // Turn 4: doc deleted by receiver — session closed; notify sender and return home.
       if (!snapshot.exists) {
-        if (!_done || _sessionEnded) return; // only react after upload completes (Pitfall 1)
+        if (_sessionEnded) return;
+        if (!_done) return; // ignore spurious deletion before upload finishes
         _cleanupTimeoutTimer?.cancel();
         _sessionEnded = true;
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey (registered in initState)
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SenderSessionEndedScreen(
-                transferId: widget.transferId,
-                fileName: widget.fileName,
-                fileSize: widget.fileSize,
-                receiverUsername: widget.receiverUsername,
-                senderId: widget.senderId,
-                receiverId: widget.receiverId,
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('✓ Receiver has securely closed the session'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 4),
               ),
-            ),
+            );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (_) => false,
           );
         }
         return;
@@ -130,19 +135,35 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       final data = snapshot.data()!;
       final status = data['status'] as String?;
 
+      // Counter-party abort: receiver set status = 'failed' — wipe and return home.
+      if (status == 'failed' && !_aborting && !_sessionEnded) {
+        _cleanupTimeoutTimer?.cancel();
+        _sessionEnded = true;
+        wipeAll();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('Transfer aborted — receiver terminated the tunnel'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (_) => false,
+          );
+        }
+        return;
+      }
+
       // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
       if (status == 'cleanup_initiated' && _done && !_senderWipeSent && !_sessionEnded) {
         _cleanupTimeoutTimer?.cancel();
         _senderWipeSent = true;
         try {
-          await FirebaseFirestore.instance
-              .collection('transfers')
-              .doc(widget.transferId)
-              .update({
-            'encryptedAESKey': FieldValue.delete(), // semantically remove, not blank-string
-            'senderCleanedUp': true,
-            'senderCleanedUpAt': FieldValue.serverTimestamp(),
-          });
+          await _transferRepo.senderWipeAESKey(widget.transferId);
         } catch (e) {
           // Remote AES key erasure failed — local wipe still runs below.
           // Log so the failure is visible in security review (no key material logged).
@@ -182,13 +203,11 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   }
 
   Future<void> _clearSenderLocalMetadata() async {
-    await FirebaseFirestore.instance
-        .collection('transfers')
-        .doc(widget.transferId)
-        .update({
-      'senderStatus': 'metadata_cleared',
-      'metadataClearedAt': FieldValue.serverTimestamp(),
-    });
+    await _transferRepo.updateTransferField(
+      widget.transferId,
+      'senderStatus',
+      'metadata_cleared',
+    );
   }
 
   /// Starts a 300-second safety timeout after the receiver saves the file.
@@ -219,6 +238,71 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
     });
   }
 
+  // ─── Abort dialog ────────────────────────────────────────────────────────────
+
+  Future<void> _showAbortDialog() async {
+    if (_aborting || _sessionEnded) return;
+    final abort = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Abort Transfer?'),
+        content: const Text(
+          'This will destroy all cryptographic material and collapse the secure '
+          'tunnel. The receiver will be notified that the transfer failed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Abort & Destroy'),
+          ),
+        ],
+      ),
+    );
+    if (abort == true && mounted) {
+      await _abortSessionDueToDisconnect();
+    }
+  }
+
+  Future<void> _abortSessionDueToDisconnect() async {
+    if (_aborting || _sessionEnded) return;
+    _aborting = true;
+    _sessionEnded = true;
+    _cleanupTimeoutTimer?.cancel();
+    _uploadTask?.cancel();
+    try {
+      await _transferRepo.updateTransferStatus(widget.transferId, 'failed');
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'encryptedAESKey',
+        FieldValue.delete(),
+      );
+    } catch (_) {
+      // Doc may not exist yet if upload hadn't started — wipe proceeds regardless.
+    }
+    wipeAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (_) => false,
+      );
+    }
+  }
+
   Future<void> _startUpload() async {
     try {
       final ref = FirebaseStorage.instance
@@ -229,9 +313,9 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         customMetadata: {'fileName': widget.fileName},
       );
 
-      final uploadTask = ref.putData(widget.encryptedBytes, metadata);
+      _uploadTask = ref.putData(widget.encryptedBytes, metadata);
 
-      uploadTask.snapshotEvents.listen((snapshot) {
+      _uploadTask!.snapshotEvents.listen((snapshot) {
         if (mounted && snapshot.totalBytes > 0) {
           setState(() {
             _bytesTransferred = snapshot.bytesTransferred;
@@ -241,24 +325,46 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         }
       });
 
-      final snapshot = await uploadTask;
+      final snapshot = await _uploadTask!;
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
-      await FirebaseFirestore.instance
-          .collection('transfers')
-          .doc(widget.transferId)
-          .set({
-        'senderId': widget.senderId,
-        'receiverId': widget.receiverId,
-        'encryptedAESKey': widget.encryptedAESKeyB64,
-        'encryptedFileUrl': downloadUrl,
-        'fileName': widget.fileName,
-        'fileSize': widget.fileSize,
-        'iv': widget.ivB64,
-        'status': 'pending',
-        'sessionActive': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // Create transfer document with all required fields
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'senderId',
+        widget.senderId,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'receiverId',
+        widget.receiverId,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'encryptedAESKey',
+        widget.encryptedAESKeyB64,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'encryptedFileUrl',
+        downloadUrl,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'fileName',
+        widget.fileName,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'fileSize',
+        widget.fileSize,
+      );
+      await _transferRepo.updateTransferField(
+        widget.transferId,
+        'iv',
+        widget.ivB64,
+      );
+      await _transferRepo.updateTransferStatus(widget.transferId, 'pending');
 
       // Start the non-repudiation listener NOW — doc exists, security rule can evaluate.
       // Starting before .set() would subscribe to a non-existent doc, causing
@@ -270,19 +376,11 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       try {
         final senderUsername =
             FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
-        await FirebaseFirestore.instance
-            .collection(FirebaseConstants.users)
-            .doc(widget.receiverId)
-            .collection(FirebaseConstants.notifications)
-            .add({
-          'toUserId': widget.receiverId,
-          'fromUsername': senderUsername,
-          'type': 'file_received',
-          'message': '📁 $senderUsername sent you an encrypted file',
-          'transferId': widget.transferId,
-          'createdAt': FieldValue.serverTimestamp(),
-          'read': false,
-        });
+        await _transferRepo.notifyReceiver(
+          receiverId: widget.receiverId,
+          senderUsername: senderUsername,
+          transferId: widget.transferId,
+        );
       } catch (_) {}
 
       if (mounted) {
@@ -312,8 +410,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      // Prevent back-swipe while upload is in progress
-      canPop: _done || _error != null,
+      canPop: false,
+      onPopInvokedWithResult: (_, _) => _showAbortDialog(),
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -321,7 +419,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
-          automaticallyImplyLeading: _done || _error != null,
+          automaticallyImplyLeading: false,
         ),
         body: Padding(
           padding: const EdgeInsets.all(28),
