@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/cleanup_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../../data/services/encryption_service.dart';
@@ -73,6 +74,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
     _Step(icon: Icons.person_off_rounded,     label: 'Wipe RSA keys from device and Firestore'),
   ];
 
+  final _cleanupRepo = CleanupRepository();
   final _transferRepo = TransferRepository();
   StreamSubscription<DocumentSnapshot>? _docListener;
 
@@ -113,11 +115,19 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       _error = null;
     });
     try {
-      await _transferRepo.initiateCleanup(widget.transferId);
-      _docListener = FirebaseFirestore.instance
-          .collection('transfers')
-          .doc(widget.transferId)
-          .snapshots()
+      // Turn 1: Write cleanup_initiated flag and receiver's audit log
+      await _cleanupRepo.initiateReceiverCleanup(
+        transferId: widget.transferId,
+        receiverId: widget.receiverId,
+        senderId: widget.senderId,
+        senderUsername: widget.senderUsername,
+        fileName: widget.fileName,
+        fileSize: widget.fileSize,
+      );
+
+      // Watch for sender cleanup confirmation and doc deletion
+      _docListener = _cleanupRepo
+          .watchTransferForDeletion(widget.transferId)
           .listen(_onTransferDocUpdate);
     } catch (e) {
       if (mounted) {
@@ -183,8 +193,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
     }
 
     try {
-      // ── Step 0: Write immutable audit log FIRST (before any deletion — D-03) ──
-      // Security: audit log must survive even if a later step fails.
+      // ── Step 0: Write immutable audit log FIRST (D-03) ──
       await tick(0);
       final receiverUsername =
           FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
@@ -196,13 +205,10 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         'fileName': widget.fileName,
         'fileSize': widget.fileSize,
         'status': 'completed',
-        // 'timestamp' is the canonical spec field.
-        // 'loggedAt' is kept for backward-compatible home-screen sort.
         'timestamp': FieldValue.serverTimestamp(),
         'loggedAt': FieldValue.serverTimestamp(),
       };
       final auditBatch = FirebaseFirestore.instance.batch();
-      // Sender's personal audit record
       auditBatch.set(
         FirebaseFirestore.instance
             .collection(FirebaseConstants.users)
@@ -211,7 +217,6 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
             .doc(),
         auditPayload,
       );
-      // Receiver's personal audit record
       auditBatch.set(
         FirebaseFirestore.instance
             .collection(FirebaseConstants.users)
@@ -228,8 +233,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       await _transferRepo.deleteStorageFile(widget.transferId);
       await done(1);
 
-      // ── Step 2: Atomic WriteBatch — delete transfer doc + handshake doc ──────
-      // MUST come before closeReceiverSession() to avoid null handshakeId (Pitfall 2).
+      // ── Step 2: Atomic WriteBatch — delete transfer doc + handshake ────────
       await tick(2);
       final keyRepo = KeyRepository();
       final handshakeId = await keyRepo.getActiveHandshakeDocId(
@@ -243,20 +247,26 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       );
       await done(2);
 
-      // ── Step 3: Full RSA session close — LAST (broader sweep is idempotent) ──
-      // Deletes publicKey + selectedSenderUid from Firestore, RSA private key from
-      // FlutterSecureStorage, and purges all remaining handshakes for this receiver.
+      // ── Step 3: Full RSA session close — LAST ────────────────────────────
       await tick(3);
       await EncryptionService.closeReceiverSession(widget.receiverId);
       await done(3);
 
-      // ── Turn 4: Navigate to HomeScreen immediately after cleanup ─────────────
-      await Future.delayed(const Duration(milliseconds: 300));
+      // ── Cleanup complete ────────────────────────────────────────────────────
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (_) => false,
-        );
+        setState(() {
+          _phase = _Phase.done;
+        });
+        _doneCtrl.forward();
+
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
