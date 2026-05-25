@@ -13,6 +13,7 @@ import '../../core/utils/session_manager.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
+import '../../data/repositories/transfer_repository.dart';
 import '../../data/services/encryption_service.dart';
 import '../vault/rsa_key_manager_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -36,6 +37,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     with SecurityLifecycleMixin<ReceiverScreen>, WidgetsBindingObserver {
   final _authService = AuthRepository();
   final _connService = KeyRepository();
+  final _transferRepo = TransferRepository();
   final _sessionManager = SessionManager();
 
   bool _hasPrivateKey = false;
@@ -175,14 +177,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     }
     setState(() => _loadingReadyState = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection(FirebaseConstants.users)
-          .doc(uid)
-          .get();
+      final isReady = await _authService.getIsReadyToReceive(uid);
       if (mounted) {
         setState(() {
-          _isReadyToReceive =
-              doc.data()?['isReadyToReceive'] as bool? ?? false;
+          _isReadyToReceive = isReady;
           _loadingReadyState = false;
         });
       }
@@ -324,12 +322,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   Future<void> _onSenderSelected(UserModel sender) async {
     _sessionManager.selectSender(sender.uid, sender.username);
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    _transferStream = FirebaseFirestore.instance
-        .collection(FirebaseConstants.transfers)
-        .where('receiverId', isEqualTo: myUid)
-        .where('senderId', isEqualTo: sender.uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots();
+    _transferStream = _transferRepo.watchPendingTransfersFromSender(
+      myUid,
+      sender.uid,
+    );
     setState(() => _handshaking = true);
     try {
       final handshakeDocId = await _connService.selectSenderHandshake(
