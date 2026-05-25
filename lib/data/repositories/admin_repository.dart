@@ -3,7 +3,11 @@ import '../../core/constants/firebase_constants.dart';
 import '../models/user_model.dart';
 
 class AdminRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+
+  AdminRepository({
+    FirebaseFirestore? db,
+  }) : _db = db ?? FirebaseFirestore.instance;
 
   // ─── Stats ───────────────────────────────────────────────────────────────
 
@@ -50,4 +54,35 @@ class AdminRepository {
       .collection(FirebaseConstants.securityAuditLog)
       .orderBy('timestamp', descending: true)
       .snapshots();
+
+  // ─── Additional admin dashboard streams ───────────────────────────────────
+
+  /// Stream active handshakes for admin dashboard (full QuerySnapshot)
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamActiveHandshakesDetail() {
+    return _db
+        .collection(FirebaseConstants.handshakes)
+        .where('status', isEqualTo: 'handshake_complete')
+        .snapshots();
+  }
+
+  /// Stream user connections for connection node map
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamUserConnections() {
+    return _db.collection(FirebaseConstants.users).snapshots();
+  }
+
+  /// Stream security audit log for security pulse feed
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamSecurityAuditLog() {
+    return _db
+        .collection(FirebaseConstants.securityAuditLog)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  /// Stream transfer logs for admin dashboard (full QuerySnapshot)
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamTransferLogsDetail() {
+    return _db
+        .collection(FirebaseConstants.transferLogs)
+        .orderBy('loggedAt', descending: true)
+        .snapshots();
+  }
 }
