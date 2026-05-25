@@ -1,94 +1,132 @@
 # Technology Stack
 
-**Analysis Date:** 2026-04-19
+**Analysis Date:** 2026-05-25
 
 ## Languages
 
 **Primary:**
-- Dart 3.11.1+ - Core application logic, cryptography implementations, UI layer
-- Kotlin 17 - Android native bridge (FLAG_SECURE, MethodChannel)
+- Dart 3.12.0+ - Core application logic, cryptography implementations, UI layer
+- Kotlin 17 (JVM target) - Android native bridge (`android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt`)
 
 **Secondary:**
-- XML - Android manifest and resources
-- YAML - Flutter configuration and dependency management
+- XML - Android manifest and resources (`android/app/src/main/AndroidManifest.xml`)
+- YAML - Flutter configuration and dependency management (`pubspec.yaml`, `firebase.json`)
 
 ## Runtime
 
 **Environment:**
-- Flutter SDK (3.x) - Cross-platform mobile app framework
-- Dart VM - Application runtime
+- Flutter SDK 3.44.0+ - Cross-platform mobile app framework with Impeller backend (OpenGLES)
+- Dart VM 3.12.0+ - Application runtime
+- Android SDK: compileSdk/minSdk/targetSdk managed by Flutter (`android/app/build.gradle.kts`)
+- Android NDK: version managed by Flutter
 
 **Package Manager:**
-- Pub (pubspec.yaml) - Dart/Flutter package manager
-- Gradle (7.x+) - Android build system
+- Pub (pubspec.yaml) - Dart/Flutter package manager; lockfile present as `pubspec.lock`
+- Gradle 7.x+ - Android build system; configured in `android/build.gradle.kts` and `android/app/build.gradle.kts`
 
 ## Frameworks
 
 **Core:**
-- Flutter Material Design 3 - UI framework and theming
-- Firebase Core 4.6.0 - Backend services initialization
+- Flutter 3.44.0+ with Material 3 - UI framework, design system, and theming (`lib/app_theme.dart` uses GitHub Dark palette)
+- Firebase Core 4.6.0 - Backend services initialization and configuration
+
+**State Management:**
+- Provider 6.1.5+1 - State management via ChangeNotifierProvider (ThemeService in `lib/main.dart`)
+
+**Authentication & Identity:**
+- Firebase Auth 6.3.0 - Email/password and OAuth authentication via `lib/data/repositories/auth_repository.dart`
+- Google Sign-In 6.2.4 - OAuth 2.0 provider for account linking
+- local_auth 3.0.1 - Biometric/device-credential authentication (`lib/core/utils/biometric_helper.dart`); supports Face ID, fingerprint, PIN, pattern
+
+**Backend & Database:**
+- Cloud Firestore 6.3.0 - Real-time document database for users, transfers, handshakes, audit logs, notifications
+- Firebase Storage 13.2.0–13.4.0 - Cloud storage for encrypted files with progress monitoring
+
+**Cryptography:**
+- PointyCastle 4.0.0 - RSA-2048 key generation, RSA-OAEP encryption, AES-256-GCM encryption/decryption in `lib/data/services/encryption_service.dart`
+- flutter_secure_storage 10.0.0 - Device-level encrypted storage (Android Keystore backend) for RSA private keys
+
+**File Handling:**
+- file_picker 11.0.2 - User file selection UI in sender flow
+- path_provider 2.1.0 - Access to device document/cache directories
+- open_file 3.3.2 - File open via native intent (Android)
+
+**UI & Visualization:**
+- google_fonts 8.0.2 - External typography (Poppins, Geist Sans)
+- fl_chart 0.70.2 - Admin dashboard charts (`lib/presentation/admin/widgets/transfer_volume_chart.dart`)
+
+**Localization & Preferences:**
+- intl 0.19.0 - Internationalization and date/number formatting
+- shared_preferences 2.5.5 - Local key-value storage for user preferences
 
 **Testing:**
 - flutter_test (SDK) - Widget and unit testing framework
 - Mockito 5.4.0 - Mocking library for unit tests
 - fake_cloud_firestore 4.1.0+1 - Firestore mock for testing
 - firebase_auth_mocks 0.15.1 - Firebase Auth mock for testing
+- build_runner 2.4.0 - Code generation for Mockito mocks
 
-**Build/Dev:**
-- build_runner 2.4.0 - Code generation (Mockito mocks, proto builders)
-- flutter_lints 6.0.0 - Lint rules and analysis
+**Build & Development:**
+- flutter_lints 6.0.0 - Static analysis rules; `flutter analyze` must pass with "No issues found"
+- cupertino_icons 1.0.8 - Material icon font
 
 ## Key Dependencies
 
 **Critical:**
-
-- firebase_auth 6.3.0 - Email/password authentication, user state management
-- cloud_firestore 6.2.0 - Document database (users, transfers, rsa_key_transfers, notifications)
-- firebase_storage 13.2.0 - Encrypted file storage in cloud
-- pointycastle 4.0.0 - RSA-2048 key generation, encryption/decryption (AES-256-GCM, RSA hybrid crypto)
-- flutter_secure_storage 10.0.0 - Device keystore for RSA private keys
+- firebase_core 4.6.0 - Firebase SDK initialization; required by all Firebase services
+- pointycastle 4.0.0 - RSA/AES cryptography engine; preserved by proguard keep rules in `android/app/proguard-rules.pro`
+- flutter_secure_storage 10.0.0 - Secure RSA private key storage; required for TOFU pinning and zero-remanence session termination
+- cloud_firestore 6.3.0 - Primary data backend for all user state, transfers, handshakes, audit logs
 
 **Infrastructure:**
-
-- local_auth 3.0.1 - Biometric/device-credential authentication (currently bypassed for thesis testing)
-- file_picker 11.0.2 - File selection and import from device storage
-- path_provider 2.1.0 - Platform-aware app document directories
-- google_fonts 8.0.2 - External typography (Poppins, Geist Sans)
-- fl_chart 1.1.1+ - Admin dashboard analytics (bar/line charts)
-- cupertino_icons 1.0.8 - iOS-style icons
+- firebase_auth 6.3.0 - User authentication and session state management
+- firebase_storage 13.2.0–13.4.0 - Encrypted file storage with upload progress monitoring
+- google_sign_in 6.2.4 - OAuth 2.0 integration using Google Web Client ID from `lib/core/constants/firebase_constants.dart`
 
 ## Configuration
 
 **Environment:**
-
-- Configured via `lib/firebase_options.dart` (auto-generated by FlutterFire CLI)
-- API keys and project settings in `android/app/google-services.json` (Android)
-- Separate Firebase configuration constants in `lib/core/constants/firebase_constants.dart` (collection names, storage paths, limits)
+- Firebase project: `cryptransfer-96e9f`
+- No `.env` file used; configuration via Firebase Console and `lib/firebase_options.dart` (auto-generated by FlutterFire CLI from `firebase.json`)
+- Android app ID: `com.example.cryptransfer` (to be updated pre-Play Store release)
+- Google Web Client ID: declared in `lib/core/constants/firebase_constants.dart` (used by google_sign_in)
 
 **Build:**
+- `pubspec.yaml` - Dart/Flutter dependencies; specifies Dart 3.12.0+, Flutter 3.44.0+; Material 3 enabled; no custom assets
+- `android/app/build.gradle.kts` - Android Gradle build; R8 minification enabled (`isMinifyEnabled = true`, `isShrinkResources = true`); signing config reads from `android/key.properties` (git-ignored, falls back to debug signing if absent)
+- `android/build.gradle.kts` - Project-level Gradle; manages repository declarations
+- `android/settings.gradle.kts` - Module includes and plugin management
+- `android/gradle.properties` - JVM memory tuning (`-Xmx8G`), AndroidX enablement
+- `android/app/proguard-rules.pro` - R8 keep rules for Flutter, Firebase, PointyCastle, Kotlin
+- `firebase.json` - FlutterFire CLI config; specifies Firestore rules file (`firestore.rules`), Dart options output, platform-specific Firebase IDs
 
-- Android: `android/app/build.gradle.kts` - Gradle Kotlin DSL, SDK versions 21+ (compileSdk, targetSdk)
-- Android: `android/app/proguard-rules.pro` - R8 minification rules
-- Android: `android/build.gradle.kts` - Project-level Gradle config
-- Signing: `android/key.properties` (git-ignored) - Release signing credentials
+**Signing:**
+- Android release signing: `android/key.properties` (git-ignored) must contain: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`
+- Debug signing fallback: automatic if release key file absent (allows `flutter run --release` on dev machines without signing credentials)
 
 ## Platform Requirements
 
 **Development:**
+- Dart 3.12.0+
+- Flutter 3.44.0+
+- Android SDK (Flutter manages default versions; explicit control via `android/app/build.gradle.kts`)
+- Java 17 (Kotlin compilation target in `android/app/build.gradle.kts`)
+- Git (version control)
+- PowerShell or Bash (scripts in `scripts/`)
 
-- Flutter 3.x SDK
-- Dart 3.11.1+
-- Android SDK API 21+ (minSdk), API 34+ (targetSdk)
-- Java 17 / Kotlin 17 for Android
-- Device or emulator with biometric/credential auth (optional; currently stubbed)
+**Production (Android):**
+- Android 5.0+ (API 21+) minimum (`minSdk` set by Flutter defaults)
+- Target Android 14+ (API 34+) (`targetSdk` set by Flutter)
+- Impeller GPU driver (OpenGLES) for performance and UI-layer security against side-channel attacks
+- AndroidX compatibility library (enabled in `android/gradle.properties`)
+- MediaStore Downloads API for Android 10+ (API 29+); falls back to DIRECTORY_DOWNLOADS write on Android 9 and below
 
-**Production:**
-
-- Android 5.1+ (API 21) minimum
-- Release build: signed APK/AAB with R8 minification, FLAG_SECURE enabled
-- Firebase project: "cryptransfer-96e9f" (Firestore, Storage, Auth configured)
-- Intended Play Store deployment (Post-release roadmap: update `applicationId` from `com.example.cryptransfer`)
+**Device Requirements:**
+- 100 MB free storage (app + temporary encrypted file buffers during transfer)
+- 64 KB available RAM per transfer (chunked 64 KB reads via `lib/data/services/transfer_service.dart` with `kChunkSize = 64 KB`)
+- Biometric hardware optional (fallback to device PIN/pattern via `lib/core/utils/biometric_helper.dart`)
+- Secure storage hardware (Android Keystore) for private key protection
 
 ---
 
-*Stack analysis: 2026-04-19*
+*Stack analysis: 2026-05-25*
