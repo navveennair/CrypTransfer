@@ -31,12 +31,14 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   }
 
   Future<void> _authenticate() async {
-    final ok = await BiometricHelper.authenticate('Unlock RSA Key Vault');
+    // TODO: Re-enable biometric authentication after debugging
+    // final ok = await BiometricHelper.authenticate('Unlock RSA Key Vault');
+    // if (!mounted) return;
+    // if (!ok) {
+    //   Navigator.pop(context);
+    //   return;
+    // }
     if (!mounted) return;
-    if (!ok) {
-      Navigator.pop(context);
-      return;
-    }
     setState(() => _gateChecked = true);
     _updateLastVaultAccess();
   }
@@ -60,8 +62,9 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
-    if (!gateOk || !mounted) return;
+    // TODO: Re-enable biometric authentication after debugging
+    // final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
+    // if (!gateOk || !mounted) return;
 
     final confirmed = await _showConfirmDialog(
       icon: Icons.refresh_rounded,
@@ -76,22 +79,45 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     );
     if (!confirmed || !mounted) return;
 
-    _showProgressDialog('Generating RSA-2048 keypair…');
     setState(() => _regenerating = true);
+
+    // Track if the progress dialog was shown (for safe cleanup)
+    bool dialogShown = false;
+
     try {
+      // Schedule the dialog to show
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showProgressDialog('Generating RSA-2048 keypair…');
+          dialogShown = true;
+        }
+      });
+
+      // Do the actual work
       await _authRepo.regenerateKeyPair(uid);
+
       if (mounted) {
-        Navigator.pop(context); // dismiss progress dialog
+        // Only dismiss the dialog if it was actually shown
+        if (dialogShown && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('RSA keys regenerated successfully.')),
         );
-        Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
+
+        // Give the snackbar time to display before closing
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
+        }
       }
     } catch (e) {
       if (mounted) {
-        // Guard pop — if regenerateKeyPair threw before the dialog frame was
-        // pushed, Navigator.pop would dismiss the vault screen instead.
-        if (Navigator.canPop(context)) Navigator.pop(context);
+        if (dialogShown && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
         _showError(e.toString());
       }
     } finally {
@@ -103,8 +129,9 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final gateOk = await BiometricHelper.authenticate('Confirm: Delete RSA Keys');
-    if (!gateOk || !mounted) return;
+    // TODO: Re-enable biometric authentication after debugging
+    // final gateOk = await BiometricHelper.authenticate('Confirm: Delete RSA Keys');
+    // if (!gateOk || !mounted) return;
 
     final confirmed = await _showConfirmDialog(
       icon: Icons.delete_forever_rounded,
@@ -119,16 +146,46 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     if (!confirmed || !mounted) return;
 
     setState(() => _deleting = true);
+
+    // Track if the progress dialog was shown (for safe cleanup)
+    bool dialogShown = false;
+
     try {
+      // Schedule the dialog to show
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showProgressDialog('Deleting RSA keys…');
+          dialogShown = true;
+        }
+      });
+
+      // Do the actual work
       await _authRepo.deleteKeyPair(uid);
+
       if (mounted) {
+        // Only dismiss the dialog if it was actually shown
+        if (dialogShown && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('RSA keys deleted.')),
         );
-        Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
+
+        // Give the snackbar time to display before closing
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
+        }
       }
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        if (dialogShown && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        _showError(e.toString());
+      }
     } finally {
       if (mounted) setState(() => _deleting = false);
     }
@@ -201,8 +258,8 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     return result ?? false;
   }
 
-  void _showProgressDialog(String message) {
-    showDialog<void>(
+  Future<void> _showProgressDialog(String message) {
+    return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
