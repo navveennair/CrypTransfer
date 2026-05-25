@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../app_theme.dart';
+import '../../data/repositories/admin_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'widgets/security_pulse_feed.dart';
 import 'widgets/transfer_volume_chart.dart';
@@ -19,6 +19,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _adminRepo = AdminRepository();
 
   @override
   void initState() {
@@ -85,8 +86,8 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             controller: _tabController,
             children: [
               _buildAnalyticsTab(cs),
-              const ConnectionNodeMap(),
-              const SecurityPulseFeed(),
+              ConnectionNodeMap(),
+              SecurityPulseFeed(),
               const UserManagementList(),
             ],
           ),
@@ -116,7 +117,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           const SizedBox(height: 12),
           GlassContainer(
             padding: const EdgeInsets.all(20),
-            child: const TransferVolumeChart(),
+            child: TransferVolumeChart(),
           ),
           
           const SizedBox(height: 32),
@@ -137,11 +138,11 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   }
 
   Widget _buildSummaryCards(ColorScheme cs) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection(FirebaseConstants.transferLogs).snapshots(),
+    return StreamBuilder<int>(
+      stream: _adminRepo.streamTotalTransfers(),
       builder: (context, snapshot) {
-        final totalTransfers = snapshot.data?.size ?? 0;
-        
+        final totalTransfers = snapshot.data ?? 0;
+
         return Row(
           children: [
             _SummaryCard(
@@ -151,10 +152,10 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
               color: cs.primary,
             ),
             const SizedBox(width: 16),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection(FirebaseConstants.users).snapshots(),
+            StreamBuilder<int>(
+              stream: _adminRepo.streamTotalUsers(),
               builder: (context, userSnap) {
-                final totalUsers = userSnap.data?.size ?? 0;
+                final totalUsers = userSnap.data ?? 0;
                 return _SummaryCard(
                   label: 'TOTAL NODES',
                   value: totalUsers.toString(),
@@ -171,10 +172,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
   Widget _buildActiveSessionsList(ColorScheme cs) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(FirebaseConstants.handshakes)
-          .where('status', isEqualTo: 'handshake_complete')
-          .snapshots(),
+      stream: _adminRepo.streamActiveHandshakesDetail(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final sessions = snapshot.data!.docs;
