@@ -48,6 +48,7 @@ See: .planning/PROJECT.md
 - 2026-05-20: Quick task 260520-001 complete — synchronized 4-turn cleanup protocol: receiver sets cleanup_initiated → sender wipes AES key in Firestore + RAM → receiver runs full cleanup → both redirect to HomeScreen
 - 2026-05-23: Phase 07 planned — 1 plan in 2 waves (Wave 0: test scaffold; Wave 1: pulsing waiting UI + 300s safety timeout); verification passed after 1 revision (VALIDATION.md + Wave 0 test scaffold added for Nyquist compliance)
 - 2026-05-23: Phase 07 complete — 07-01 executed, code reviewed (5 warnings fixed), debug fix applied (_startTransferListener moved to _startUpload), UAT 3/3 passed; global glassmorphic UI overhaul committed; milestone v1.0 complete
+- 2026-05-25: Quick task 260525-kur complete — removed duplicate _runAesGcm from sender_screen.dart; RSA-OAEP encrypt moved to compute() isolate; dead methods and unused pointycastle import removed
 
 ## Accumulated Context
 
@@ -81,3 +82,4 @@ See: .planning/PROJECT.md
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260520-001 | Synchronized turn-based destruction sequence | 2026-05-20 | 6491ab7 | [260520-001-synchronized-turn-based-cleanup](.planning/quick/260520-001-synchronized-turn-based-cleanup/) |
+| 260525-kur | Fix duplicate _runAesGcm and move RSA-OAEP encrypt to compute isolate | 2026-05-25 | fdf8a84 | [260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae](.planning/quick/260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae/) |
