@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/constants/firebase_constants.dart';
+import '../../../data/repositories/admin_repository.dart';
+import '../../../data/repositories/user_repository.dart';
 
 class ConnectionNodeMap extends StatelessWidget {
-  const ConnectionNodeMap({super.key});
+  final _adminRepo = AdminRepository();
+  final _userRepo = UserRepository();
+
+  ConnectionNodeMap({super.key});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection(FirebaseConstants.users).snapshots(),
+      stream: _adminRepo.streamUserConnections(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         
@@ -29,14 +33,10 @@ class ConnectionNodeMap extends StatelessWidget {
             final username = data['username'] as String? ?? '...';
             final uid = users[i].id;
 
-            return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection(FirebaseConstants.users)
-                  .doc(uid)
-                  .collection(FirebaseConstants.connections)
-                  .snapshots(),
+            return StreamBuilder<Map<String, dynamic>?>(
+              stream: _userRepo.streamUserWithFriendships(uid),
               builder: (context, connSnap) {
-                final connCount = connSnap.data?.size ?? 0;
+                final connCount = (connSnap.data?['friendships'] as List?)?.length ?? 0;
                 return _NodeTile(
                   username: username,
                   connectionCount: connCount,
