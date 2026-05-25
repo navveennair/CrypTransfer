@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/firebase_constants.dart';
+import '../../data/repositories/admin_repository.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
+  final _adminRepo = AdminRepository();
+
+  AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +20,7 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection(FirebaseConstants.transferLogs)
-            .orderBy('loggedAt', descending: true)
-            .snapshots(),
+        stream: _adminRepo.streamTransferLogsDetail(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
