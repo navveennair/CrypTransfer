@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/transfer_repository.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -48,6 +47,7 @@ class SenderSessionEndedScreen extends StatefulWidget {
 
 class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
     with SecurityLifecycleMixin<SenderSessionEndedScreen> {
+  final _transferRepo = TransferRepository();
   bool _aesCleanDone = false;
 
   @override
@@ -62,15 +62,9 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
     // Normal path: doc is deleted by ReceiverEndSessionScreen step 2.
     // Edge case: receiver cleanup was interrupted before WriteBatch committed.
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection(FirebaseConstants.transfers)
-          .doc(widget.transferId)
-          .get();
-      if (doc.exists) {
-        await FirebaseFirestore.instance
-            .collection(FirebaseConstants.transfers)
-            .doc(widget.transferId)
-            .delete();
+      final exists = await _transferRepo.getTransferDoc(widget.transferId);
+      if (exists) {
+        await _transferRepo.deleteTransfer(widget.transferId);
       }
     } catch (_) {
       // D-10 edge-case cleanup failed — doc may already be gone or network
