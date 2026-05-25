@@ -7,6 +7,7 @@ import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_manager.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
+import '../home/home_screen.dart';
 import 'decrypt_screen.dart';
 
 // ─── ReceiverTransferScreen ───────────────────────────────────────────────────
@@ -65,6 +66,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   /// further UI progression and triggers immediate navigation away.
   bool _cancelled = false;
 
+  bool _aborting = false; // true while our own abort is in flight
+  StreamSubscription<DocumentSnapshot>? _failedStatusSub;
+
   late final List<_StatusStep> _steps = [
     _StatusStep('📡  Establishing secure connection…'),
     _StatusStep('🔐  Verifying encryption parameters…'),
@@ -87,6 +91,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     // Wire up kill-switch: pop immediately if SessionManager fires terminated.
     widget.sessionManager.stateNotifier.addListener(_onSessionStateChanged);
 
+    _watchTransferStatus();
     _loadMetadata();
     _runSteps();
   }
@@ -94,9 +99,96 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   @override
   void dispose() {
     _disposed = true;
+    _failedStatusSub?.cancel();
     widget.sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     _bounceCtrl.dispose();
     super.dispose(); // SecurityLifecycleMixin.dispose() → wipeAll()
+  }
+
+  // ─── Sender-abort stream watcher ────────────────────────────────────────
+
+  void _watchTransferStatus() {
+    _failedStatusSub = _repo
+        .watchTransferStatus(widget.transferId)
+        .listen((snap) {
+      if (!snap.exists) return;
+      final status = snap.data()?['status'] as String?;
+      if (status == 'failed' && !_aborting && !_cancelled && mounted) {
+        _cancelled = true;
+        wipeAll();
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Transfer aborted — sender terminated the tunnel'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+        );
+      }
+    });
+  }
+
+  // ─── Abort dialog ────────────────────────────────────────────────────────
+
+  Future<void> _showAbortDialog() async {
+    if (_aborting || _cancelled) return;
+    final abort = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Abort Transfer?'),
+        content: const Text(
+          'This will destroy all cryptographic material and collapse the secure '
+          'tunnel. The sender will be notified that the transfer failed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Abort & Destroy'),
+          ),
+        ],
+      ),
+    );
+    if (abort == true && mounted) {
+      await _abortSessionDueToDisconnect();
+    }
+  }
+
+  Future<void> _abortSessionDueToDisconnect() async {
+    if (_aborting || _cancelled) return;
+    _aborting = true;
+    _cancelled = true;
+    try {
+      await _repo.updateTransferStatus(widget.transferId, 'failed');
+    } catch (_) {
+      // Wipe proceeds regardless.
+    }
+    wipeAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (_) => false,
+      );
+    }
   }
 
   // ─── Kill-switch handler ─────────────────────────────────────────────────
@@ -177,16 +269,14 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: _allStepsDone,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) wipeAll(); // SecurityLifecycleMixin already applied (CR-01)
-      },
+      canPop: false,
+      onPopInvokedWithResult: (_, _) => _showAbortDialog(),
       child: Scaffold(
         appBar: AppBar(
           title: Text('Incoming File',
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           centerTitle: true,
-          automaticallyImplyLeading: _allStepsDone,
+          automaticallyImplyLeading: false,
         ),
         body: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
