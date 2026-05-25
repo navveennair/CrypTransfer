@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/handshake_repository.dart';
+import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'find_friends_screen.dart';
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   OverlayEntry? _bannerEntry;
   String? _lastBannerDocId;
 
+  final _connService = KeyRepository();
   final _handshakeRepo = HandshakeRepository();
   final _transferRepo = TransferRepository();
   final _authRepo = AuthRepository();
@@ -241,29 +243,56 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_) => _RolePickerSheet(
         partnerUid: partnerUid,
         partnerUsername: partnerUsername,
-        onSendFile: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SenderScreen(
-                preFilledPartnerUid: partnerUid,
-                preFilledPartnerUsername: partnerUsername,
+        keyRepository: _connService,
+        onSendFile: () async {
+          try {
+            final handshakeDocId = await _connService.assignTransferRole(
+              partnerUid: partnerUid,
+              isSender: true,
+            );
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SenderScreen(
+                  preFilledPartnerUid: partnerUid,
+                  preFilledPartnerUsername: partnerUsername,
+                  handshakeDocId: handshakeDocId,
+                ),
               ),
-            ),
-          );
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${e.toString()}')),
+            );
+          }
         },
-        onReceiveFile: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ReceiverScreen(
-                preFilledSenderUid: partnerUid,
-                preFilledSenderUsername: partnerUsername,
+        onReceiveFile: () async {
+          try {
+            final handshakeDocId = await _connService.assignTransferRole(
+              partnerUid: partnerUid,
+              isSender: false,
+            );
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ReceiverScreen(
+                  preFilledSenderUid: partnerUid,
+                  preFilledSenderUsername: partnerUsername,
+                  handshakeDocId: handshakeDocId,
+                ),
               ),
-            ),
-          );
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: ${e.toString()}')),
+            );
+          }
         },
       ),
     );
@@ -1318,18 +1347,53 @@ class _EmptyConnectionsPrompt extends StatelessWidget {
 
 // ─── Role Picker Sheet ─────────────────────────────────────────────────────────
 
-class _RolePickerSheet extends StatelessWidget {
+class _RolePickerSheet extends StatefulWidget {
   final String partnerUid;
   final String partnerUsername;
-  final VoidCallback onSendFile;
-  final VoidCallback onReceiveFile;
+  final KeyRepository keyRepository;
+  final Future<void> Function() onSendFile;
+  final Future<void> Function() onReceiveFile;
 
   const _RolePickerSheet({
     required this.partnerUid,
     required this.partnerUsername,
+    required this.keyRepository,
     required this.onSendFile,
     required this.onReceiveFile,
   });
+
+  @override
+  State<_RolePickerSheet> createState() => _RolePickerSheetState();
+}
+
+class _RolePickerSheetState extends State<_RolePickerSheet> {
+  bool _loading = false;
+  String? _loadingRole;
+
+  Future<void> _handleTap(
+    String role,
+    Future<void> Function() handler,
+  ) async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _loadingRole = role;
+    });
+    try {
+      await handler();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingRole = null;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1347,22 +1411,34 @@ class _RolePickerSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Start a session with @$partnerUsername',
+                  'Start a session with @${widget.partnerUsername}',
                   style: GoogleFonts.poppins(
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
                 // Send File tile
                 InkWell(
-                  onTap: onSendFile,
+                  onTap: _loading
+                      ? null
+                      : () => _handleTap('send', widget.onSendFile),
                   borderRadius: BorderRadius.circular(16),
                   child: GlassContainer(
                     borderRadius: 16,
                     padding: const EdgeInsets.all(20),
                     child: Row(
                       children: [
-                        Icon(Icons.upload_file_rounded,
-                            size: 32, color: cs.primary),
+                        if (_loadingRole == 'send')
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(cs.primary),
+                            ),
+                          )
+                        else
+                          Icon(Icons.upload_file_rounded,
+                              size: 32, color: cs.primary),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -1392,15 +1468,27 @@ class _RolePickerSheet extends StatelessWidget {
                 const SizedBox(height: 16),
                 // Receive File tile
                 InkWell(
-                  onTap: onReceiveFile,
+                  onTap: _loading
+                      ? null
+                      : () => _handleTap('receive', widget.onReceiveFile),
                   borderRadius: BorderRadius.circular(16),
                   child: GlassContainer(
                     borderRadius: 16,
                     padding: const EdgeInsets.all(20),
                     child: Row(
                       children: [
-                        Icon(Icons.download_rounded,
-                            size: 32, color: cs.secondary),
+                        if (_loadingRole == 'receive')
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(cs.secondary),
+                            ),
+                          )
+                        else
+                          Icon(Icons.download_rounded,
+                              size: 32, color: cs.secondary),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(

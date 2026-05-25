@@ -21,11 +21,13 @@ import 'receiver_transfer_screen.dart';
 class ReceiverScreen extends StatefulWidget {
   final String? preFilledSenderUid;
   final String? preFilledSenderUsername;
+  final String? handshakeDocId;
 
   const ReceiverScreen({
     super.key,
     this.preFilledSenderUid,
     this.preFilledSenderUsername,
+    this.handshakeDocId,
   });
 
   @override
@@ -60,6 +62,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   String? _incomingFileName;
 
   Stream<QuerySnapshot<Map<String, dynamic>>>? _transferStream;
+  String? _handshakeDocId;
 
   bool get _step1Done => _hasPrivateKey && _hasPublicKey;
   bool get _step2Done => _isReadyToReceive;
@@ -69,6 +72,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   @override
   void initState() {
     super.initState();
+    _handshakeDocId = widget.handshakeDocId;
     WidgetsBinding.instance.addObserver(this);
     _sessionManager.stateNotifier.addListener(_onSessionStateChanged);
     _checkKeyStatus().then((_) {
@@ -331,10 +335,32 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     );
     setState(() => _handshaking = true);
     try {
-      await _connService.selectSenderHandshake(
+      final docId = await _connService.selectSenderHandshake(
         senderUid: sender.uid,
         senderUsername: sender.username,
       );
+      _handshakeDocId = docId;
+
+      // Role validation: if roles are assigned, verify receiverUid == currentUser
+      final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (docId.isNotEmpty && mounted) {
+        try {
+          final handshakeDoc =
+              await FirebaseFirestore.instance.collection('handshakes').doc(docId).get();
+          final receiverUid = handshakeDoc.data()?['receiverUid'] as String?;
+          if (receiverUid != null && receiverUid.isNotEmpty && receiverUid != currentUid) {
+            if (mounted) {
+              setState(() => _handshaking = false);
+              _showError('Role conflict — partner chose a different role. Try again.');
+              await _onToggleReady(false);
+            }
+            return;
+          }
+        } catch (e) {
+          // Silently ignore read errors; role validation is optional
+        }
+      }
+
       if (mounted) {
         setState(() {
           _handshakeDone = true;
@@ -597,8 +623,13 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop && _isReadyToReceive) {
-          _sessionManager.wipeSession(onBuffersWipe: wipeAll);
+        if (didPop) {
+          if (_isReadyToReceive) {
+            _sessionManager.wipeSession(onBuffersWipe: wipeAll);
+          } else if (_handshakeDocId != null) {
+            // Mailbox not yet open; just clear roles and return
+            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
+          }
         }
       },
       child: Scaffold(

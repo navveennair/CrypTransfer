@@ -642,6 +642,84 @@ class KeyRepository {
     }
   }
 
+  /// Assigns file transfer roles (sender/receiver) to a handshake document.
+  ///
+  /// Determines senderUid and receiverUid from [isSender], queries the handshakes
+  /// collection to find the matching doc between current user and [partnerUid],
+  /// updates with senderUid/receiverUid/rolesAssignedAt, and returns the docId.
+  ///
+  /// Queries both directions since the handshake doc may be initiated by either party.
+  /// Throws [NetworkException] if no handshake found or update fails.
+  Future<String> assignTransferRole({
+    required String partnerUid,
+    required bool isSender,
+  }) async {
+    try {
+      final currentUid = _uid;
+      final senderUid = isSender ? currentUid : partnerUid;
+      final receiverUid = isSender ? partnerUid : currentUid;
+
+      // Try first direction: receiverId = partnerUid, senderId = currentUid
+      var snap = await _db
+          .collection(FirebaseConstants.handshakes)
+          .where('receiverId', isEqualTo: partnerUid)
+          .where('senderId', isEqualTo: currentUid)
+          .where('status', isEqualTo: 'handshake_complete')
+          .limit(1)
+          .get();
+
+      if (snap.docs.isEmpty) {
+        // Try opposite direction: receiverId = currentUid, senderId = partnerUid
+        snap = await _db
+            .collection(FirebaseConstants.handshakes)
+            .where('receiverId', isEqualTo: currentUid)
+            .where('senderId', isEqualTo: partnerUid)
+            .where('status', isEqualTo: 'handshake_complete')
+            .limit(1)
+            .get();
+      }
+
+      if (snap.docs.isEmpty) {
+        throw NetworkException(
+            'No active handshake found with $partnerUid');
+      }
+
+      final docId = snap.docs.first.id;
+      await snap.docs.first.reference.update({
+        'senderUid': senderUid,
+        'receiverUid': receiverUid,
+        'rolesAssignedAt': FieldValue.serverTimestamp(),
+      });
+
+      return docId;
+    } on NetworkException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Failed to assign transfer roles: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Clears file transfer roles from a handshake document.
+  ///
+  /// Removes senderUid, receiverUid, and rolesAssignedAt fields.
+  /// Called when user navigates back from SenderScreen or ReceiverScreen.
+  Future<void> clearTransferRoles({required String handshakeDocId}) async {
+    try {
+      await _db
+          .collection(FirebaseConstants.handshakes)
+          .doc(handshakeDocId)
+          .update({
+        'senderUid': FieldValue.delete(),
+        'receiverUid': FieldValue.delete(),
+        'rolesAssignedAt': FieldValue.delete(),
+      });
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Failed to clear transfer roles: ${e.message ?? e.code}');
+    }
+  }
+
   /// Wipes all RSA session data for [uid] on app startup:
   /// - Secure storage entries with rsa_private_key_* / rsa_public_key_* prefixes
   /// - All handshakes documents where receiverId or senderId == uid

@@ -34,11 +34,13 @@ Uint8List _rsaOaepEncryptIsolate(List<dynamic> args) {
 class SenderScreen extends StatefulWidget {
   final String? preFilledPartnerUid;
   final String? preFilledPartnerUsername;
+  final String? handshakeDocId;
 
   const SenderScreen({
     super.key,
     this.preFilledPartnerUid,
     this.preFilledPartnerUsername,
+    this.handshakeDocId,
   });
 
   @override
@@ -84,10 +86,12 @@ class _SenderScreenState extends State<SenderScreen>
 
   TofuStatus? _tofuStatus;
   String? _receiverFingerprint;
+  String? _handshakeDocId;
 
   @override
   void initState() {
     super.initState();
+    _handshakeDocId = widget.handshakeDocId;
     _startHandshakeListener();
     if (widget.preFilledPartnerUid != null) {
       // Pre-fill from Active Connection role picker (D-13):
@@ -146,6 +150,7 @@ class _SenderScreenState extends State<SenderScreen>
         );
       }
     } else {
+      final docId = snap.docs.first.id;
       final doc = snap.docs.first.data();
       final receiverId = doc['receiverId'] as String? ?? '';
       // 'receiverUsername' is the canonical field (written by updated key_repository).
@@ -154,11 +159,29 @@ class _SenderScreenState extends State<SenderScreen>
           ?? doc['fromUsername'] as String?
           ?? 'Unknown';
       final publicKey = doc['publicKey'] as String?;
+
+      // Role validation: verify senderUid matches current user if assigned
+      final assignedSenderUid = doc['senderUid'] as String?;
+      if (assignedSenderUid != null && assignedSenderUid.isNotEmpty) {
+        final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        if (assignedSenderUid != currentUid) {
+          _revertToWaiting();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Role conflict — partner also chose Sender. Go back and pick again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       if (publicKey != null &&
           publicKey.isNotEmpty &&
           receiverId.isNotEmpty &&
           (widget.preFilledPartnerUid == null ||
            receiverId == widget.preFilledPartnerUid)) {
+        _handshakeDocId ??= docId;
         setState(() {
           _receiverId = receiverId;
           _receiverUsername = receiverUsername;
@@ -586,7 +609,39 @@ class _SenderScreenState extends State<SenderScreen>
     return PopScope(
       canPop: !_encrypting && !_encryptingKey,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) _wipeSensitiveData();
+        if (didPop) {
+          _wipeSensitiveData();
+          // Clear transfer roles if assigned (returns user to role picker)
+          if (_handshakeDocId != null) {
+            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
+          }
+        } else if (_handshakeDocId != null && !_encrypting && !_encryptingKey) {
+          // Show confirmation dialog for role clearing
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Go Back?',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              content: const Text(
+                  'Going back will clear your role assignment. The connection will remain.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await _connService.clearTransferRoles(
+                        handshakeDocId: _handshakeDocId!);
+                    if (mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Clear & Go Back'),
+                ),
+              ],
+            ),
+          );
+        }
       },
       child: Scaffold(
       appBar: AppBar(
