@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,26 +7,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pointycastle/export.dart' hide State, Padding;
 
 import '../../app_theme.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/services/encryption_service.dart';
 import '../../data/services/transfer_service.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 import 'transfer_progress_screen.dart';
 
-// ─── Isolate-safe AES-256-GCM encrypt ────────────────────────────────────────
+// ─── Isolate-safe RSA-OAEP encrypt ───────────────────────────────────────────
 
-Uint8List _runAesGcm(List<Uint8List> args) {
-  final plaintext = args[0];
-  final key = args[1];
-  final iv = args[2];
-  final cipher = GCMBlockCipher(AESEngine())
-    ..init(true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
-  return cipher.process(plaintext);
+Uint8List _rsaOaepEncryptIsolate(List<dynamic> args) {
+  final publicKeyJson = args[0] as String;
+  final data = args[1] as Uint8List;
+  final key = EncryptionService.decodePublicKey(publicKeyJson);
+  return EncryptionService.rsaEncrypt(key, data);
 }
 
 // ─── Widget ──────────────────────────────────────────────────────────────────
@@ -261,14 +258,7 @@ class _SenderScreenState extends State<SenderScreen>
     }
 
     try {
-      final key = _secureBytes(32);
-      final iv = _secureBytes(12);
-      registerBuffer(key);
-      registerBuffer(iv);
-
       // ── Phase 1: read file (0 → 70%) ────────────────────────────────
-      // readFileWithProgress uses explicit 64 KB RandomAccessFile reads,
-      // yielding to the event loop between pages so the progress bar animates.
       Uint8List plaintext;
       if (!kIsWeb && file.path != null && file.path!.isNotEmpty) {
         plaintext = await TransferService.readFileWithProgress(
@@ -276,25 +266,26 @@ class _SenderScreenState extends State<SenderScreen>
           (p) => _progressCtrl.add(p * 0.7), // 0 → 70%
         );
       } else {
-        // Web fallback: bytes are already in memory, jump straight to encrypt.
         plaintext = file.bytes ?? Uint8List(0);
         _progressCtrl.add(0.7);
       }
       registerBuffer(plaintext);
 
       // ── Phase 2: AES-256-GCM in compute() isolate (70 → 100%) ───────
-      final encrypted = await compute(_runAesGcm, [plaintext, key, iv]);
-      registerBuffer(encrypted);
-      _progressCtrl.add(1.0); // encryption complete
+      final result = await EncryptionService.encryptAesGcm(plaintext);
+      registerBuffer(result.key);
+      registerBuffer(result.iv);
+      registerBuffer(result.ciphertext);
+      _progressCtrl.add(1.0);
 
       plaintext.fillRange(0, plaintext.length, 0);
       unregisterBuffer(plaintext);
 
       if (mounted) {
         setState(() {
-          _aesKey = key;
-          _iv = iv;
-          _encryptedBytes = encrypted;
+          _aesKey = result.key;
+          _iv = result.iv;
+          _encryptedBytes = result.ciphertext;
           _encryptedAESKey = null;
           _encrypting = false;
         });
@@ -305,11 +296,6 @@ class _SenderScreenState extends State<SenderScreen>
         _showError('Encryption failed: $e');
       }
     }
-  }
-
-  Uint8List _secureBytes(int length) {
-    final rng = Random.secure();
-    return Uint8List.fromList(List.generate(length, (_) => rng.nextInt(256)));
   }
 
   Future<void> _encryptAesKey() async {
@@ -331,8 +317,10 @@ class _SenderScreenState extends State<SenderScreen>
 
     setState(() => _encryptingKey = true);
     try {
-      final rsaKey = _decodePublicKey(publicKeyJson);
-      final encryptedAESKey = _rsaOaepEncrypt(aesKey, rsaKey);
+      final encryptedAESKey = await compute(
+        _rsaOaepEncryptIsolate,
+        [publicKeyJson, aesKey],
+      );
       registerBuffer(encryptedAESKey);
       if (mounted) {
         setState(() {
@@ -346,20 +334,6 @@ class _SenderScreenState extends State<SenderScreen>
         _showError('RSA encryption failed: $e');
       }
     }
-  }
-
-  RSAPublicKey _decodePublicKey(String encoded) {
-    final map = jsonDecode(encoded) as Map<String, dynamic>;
-    return RSAPublicKey(
-      BigInt.parse(map['modulus'] as String, radix: 16),
-      BigInt.parse(map['exponent'] as String, radix: 16),
-    );
-  }
-
-  Uint8List _rsaOaepEncrypt(Uint8List data, RSAPublicKey publicKey) {
-    final cipher = OAEPEncoding(RSAEngine())
-      ..init(true, PublicKeyParameter<RSAPublicKey>(publicKey));
-    return cipher.process(data);
   }
 
   void _send() {
