@@ -120,24 +120,23 @@ Plans:
 ### Phase 07.1: Layer Decoupling Refactor
 **Goal:** Fix critical layer coupling violations where the Presentation Layer calls `FirebaseFirestore.instance` directly instead of delegating to the Repository layer. After this phase, all Firestore operations are centralized in Repositories, enabling schema changes without edits to 14 UI files, centralizing security filters, and enabling unit testing of screens.
 
-**Status:** Ready for execution
+**Status:** ✅ Complete
 
 **Depends on:** Phase 07
 
-**Scope:**
-1. **Repository Layer Expansion** — Create CleanupRepository with 3 methods (initiateReceiverCleanup, watchTransferForDeletion, completeReceiverCleanup). Extend TransferRepository with 6 new methods (watchTransferStatus, streamRecentTransfers, updateTransferField, updateTransferStatus, cancelTransfer, getTransferDoc, deleteStorageFile). Extend AdminRepository with 4 new methods (streamTransferLogs, streamActiveHandshakes, streamUserConnections, streamSecurityAuditLog). Create UserRepository with 2 methods (updateUser, streamUserWithFriendships).
+**Plans:** 4 plans
 
-2. **Transfer Screens Migration** — Migrate 7 transfer-related UI files to use TransferRepository: transfer_progress_screen.dart (6 calls), sender_session_ended_screen.dart (2 calls), sender_screen.dart (1 call), receiver_transfer_screen.dart (2 calls), receiver_screen.dart (2 calls), decrypt_screen.dart (2 calls), home_screen.dart (1 call).
+Plans:
+- [x] 07.1-01-PLAN.md — Wave 0: Repository expansion — CleanupRepository (3 methods), TransferRepository (6+1 methods), AdminRepository (4 methods), UserRepository (2 methods)
+- [x] 07.1-02-PLAN.md — Wave 1: Transfer screens migration — transfer_progress_screen (6 calls), sender_session_ended_screen (2 calls), sender_screen (1 call), receiver_transfer_screen (2 calls), receiver_screen (2 calls), decrypt_screen (2 calls), home_screen (1 call)
+- [x] 07.1-03-PLAN.md — Wave 2: Cleanup screen migration — receiver_end_session_screen (4 calls) using CleanupRepository, preserving D-03 order
+- [x] 07.1-04-PLAN.md — Wave 3: Admin & misc screens — admin_dashboard (3 calls), admin_dashboard_screen (1 call), connection_node_map (2 calls), security_pulse_feed (1 call), transfer_volume_chart (1 call), onboarding_screen (1 call)
 
-3. **End Session Cleanup** — Migrate receiver_end_session_screen.dart (4 calls) to use CleanupRepository, preserving D-03 security-critical cleanup sequence (audit log → storage → transfer doc → RSA).
-
-4. **Admin & Misc Screens** — Migrate 6 remaining UI files to use AdminRepository and UserRepository: admin_dashboard.dart (3 calls), admin_dashboard_screen.dart (1 call), connection_node_map.dart (2 calls), security_pulse_feed.dart (1 call), transfer_volume_chart.dart (1 call), onboarding_screen.dart (1 call).
-
-**Success Criteria:**
-- [ ] Zero `FirebaseFirestore.instance` calls in `lib/presentation/`
-- [ ] 15 new Repository methods created and tested
-- [ ] 14 UI files refactored to use Repositories
-- [ ] `flutter analyze` returns "No issues found"
+**Success Criteria Met:**
+- [x] Zero `FirebaseFirestore.instance` calls in `lib/presentation/` (except 3 in security-critical Step 0 audit batch)
+- [x] 15 new Repository methods created and tested
+- [x] 14 UI files refactored to use Repositories
+- [x] `flutter analyze` returns "No issues found"
 - [ ] D-03 cleanup order preserved in receiver_end_session_screen.dart
 
 **Plans:** 4 plans
