@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-27T06:15:00.000Z",
+  "timestamp": "2026-05-27T12:45:00.000Z",
   "phase": null,
   "phase_name": "debug: sender-step3-encrypt-key-button",
   "phase_dir": ".planning/debug",
@@ -38,37 +38,38 @@
       "name": "Fix Firestore rule violations — TransferLogService path + connections→friendships + admin read rule",
       "status": "done",
       "commit": "3ac255e"
+    },
+    {
+      "id": 6,
+      "name": "Revert FLAG_SECURE bypass — restore window.addFlags(FLAG_SECURE) and isFlagSecureActive() guard",
+      "status": "done",
+      "commit": "working-tree-clean — reverted this session, not committed separately"
     }
   ],
   "remaining_tasks": [
     {
-      "id": 6,
-      "name": "Deploy updated firestore.rules to production (cryptransfer-96e9f)",
-      "status": "not_started"
-    },
-    {
       "id": 7,
       "name": "End-to-end UAT: Step 3 encrypt key → Step 4 send — confirm RSA encryption completes and transfer proceeds",
       "status": "in_progress",
-      "progress": "Automated adb UAT attempted on emulators 5554+5556. Reached file selection on sender but blocked before Step 3 by two security guards: (1) FLAG_SECURE makes screencap return black — commented out in MainActivity.kt line 40 for UAT. (2) isFlagSecureActive() pre-flight blocks AES encryption — commented out in sender_screen.dart ~line 296 for UAT. BOTH CHANGES ARE LOCAL ONLY — NOT COMMITTED. REVERT BEFORE ANY COMMIT. UAT did not reach Step 3 Encrypt Key button."
+      "progress": "CONFIRMED via logcat: BiometricService.canAuthenticate() fires from CrypTransfer (com.example.cryptransfer) when Step 3 button is tapped — the canCheckBiometrics fix (commit 62114c7) IS working. Biometric prompt is shown as overlay. BLOCKER: adb emu finger touch does NOT work for BiometricPrompt authentication on Android 13 emulator — FingerprintHal stays STATE_IDLE (only works during FingerprintEnrollFindSensor). adb input text also cannot reach BiometricPrompt PIN field. Manual interaction required. emulator-5556 = SENDER (@navveennair, PIN 234162), emulator-5554 = RECEIVER (@testt123, PIN 1234). App reinstalled mid-session via flutter run — sender state needs rebuilding."
+    },
+    {
+      "id": 8,
+      "name": "Deploy updated firestore.rules to production (cryptransfer-96e9f)",
+      "status": "not_started"
     }
   ],
   "blockers": [
     {
-      "description": "FLAG_SECURE (MainActivity.kt line 40) and isFlagSecureActive() check (sender_screen.dart ~line 296) are both commented out locally for UAT screenshot capture. MUST be reverted before committing.",
+      "description": "BiometricPrompt overlay on Android 13 emulator cannot be automated via adb. adb emu finger touch stays STATE_IDLE during authentication (only activates during enrollment). adb input text does not reach PIN field. Manual interaction is the only path.",
       "type": "technical",
-      "workaround": "Revert both before committing. The TODO comments mark exact lines."
+      "workaround": "User manually taps Step 3 on emulator-5556 and interacts with the biometric/PIN prompt that appears (PIN: 234162). OR test on physical device where native biometric works."
     }
   ],
   "human_actions_pending": [
     {
-      "action": "REVERT: Uncomment window.addFlags(LayoutParams.FLAG_SECURE) in MainActivity.kt line 40 AND uncomment the isFlagSecureActive() guard block in sender_screen.dart ~line 296 before committing anything",
-      "context": "Both were commented out locally-only for automated UAT screenshot capture. They are security-critical. grep for 'TODO: re-enable before release' to find both locations.",
-      "blocking": true
-    },
-    {
-      "action": "Complete UAT manually: receiver generates RSA keys → enables Receive Mode (selects @testt123) → sender Send File → pick file → Encrypt with AES Key (Step 2) → tap 'Encrypt Key for @navveennair' (Step 3) → confirm Step 4 Send button appears",
-      "context": "canCheckBiometrics fix (commit 62114c7) is the suspected root cause fix. On physical device biometrics work differently — recommend testing on physical device rather than emulator to get a definitive answer. On emulator: enroll a fingerprint in Settings > Security > Fingerprint to make canCheckBiometrics return true and exercise the real biometric path.",
+      "action": "Complete UAT manually: on emulator-5556 (sender @navveennair) — Send File → pick file → Step 2 AES encrypt → Step 3 'Encrypt Key for @testt123' → interact with biometric/PIN dialog that appears (PIN: 234162) → confirm Step 4 'Send Encrypted File' button appears.",
+      "context": "Receiver (emulator-5554, @testt123) must have Receive Mode active and @navveennair selected first. Fingerprints are enrolled on both emulators. BiometricService.canAuthenticate fires correctly — just need manual auth to complete the flow.",
       "blocking": true
     },
     {
@@ -104,17 +105,20 @@
       "phase": "debug"
     },
     {
-      "decision": "FLAG_SECURE + isFlagSecureActive() temporarily bypassed for UAT only — NOT committed",
-      "rationale": "FLAG_SECURE causes adb screencap to return a black frame, blocking automated visual UAT. Bypassed locally only. Reverted before resume.",
+      "decision": "Emulator roles: emulator-5556 = SENDER (@navveennair, PIN 234162), emulator-5554 = RECEIVER (@testt123, PIN 1234)",
+      "rationale": "User clarified mid-session. Fingerprints enrolled on both emulators this session.",
+      "phase": "debug"
+    },
+    {
+      "decision": "adb emu finger touch does NOT work for BiometricPrompt authentication on Android 13 emulator",
+      "rationale": "FingerprintHal stays STATE_IDLE. Works only during FingerprintEnrollFindSensor. Manual interaction or physical device required for UAT.",
       "phase": "debug"
     }
   ],
   "uncommitted_files": [
-    "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt — FLAG_SECURE line commented out (REVERT BEFORE COMMIT)",
-    "lib/presentation/sender/sender_screen.dart — isFlagSecureActive() check commented out (REVERT BEFORE COMMIT)",
     ".claude/settings.local.json (minor)",
     ".planning/debug/dialogs-freeze-on-proposal-accept.md (minor)"
   ],
-  "next_action": "FIRST: Revert MainActivity.kt (uncomment FLAG_SECURE) and sender_screen.dart (uncomment isFlagSecureActive guard). Search for 'TODO: re-enable before release'. THEN: UAT on physical device or emulator with fingerprint enrolled.",
-  "context_notes": "Five fixes committed across two debug sessions targeting Step 3 'Encrypt Key' button. Root cause: BiometricHelper.authenticate() silently returned false on emulator because isDeviceSupported() returns true even without enrolled credentials. The canCheckBiometrics-only gate (commit 62114c7) is the fix. Automated UAT via adb got blocked by FLAG_SECURE (black screencap) → temporarily bypassed locally. UAT did NOT reach Step 3 — emulators progressed to AES encryption step but stopped there when FLAG_SECURE pre-flight (separate check in sender_screen.dart) also blocked. Both bypasses are local-only, not committed."
+  "next_action": "Manual UAT: receiver side (emulator-5554, @testt123) enable Receive Mode and select @navveennair → sender side (emulator-5556, @navveennair) Send File → pick file → Step 2 → tap Step 3 'Encrypt Key' → interact with biometric/PIN prompt manually (PIN: 234162) → confirm Step 4 Send button appears. This is the final UAT gate.",
+  "context_notes": "Five fixes committed targeting Step 3 silent abort. Root cause confirmed: isDeviceSupported() returned true on emulator without enrolled creds, catching PlatformException silently. Fix (canCheckBiometrics gate, commit 62114c7) CONFIRMED WORKING via logcat — BiometricService.canAuthenticate fires from CrypTransfer on Step 3 tap. Security bypasses (FLAG_SECURE, isFlagSecureActive) reverted this session — working tree is clean. Emulator UAT limitation discovered: adb emu finger touch cannot authenticate BiometricPrompt (only enrollment). Manual interaction needed for final confirmation."
 }
