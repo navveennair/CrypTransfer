@@ -460,9 +460,8 @@ class KeyRepository {
       // Check if receiver's mailbox is open
       final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
-      // Use deterministic docId (sorted UIDs) — same as assignTransferRole
-      final sortedUids = [_uid, senderUid]..sort();
-      final docId = '${sortedUids[0]}_${sortedUids[1]}';
+      // FIX 2: Use Firestore auto-ID to prevent collision when roles reverse
+      final docId = _db.collection(FirebaseConstants.handshakes).doc().id;
 
       final batch = _db.batch();
 
@@ -492,6 +491,8 @@ class KeyRepository {
         {
           'receiverId': _uid,
           'senderId': senderUid,
+          'receiverUid': _uid,
+          'senderUid': senderUid,
           ...keyPayload,
         },
         SetOptions(merge: true),
@@ -658,52 +659,19 @@ class KeyRepository {
     required String partnerUid,
     required bool isSender,
   }) async {
-    try {
-      final currentUid = _uid;
-
-      // FIX 1: Validate connection exists before role assignment
-      final connectionStatus = await getConnectionStatus(partnerUid);
-      if (connectionStatus != 'accepted') {
-        throw AuthException(
-          'Connection with @$partnerUid not established yet. Status: $connectionStatus'
-        );
-      }
-
-      final senderUid = isSender ? currentUid : partnerUid;
-      final receiverUid = isSender ? partnerUid : currentUid;
-
-      // Use deterministic ID to prevent duplicates if both users tap simultaneously
-      // Always use lower UID first for consistency
-      final sortedUids = [currentUid, partnerUid]..sort();
-      final docId = '${sortedUids[0]}_${sortedUids[1]}';
-
-      print('DEBUG: assignTransferRole - currentUid=$currentUid, partnerUid=$partnerUid, isSender=$isSender');
-      print('DEBUG: assignTransferRole - docId=$docId, senderUid=$senderUid, receiverUid=$receiverUid');
-
-      // Create or update handshake with assigned roles (session-layer)
-      await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
-        'receiverId': receiverUid,
-        'senderId': senderUid,
-        'status': 'handshake_pending',
-        'senderUid': senderUid,
-        'receiverUid': receiverUid,
-        'rolesAssignedAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      print('DEBUG: assignTransferRole - SUCCESS, doc created: $docId');
-      return docId;
-    } on NetworkException catch (e) {
-      print('DEBUG: assignTransferRole - NetworkException: $e');
-      rethrow;
-    } on FirebaseException catch (e) {
-      print('DEBUG: assignTransferRole - FirebaseException: ${e.message ?? e.code}');
-      throw NetworkException(
-          'Failed to assign transfer roles: ${e.message ?? e.code}');
-    } catch (e) {
-      print('DEBUG: assignTransferRole - Unknown error: $e');
-      rethrow;
+    // FIX 1: Validate connection exists before role assignment
+    final connectionStatus = await getConnectionStatus(partnerUid);
+    if (connectionStatus != 'accepted') {
+      throw AuthException(
+        'Connection with @$partnerUid not established yet. Status: $connectionStatus'
+      );
     }
+
+    // FIX 2: Role assignment is now local. The actual Firestore doc is created
+    // when selectSenderHandshake() runs (receiver) or discovered via stream (sender).
+    // Return empty string as placeholder — screens will use the stream/selectSenderHandshake
+    // return value as the authoritative docId.
+    return '';
   }
 
   /// Clears file transfer roles from a handshake document.

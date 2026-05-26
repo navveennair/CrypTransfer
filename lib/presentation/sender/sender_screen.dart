@@ -214,7 +214,11 @@ class _SenderScreenState extends State<SenderScreen>
           receiverId.isNotEmpty &&
           (widget.preFilledPartnerUid == null ||
            receiverId == widget.preFilledPartnerUid)) {
-        _handshakeDocId ??= docId;
+        // FIX 2: assignTransferRole() now returns empty string (no Firestore write).
+        // Accept the stream-discovered docId regardless of what we got from HomeScreen.
+        if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
+          _handshakeDocId = docId;
+        }
         setState(() {
           _receiverId = receiverId;
           _receiverUsername = receiverUsername;
