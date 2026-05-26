@@ -51,6 +51,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
   List<UserModel> _connectedFriends = [];
   StreamSubscription<List<UserModel>>? _friendsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _incomingHandshakeSub;
   bool _handshaking = false;
   bool _handshakeDone = false;
 
@@ -98,6 +99,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   @override
   void dispose() {
     _friendsSub?.cancel();
+    _incomingHandshakeSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     EncryptionService.unbindSession();
@@ -112,6 +114,42 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       },
       onError: (_) {}, // silently ignore errors — list stays at last known value
     );
+  }
+
+  void _startIncomingHandshakeListener() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    _incomingHandshakeSub = _connService
+        .streamIncomingHandshakes(uid)
+        .listen((snap) {
+      if (!mounted || snap.docs.isEmpty) return;
+
+      // Auto-select first incoming handshake with assigned sender role
+      final doc = snap.docs.firstWhere(
+        (d) => (d.data()['senderUid'] as String?)?.isNotEmpty ?? false,
+        orElse: () => snap.docs.first,
+      );
+
+      final senderUid = doc.data()['senderId'] as String?;
+      final senderUsername = doc.data()['senderUsername'] as String? ??
+                            doc.data()['fromUsername'] as String? ?? 'Sender';
+
+      if (senderUid != null && senderUid.isNotEmpty) {
+        // Auto-select this sender
+        _onSenderSelected(UserModel(
+          uid: senderUid,
+          username: senderUsername,
+          email: '',
+          phone: '',
+        ));
+      }
+    });
+  }
+
+  void _stopIncomingHandshakeListener() {
+    _incomingHandshakeSub?.cancel();
+    _incomingHandshakeSub = null;
   }
 
   void _onSessionStateChanged() {
@@ -219,6 +257,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             _hasPrivateKey = true;
             _hasPublicKey = true;
           });
+          // Start listening for incoming handshakes (automatic sender detection)
+          _startIncomingHandshakeListener();
           // Consume deferred pre-fill: public key is now in Firestore,
           // so selectSenderHandshake will succeed (D-14).
           final pending = _pendingPrefilledSender;
@@ -233,6 +273,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           setState(() => _isTogglingReady = false);
           return;
         }
+        // Stop listening for incoming handshakes
+        _stopIncomingHandshakeListener();
         // Signal unreadiness: receiver's mailbox is now closed
         await _connService.setReadyToReceive(false);
         EncryptionService.unbindSession();

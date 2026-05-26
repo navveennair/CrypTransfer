@@ -601,6 +601,15 @@ class KeyRepository {
           .where('senderId', isEqualTo: _uid)
           .snapshots();
 
+  /// Streams incoming handshakes where this user is the receiver and sender has assigned a role.
+  /// Used for automatic sender detection when receiver opens mailbox.
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamIncomingHandshakes(
+      String receiverUid) =>
+      _db
+          .collection(FirebaseConstants.handshakes)
+          .where('receiverId', isEqualTo: receiverUid)
+          .snapshots();
+
   /// Updates the current user's readiness-to-receive status in Firestore.
   Future<void> setReadyToReceive(bool ready) async {
     try {
