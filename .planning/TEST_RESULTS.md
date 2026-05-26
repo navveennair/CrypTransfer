@@ -2,7 +2,7 @@
 
 ## Summary
 
-**Overall: 99/101 tests PASSED (98% success rate)**
+**Overall: 100/101 tests PASSED (99% success rate) ✅**
 
 | Category | Tests | Passed | Failed | Status |
 |----------|-------|--------|--------|--------|
@@ -10,7 +10,7 @@
 | **Encryption** | 8 | 8 | 0 | ✅ ALL PASS |
 | **Auth** | 10 | 9 | 1 | ⚠️ 1 FAIL |
 | **Session/Wipe** | 18 | 18 | 0 | ✅ ALL PASS |
-| **Handshake** | 11 | 10 | 1 | ⚠️ 1 FAIL |
+| **Handshake** | 11 | 11 | 0 | ✅ ALL PASS |
 | **Transfer** | 9 | 9 | 0 | ✅ ALL PASS |
 | **Vault** | 11 | 11 | 0 | ✅ ALL PASS |
 
@@ -36,10 +36,10 @@
 - ✅ RSA Key Management (TC007-TC009) — Keys generated, stored, and lifecycle correct
 - ❌ **Logout (TC010) FAIL** — GoogleSignIn platform channel call without Flutter binding initialization
 
-### 🔄 Handshake (10/11 PASS, 1 FAIL)
+### 🔄 Handshake (11/11 PASS) ✅
 - ✅ Receiver prefill — ReceiverScreen accepts preFilledSenderUid
 - ✅ Sender prefill — SenderScreen accepts preFilledPartnerUid
-- ❌ **TC-HAND-06c FAIL** — `streamProposalOutcome` emits 'pending' instead of 'connected' after accept
+- ✅ **TC-HAND-06c FIXED** — `streamProposalOutcome` now correctly emits 'connected' after accept (WriteBatch fix)
 
 ### 📤 Transfer (9 tests)
 - ✅ File representation correct before transfer
@@ -68,23 +68,16 @@
 
 ---
 
-## ❌ Failing Tests (2)
+## ❌ Failing Tests (1)
 
-### 1. **TC-HAND-06c: streamProposalOutcome Status Transition**
-- **Expected:** 'connected'
-- **Actual:** 'pending'
-- **Root Cause:** Handshake status field not updated on acceptance
-- **Impact:** Friendship status in search results may not update immediately after partner accepts
-- **Fix Required:** Update handshake doc status field on accept (in HandshakeRepository.acceptProposal or similar)
-- **Severity:** Medium — UX issue; connection works but status badge doesn't update in real-time
-
-### 2. **TC010: Logout Clears Current User**
+### **TC010: Logout Clears Current User** (Test Infrastructure Only)
 - **Error:** "Binding has not yet been initialized"
 - **Root Cause:** GoogleSignIn.signOut() calls platform channel without TestWidgetsFlutterBinding
 - **Location:** AuthRepository.logout() → GoogleSignIn.signOut()
 - **Impact:** Test infrastructure only; app logout works fine (tested via manual UAT)
 - **Fix Required:** Add TestWidgetsFlutterBinding.ensureInitialized() to test setup
 - **Severity:** Low — Test framework issue, not production code
+- **Status:** Not blocking release (production code works correctly)
 
 ---
 
@@ -108,8 +101,7 @@
 - **Biometric Auth Broken** (noted in .continue-here.md) — BiometricHelper.authenticate() causing silent vault screen failure (bypassed via commit 62cf219)
 
 ### High Priority (Production Fix)
-- **Logout Test** — Add TestWidgetsFlutterBinding to test setup
-- **Handshake Status Update** — Accept flow not updating status field to 'connected'
+- **Logout Test** — Add TestWidgetsFlutterBinding to test setup (test infrastructure only)
 
 ### Known Limitations (Acceptable)
 - **Isolate Ciphertext** — compute() isolate ciphertext not zeroed (platform limitation, documented in CLAUDE.md)
@@ -129,12 +121,11 @@
 
 **Blockers for Release:**
 1. Biometric auth fix (Phase 08 or post-viva)
-2. Handshake status update (minor)
-3. Logout test fix (test infrastructure)
+2. Logout test fix (test infrastructure only — does not block release)
 
 **Action Items:**
+- [x] Fix TC-HAND-06c (WriteBatch instead of runTransaction) — **COMPLETE**
 - [ ] Fix biometric auth (debug session in progress)
-- [ ] Fix TC-HAND-06c (status field on accept)
-- [ ] Fix TC010 (binding initialization in test)
+- [ ] Fix TC010 (binding initialization in test) — **Optional** (test infrastructure only)
 - [ ] Run full UAT on Android device/emulator
 
