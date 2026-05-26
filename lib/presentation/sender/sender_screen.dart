@@ -123,8 +123,19 @@ class _SenderScreenState extends State<SenderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Listening for handshakes as sender: $myUid')),
     );
-    _handshakeSub =
-        _connService.streamHandshakesForSender().listen(_onHandshakeUpdate);
+    _handshakeSub = _connService.streamHandshakesForSender().listen(
+      _onHandshakeUpdate,
+      onError: (error) {
+        print('DEBUG: Stream error: $error');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Stream error: $error'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      },
+    );
   }
 
   void _onHandshakeUpdate(
