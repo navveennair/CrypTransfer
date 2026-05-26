@@ -7,21 +7,22 @@ import 'package:local_auth/local_auth.dart';
 class BiometricHelper {
   static final _auth = LocalAuthentication();
 
-  /// Returns true if the device can perform any form of authentication
-  /// (fingerprint, face, iris, PIN, pattern, password).
+  /// Returns true if the device has enrolled biometric credentials
+  /// (fingerprint, face, iris). Does NOT include PIN/pattern/password —
+  /// those are not reliably available on emulators and cause silent failures.
   static Future<bool> checkBiometrics() async {
     try {
-      return await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+      return await _auth.canCheckBiometrics;
     } catch (_) {
       return false;
     }
   }
 
-  /// Attempts to authenticate the user.
+  /// Attempts biometric authentication.
   ///
-  /// Falls through to PIN / pattern when biometrics are unavailable.
-  /// Returns `true` on success or when the device has no auth hardware.
-  /// Returns `false` on failure or cancellation.
+  /// Returns `true` on success or when no biometric hardware is enrolled
+  /// (emulators, devices with PIN-only lock screens pass through).
+  /// Returns `false` only on explicit user cancellation or failed attempt.
   static Future<bool> authenticate(String reason) async {
     try {
       final canAuth = await checkBiometrics();

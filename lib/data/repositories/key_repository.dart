@@ -552,7 +552,6 @@ class KeyRepository {
   /// reverts to the waiting buffer.
   Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() {
     final senderId = _uid;
-    print('DEBUG: streamHandshakesForSender() querying with senderId=$senderId');
     return _db
         .collection(FirebaseConstants.handshakes)
         .where('senderId', isEqualTo: senderId)
