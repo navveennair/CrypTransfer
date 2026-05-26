@@ -460,13 +460,9 @@ class KeyRepository {
       // Check if receiver's mailbox is open
       final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
-      // Find existing key-transfer doc to reuse its reference in the batch.
-      final existing = await _db
-          .collection(FirebaseConstants.handshakes)
-          .where('receiverId', isEqualTo: _uid)
-          .where('senderId', isEqualTo: senderUid)
-          .limit(1)
-          .get();
+      // Use deterministic docId (sorted UIDs) — same as assignTransferRole
+      final sortedUids = [_uid, senderUid]..sort();
+      final docId = '${sortedUids[0]}_${sortedUids[1]}';
 
       final batch = _db.batch();
 
@@ -490,20 +486,16 @@ class KeyRepository {
         'status': 'handshake_complete',
         'receiverReady': isReadyToReceive,
       };
-      String docId;
-      if (existing.docs.isNotEmpty) {
-        docId = existing.docs.first.id;
-        batch.update(existing.docs.first.reference, keyPayload);
-      } else {
-        final newRef = _db.collection(FirebaseConstants.handshakes).doc();
-        docId = newRef.id;
-        batch.set(newRef, {
-          'receiverReady': false,
+
+      batch.set(
+        _db.collection(FirebaseConstants.handshakes).doc(docId),
+        {
           'receiverId': _uid,
           'senderId': senderUid,
           ...keyPayload,
-        });
-      }
+        },
+        SetOptions(merge: true),
+      );
 
       await batch.commit();
 
@@ -607,7 +599,6 @@ class KeyRepository {
       _db
           .collection(FirebaseConstants.handshakes)
           .where('senderId', isEqualTo: _uid)
-          .where('status', isEqualTo: 'handshake_complete')
           .snapshots();
 
   /// Updates the current user's readiness-to-receive status in Firestore.
@@ -660,46 +651,21 @@ class KeyRepository {
       final senderUid = isSender ? currentUid : partnerUid;
       final receiverUid = isSender ? partnerUid : currentUid;
 
-      // Try first direction: receiverId = partnerUid, senderId = currentUid
-      var snap = await _db
-          .collection(FirebaseConstants.handshakes)
-          .where('receiverId', isEqualTo: partnerUid)
-          .where('senderId', isEqualTo: currentUid)
-          .limit(1)
-          .get();
+      // Use deterministic ID to prevent duplicates if both users tap simultaneously
+      // Always use lower UID first for consistency
+      final sortedUids = [currentUid, partnerUid]..sort();
+      final docId = '${sortedUids[0]}_${sortedUids[1]}';
 
-      if (snap.docs.isEmpty) {
-        // Try opposite direction: receiverId = currentUid, senderId = partnerUid
-        snap = await _db
-            .collection(FirebaseConstants.handshakes)
-            .where('receiverId', isEqualTo: currentUid)
-            .where('senderId', isEqualTo: partnerUid)
-            .limit(1)
-            .get();
-      }
-
-      if (snap.docs.isEmpty) {
-        // No handshake doc exists yet — create one with roles pre-assigned
-        // Use deterministic ID to prevent duplicates if both users tap simultaneously
-        final docId = '${currentUid}_$partnerUid';
-        await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
-          'receiverId': partnerUid,
-          'senderId': currentUid,
-          'status': 'handshake_pending',
-          'senderUid': senderUid,
-          'receiverUid': receiverUid,
-          'rolesAssignedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        return docId;
-      }
-
-      final docId = snap.docs.first.id;
-      await snap.docs.first.reference.update({
+      // Create or update handshake with assigned roles
+      await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
+        'receiverId': receiverUid,
+        'senderId': senderUid,
+        'status': 'handshake_pending',
         'senderUid': senderUid,
         'receiverUid': receiverUid,
         'rolesAssignedAt': FieldValue.serverTimestamp(),
-      });
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       return docId;
     } on NetworkException {

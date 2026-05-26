@@ -361,6 +361,9 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         }
       }
 
+      // Signal per-handshake readiness: receiver is ready for this specific sender
+      await _connService.setReceiverReady(docId);
+
       if (mounted) {
         setState(() {
           _handshakeDone = true;

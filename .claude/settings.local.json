@@ -77,7 +77,8 @@
       "Bash(Select-String -Pattern \"WARNING|KGP|kotlin|Kotlin|error|Error\")",
       "Skill(gsd:map-codebase)",
       "Bash(cat)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(firebase use *)"
     ]
   }
 }
