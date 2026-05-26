@@ -53,6 +53,8 @@ See: .planning/PROJECT.md
 - 2026-05-25: Phase 07.1 all 4 waves executed — Wave 0 repository expansion, Wave 1 transfer screens migration (16 violations), Wave 2 cleanup screen migration, Wave 3 admin & misc screens migration; total 14 FirebaseFirestore.instance violations eliminated from presentation layer; flutter analyze clean
 - 2026-05-26: Quick task 260526-sxe complete — removed all deprecated rsa_key_transfers collection references from test fixtures and audit reports; TC-WIPE-002 migrated to handshakes with senderId/receiverId fields; all 9 session wipe tests passing; flutter analyze clean; zero references to rsa_key_transfers remain
 - 2026-05-26: Quick task 260526-t9y complete — extracted snackbar helpers from HomeScreen; consolidated 7 ScaffoldMessenger invocations into _showErrorSnackBar/_showInfoSnackBar/_showErrorMessage; fixed BuildContext.mounted async warnings in _openRolePicker; flutter analyze clean; 29/29 security tests passing
+- 2026-05-26: Debug session 'dialogs-freeze-on-proposal-accept' resolved — root cause: SetOptions(merge: true) on non-existent friendships documents caused Firestore rule evaluation hang. Fix: removed SetOptions(merge: true) from acceptProposal() batch.set() calls (commit 92e7ebc). All tests passing (TC-HAND-01 through TC-HAND-08, TC-ROLE-01 through TC-ROLE-06).
+- 2026-05-26: Firestore security rules deployed — friendships bidirectional write rule (commit b3717fa) now live in production (cryptransfer-96e9f). Rule allows accepting user (friendId) to write status='accepted' to proposer's friendship doc during accept flow.
 
 ## Accumulated Context
 
