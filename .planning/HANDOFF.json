@@ -1,8 +1,8 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-26T16:35:12.101Z",
+  "timestamp": "2026-05-27T01:18:32.855Z",
   "phase": null,
-  "phase_name": "debug: sender-step3-rsa-handshake-stateless",
+  "phase_name": "debug: sender-step3-encrypt-key-button",
   "phase_dir": ".planning/debug",
   "plan": null,
   "task": null,
@@ -23,63 +23,79 @@
     },
     {
       "id": 3,
-      "name": "Add debug logging to trace Step 3 button state",
+      "name": "Fix _encryptingKey guard — move setState before biometric await; remove debug logging",
       "status": "done",
-      "commit": "70ebad5"
+      "commit": "c694a77"
+    },
+    {
+      "id": 4,
+      "name": "Fix BiometricHelper — gate on canCheckBiometrics only (drop isDeviceSupported)",
+      "status": "done",
+      "commit": "62114c7"
+    },
+    {
+      "id": 5,
+      "name": "Fix Firestore rule violations — TransferLogService path + connections→friendships + admin read rule",
+      "status": "done",
+      "commit": "3ac255e"
     }
   ],
   "remaining_tasks": [
     {
-      "id": 4,
-      "name": "Collect flutter run console output — user must paste DEBUG lines",
-      "status": "not_started"
-    },
-    {
-      "id": 5,
-      "name": "Confirm if _revertToWaiting() is clearing _encryptedBytes after Step 2",
-      "status": "not_started"
-    },
-    {
       "id": 6,
-      "name": "Apply targeted fix so Step 3 button remains enabled after Step 2",
+      "name": "Deploy updated firestore.rules to production (cryptransfer-96e9f)",
       "status": "not_started"
     },
     {
       "id": 7,
-      "name": "Remove all debug print statements before shipping",
+      "name": "End-to-end UAT: Step 3 encrypt key → Step 4 send — confirm RSA encryption completes and transfer proceeds",
       "status": "not_started"
     }
   ],
-  "blockers": [
-    {
-      "description": "Step 3 'Encrypt Key for @' button onPressed is null — tapping produces zero console output, meaning _fileEncrypted is false despite Step 2 showing the encryption badge",
-      "type": "technical",
-      "workaround": "Debug logging committed (70ebad5). Need user console paste from flutter run during the full flow"
-    }
-  ],
+  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Run 'flutter run', go through flow: receiver open mailbox → select sender → Step 1 pick file → Step 2 encrypt → tap Step 3. Paste all DEBUG lines from console.",
-      "context": "Debug prints in sender_screen.dart will show if _revertToWaiting() is being called unexpectedly and clearing _encryptedBytes",
+      "action": "Run 'firebase deploy --only firestore:rules' to push updated firestore.rules to cryptransfer-96e9f",
+      "context": "friendships isAdmin() read rule and connections→friendships fix won't take effect until deployed. Transfer-log path fix is code-only so it's live immediately.",
+      "blocking": false
+    },
+    {
+      "action": "Run flutter run and test full sender flow: receiver opens mailbox → selects sender → sender picks file (Step 1) → encrypts (Step 2) → taps 'Encrypt Key for @' (Step 3) → confirm Step 4 Send button appears",
+      "context": "Three fixes were applied this session targeting Step 3. Fix 3 (biometric canCheckBiometrics gate) is the most likely root cause on emulator. Has not been UAT-verified yet.",
       "blocking": true
     }
   ],
   "decisions": [
     {
-      "decision": "Always write receiverReady: true in selectSenderHandshake() instead of reading isReadyToReceive",
-      "rationale": "Eliminated two-phase write race condition. Confirmed: Firestore does have receiverReady: true, and the 'Secure channel established' snackbar does fire.",
+      "decision": "BiometricHelper gates on canCheckBiometrics only, not isDeviceSupported()",
+      "rationale": "isDeviceSupported() returns true on emulators even without enrolled credentials, causing authenticate() to throw PlatformException → caught → returns false → Step 3 silently aborts. canCheckBiometrics is the correct signal for enrolled biometric hardware.",
       "phase": "debug"
     },
     {
-      "decision": "Remove setReceiverReady() call from receiver_screen.dart",
-      "rationale": "Was redundant — second write caused double-snapshot where transition already set _receiverReady=true, so the else-if branch could then clear state",
+      "decision": "_encryptingKey=true set synchronously before BiometricHelper.authenticate() await",
+      "rationale": "Previously set after biometric resolved — allowed 7 concurrent RSA compute() calls on fast-returning emulator. Early guard prevents re-entry during the async gap.",
+      "phase": "debug"
+    },
+    {
+      "decision": "TransferLogService writes to top-level transfer_logs, not users/{uid}/transfer_logs subcollection",
+      "rationale": "Security rules only cover top-level transfer_logs. Subcollection path had no matching rule — PERMISSION_DENIED silently swallowed every call since service was created.",
+      "phase": "debug"
+    },
+    {
+      "decision": "user_repository.dart connections subcollection renamed to friendships",
+      "rationale": "App migrated from connections to friendships. The old name had no Firestore rule and pointed to empty data. Used by admin ConnectionNodeMap widget.",
+      "phase": "debug"
+    },
+    {
+      "decision": "friendships rule extended with || isAdmin() on read",
+      "rationale": "Admin dashboard ConnectionNodeMap streams other users' friendships for node visualization — owner-only read rule blocked it.",
       "phase": "debug"
     }
   ],
   "uncommitted_files": [
-    ".planning/debug/sender-step3-rsa-handshake-stateless.md",
-    "lib/presentation/sender/sender_screen.dart (has debug print statements — MUST remove before shipping)"
+    ".claude/settings.local.json (minor — settings changes)",
+    ".planning/debug/dialogs-freeze-on-proposal-accept.md (minor — debug doc update)"
   ],
-  "next_action": "Ask user for the DEBUG console output. Then grep sender_screen.dart for all _revertToWaiting() call sites and trace whether any fire AFTER _onReceiverBecameReady() — specifically the else-if at line 246.",
-  "context_notes": "Architecture: neutral handshake connects users first, then role (send/receive) is assigned. receiverReady signals the receiver opened their mailbox. The full chain: receiver opens mailbox -> receiver selects sender -> selectSenderHandshake() writes receiverReady:true -> sender stream fires -> _onReceiverBecameReady() sets _receiverReady=true -> IgnorePointer gate opens. After this, sender picks file (Step 1), encrypts (Step 2), then Step 3 should be tappable. But _fileEncrypted is somehow false at Step 3 tap time, meaning _encryptedBytes was cleared between Step 2 completion and Step 3 tap."
+  "next_action": "Deploy firestore.rules then run flutter run and UAT the full sender Step 3→4 flow to confirm the biometric fix resolves the issue.",
+  "context_notes": "Three layered bugs blocked Step 3 'Encrypt Key' button this session. (1) _fileEncrypted=false due to receiverReady race — fixed earlier. (2) _encryptingKey guard fired after biometric so 7 concurrent RSA calls queued. (3) Root cause: BiometricHelper.authenticate() returned false on emulator because isDeviceSupported()=true even without enrolled credentials — this silently aborted every Step 3 attempt. All fixes are committed. The Firestore rule audit was a side investigation — no impact on Step 3 directly, but two genuine bugs fixed (TransferLogService path, connections subcollection). UAT of Step 3 end-to-end has NOT been done yet."
 }
