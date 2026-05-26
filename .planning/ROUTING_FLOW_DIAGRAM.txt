@@ -1,0 +1,182 @@
+TRANSFER SESSION ROUTING FLOW DIAGRAM
+=====================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           HomeScreen                                         │
+│                  (Active Connections list)                                   │
+│                                                                               │
+│  Services: KeyRepository, HandshakeRepository, TransferRepository,           │
+│            AuthRepository                                                    │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               │ User taps connected partner
+                               ↓
+        ┌──────────────────────────────────────────────────┐
+        │  _RolePickerSheet (Modal Bottom Sheet)           │
+        │                                                   │
+        │  Title: "Start a session with @username"        │
+        │                                                   │
+        │  ┌────────────────────────────────────────────┐  │
+        │  │  SEND FILE                    onSendFile() │  │
+        │  │  "You encrypt and transmit"                │  │
+        │  │  Button: [Upload Icon]                     │  │
+        │  └────────────────────────────────────────────┘  │
+        │                                                   │
+        │  ┌────────────────────────────────────────────┐  │
+        │  │  RECEIVE FILE              onReceiveFile() │  │
+        │  │  "Partner encrypts and sends"              │  │
+        │  │  Button: [Download Icon]                   │  │
+        │  └────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────┘
+                    │                          │
+        ┌───────────┴──────────────┬──────────┴────────────┐
+        │                          │                       │
+        │ onSendFile()             │                       │ onReceiveFile()
+        │ (SENDER path)            │                       │ (RECEIVER path)
+        │                          │                       │
+        ↓                          │                       ↓
+   ┌─────────────────────────┐    │                  ┌──────────────────────┐
+   │ assignTransferRole(     │    │                  │ assignTransferRole(  │
+   │   partnerUid,           │    │                  │   partnerUid,        │
+   │   isSender: TRUE ◄──────┼────┼──────────────────┼──  isSender: FALSE   │
+   │ )                       │    │                  │ )                    │
+   │                         │    │                  │                      │
+   │ Writes to Firestore:    │    │                  │ Writes to Firestore: │
+   │ handshakes/{docId}      │    │                  │ handshakes/{docId}   │
+   │ ├─ senderId: currentUid │    │                  │ ├─ senderId: partner │
+   │ ├─ receiverId: partner  │    │                  │ ├─ receiverId: current
+   │ └─ status: pending      │    │                  │ └─ status: pending   │
+   └────────┬────────────────┘    │                  └──────────┬───────────┘
+            │                      │                           │
+            │ Returns: handshakeDocId                          │ Returns: handshakeDocId
+            │                      │                           │
+            ↓                      │                           ↓
+   ┌─────────────────────────┐    │                  ┌──────────────────────┐
+   │ Navigator.push(         │    │                  │ Navigator.push(      │
+   │   SenderScreen(         │    │                  │   ReceiverScreen(    │
+   │     preFilledPartnerUid │    │                  │     preFilledSender  │
+   │     handshakeDocId      │    │                  │     handshakeDocId   │
+   │   )                     │    │                  │   )                  │
+   │ )                       │    │                  │ )                    │
+   └────────┬────────────────┘    │                  └──────────┬───────────┘
+            │                      │                           │
+            │ Navigation Stack:    │                           │ Navigation Stack:
+            │ HomeScreen           │                           │ HomeScreen
+            │ └─ SenderScreen      │                           │ └─ ReceiverScreen
+            │                      │                           │
+            ↓                      │                           ↓
+   ┌─────────────────────────┐    │                  ┌──────────────────────┐
+   │   SenderScreen          │    │                  │   ReceiverScreen     │
+   │                         │    │                  │                      │
+   │ Services:              │    │                  │ Services:            │
+   │ • KeyRepository        │    │                  │ • KeyRepository      │
+   │ • TransferRepository   │    │                  │ • AuthRepository     │
+   │ • Streams:            │    │                  │ • TransferRepository │
+   │   - _handshakeSub     │    │                  │ • SessionManager     │
+   │   (waits for receiver) │    │                  │ • Streams:           │
+   │                         │    │                  │   - _friendsSub      │
+   │ UI Flow:               │    │                  │   - _incomingHandshakeSub
+   │ Step 1: Select file   │    │                  │   - _transferStream  │
+   │ Step 2: Encrypt       │    │                  │                      │
+   │ Step 3: Upload        │    │                  │ UI Flow:             │
+   │ Step 4: Confirm       │    │                  │ Step 1: Key setup    │
+   │                         │    │                  │ Step 2: Open mailbox │
+   │ [Encrypt & Send] ──┐   │    │                  │ Step 3: Select sender
+   │                    │   │    │                  │ Step 4: Wait for msg │
+   │                    │   │    │                  │                      │
+   │                    │   │    │                  │ [Mailbox toggle] ───┐│
+   │                    │   │    │                  │                    ││
+   │                    │   │    │                  │  (Deferred):       ││
+   │                    │   │    │                  │  _pendingPrefilled ││
+   │                    │   │    │                  │  Sender fires when  ││
+   │                    │   │    │                  │  mailbox open      ││
+   │                    └───┼────┼─────────────────┘                    ││
+   │                        │    │                                      ││
+   │                        ↓    │                                      ↓│
+   │                   ┌─────────────────────┐              [Stream: Incoming Transfer]
+   │                   │ TransferProgressScreen              │
+   │                   │                      │              │
+   │                   │ Services:           │              │
+   │                   │ • TransferRepository│              │
+   │                   │ • Streams:          │              │
+   │                   │   - _transferListener              │
+   │                   │   (non-repudiation) │              │
+   │                   │                      │              │
+   │                   │ Tracks:             │              │
+   │                   │ • Upload progress   │              │
+   │                   │ • Receiver decrypt  │              │
+   │                   │ • Session cleanup   │              ↓
+   │                   │                      │    ┌──────────────────────┐
+   │                   │ Result:             │    │ ReceiverTransferScreen
+   │                   │ ✅ Success→Navigate│    │                      │
+   │                   │ ❌ Abort→Display   │    │ Services:            │
+   │                   └─────────┬───────────┘    │ • TransferRepository │
+   │                             │                │ • AuthRepository     │
+   │                             │                │ • Streams:           │
+   │                             │                │   - _failedStatusSub │
+   │                             │                │   (watch for abort)  │
+   │                             │                │                      │
+   │                             │                │ Steps:               │
+   │                             │                │ 1. Download metadata │
+   │                             │                │ 2. Verify encryption │
+   │                             │                │ 3. Ready to decrypt  │
+   │                             │                │                      │
+   │                             │                │ [Auto-push on step 3]
+   │                             │                └──────────┬───────────┘
+   │                             │                           │
+   │                             │                           ↓
+   │                             │              ┌──────────────────────┐
+   │                             │              │  DecryptScreen       │
+   │                             │              │                      │
+   │                             │              │ Save & Suicide:      │
+   │                             │              │ Phase 1: Decrypt     │
+   │                             │              │ Phase 2: Save file   │
+   │                             │              │ Phase 3: Wipe keys   │
+   │                             │              │                      │
+   │                             │              │ [Auto-push on decrypt]
+   │                             │              └──────────┬───────────┘
+   │                             │                         │
+   │                             │                         ↓
+   │                             │          ┌──────────────────────────┐
+   │                             │          │ EndSessionScreen         │
+   │                             │          │                          │
+   │                             │          │ Both roles:              │
+   │                             │          │ • Cleanup Firestore      │
+   │                             │          │ • Cleanup Storage        │
+   │                             │          │ • Delete handshake doc   │
+   │                             │          │ • Wipe remaining keys    │
+   │                             │          │                          │
+   │                             └─────────→ [Navigate back to Home]   │
+   │                                        └──────────────────────────┘
+   │
+   └────────────────────────────────────────────────────────────────────
+
+
+KEY POINTS
+══════════
+
+1. ENTRY: Both "Send" and "Receive" routes start at _RolePickerSheet
+
+2. BIFURCATION: The role is determined by the `isSender: true/false` parameter
+   to assignTransferRole() — this is the ONLY decision point
+
+3. SEPARATE SCREENS: SenderScreen and ReceiverScreen are completely independent:
+   • Different files
+   • Different state management
+   • Different service initialization
+   • Different UI layouts
+   • Different stream listeners
+
+4. NO SHARED STEPPER: There is NO unified "TransferStepperScreen(role: ...)"
+   that dynamically branches based on configuration
+
+5. SUB-SCREENS: Both paths eventually push to screen-specific transfer screens:
+   • Sender → TransferProgressScreen (upload tracking)
+   • Receiver → ReceiverTransferScreen (download waiting)
+
+6. SERVICES: Each screen independently initializes its required services.
+   The SessionManager is passed from ReceiverScreen to its children for
+   kill-switch propagation.
+
+7. FIRESTORE: The handshakes/{docId} document stores the role assignment
+   and is referenced by both screens via the handshakeDocId parameter.
