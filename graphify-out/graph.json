@@ -11,24 +11,52 @@
           "claude_encryption_service",
           "claude_security_lifecycle_mixin"
         ],
+        "relation": "form",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "graphify-out/GRAPH_REPORT.md"
+      },
+      {
+        "id": "core_data_model",
+        "label": "Core Data Entities",
+        "nodes": [
+          "claude_handshakes",
+          "claude_transfers",
+          "claude_transfer_logs",
+          "claude_users"
+        ],
         "relation": "implement",
         "confidence": "EXTRACTED",
         "confidence_score": 1.0,
         "source_file": "CLAUDE.md"
       },
       {
-        "id": "core_data_entities",
-        "label": "Core Data Entities",
+        "id": "thesis_architecture_stack",
+        "label": "Thesis Proposed Architecture",
         "nodes": [
-          "claude_rsa_key_transfers",
-          "claude_transfers",
-          "claude_transfers_log",
-          "claude_users"
+          "chapter3_flutter",
+          "chapter3_firebase",
+          "chapter3_pointycastle",
+          "chapter4_hybrid_encryption"
         ],
         "relation": "form",
         "confidence": "EXTRACTED",
         "confidence_score": 1.0,
-        "source_file": "CLAUDE.md"
+        "source_file": "chapter4_text.txt"
+      },
+      {
+        "id": "implementation_security_stack",
+        "label": "Implemented Security Architecture",
+        "nodes": [
+          "claude_security_lifecycle_mixin",
+          "zero_explicit_zeroing",
+          "protocol_core_rules",
+          "protocol_audit_purge"
+        ],
+        "relation": "implement",
+        "confidence": "INFERRED",
+        "confidence_score": 0.88,
+        "source_file": "SECURITY_PROTOCOLS.md"
       }
     ]
   },
@@ -38,7 +66,7 @@
       "file_type": "code",
       "source_file": "android\\build.gradle.kts",
       "source_location": "L1",
-      "community": 11,
+      "community": 21,
       "id": "android_build_gradle_kts"
     },
     {
@@ -46,7 +74,7 @@
       "file_type": "code",
       "source_file": "android\\settings.gradle.kts",
       "source_location": "L1",
-      "community": 12,
+      "community": 22,
       "id": "android_settings_gradle_kts"
     },
     {
@@ -54,7 +82,7 @@
       "file_type": "code",
       "source_file": "android\\app\\build.gradle.kts",
       "source_location": "L1",
-      "community": 13,
+      "community": 23,
       "id": "android_app_build_gradle_kts"
     },
     {
@@ -62,7 +90,7 @@
       "file_type": "code",
       "source_file": "android\\app\\src\\main\\java\\io\\flutter\\plugins\\GeneratedPluginRegistrant.java",
       "source_location": "L1",
-      "community": 1,
+      "community": 6,
       "id": "android_app_src_main_java_io_flutter_plugins_generatedpluginregistrant_java"
     },
     {
@@ -70,7 +98,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L69",
-      "community": 1,
+      "community": 6,
       "id": "generatedpluginregistrant_generatedpluginregistrant"
     },
     {
@@ -78,28 +106,28 @@
       "file_type": "code",
       "source_file": "android\\app\\src\\main\\java\\io\\flutter\\plugins\\GeneratedPluginRegistrant.java",
       "source_location": "L17",
-      "community": 1,
+      "community": 6,
       "id": "generatedpluginregistrant_generatedpluginregistrant_registerwith"
     },
     {
       "label": "com.example.cryptransfer/security",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "community": 7,
+      "community": 12,
       "id": "kotlin_security_channel"
     },
     {
       "label": "MainActivity",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "community": 7,
+      "community": 12,
       "id": "main_activity"
     },
     {
       "label": "isFlagSecureActive",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt",
-      "community": 14,
+      "community": 24,
       "id": "kotlin_is_flag_secure_active"
     },
     {
@@ -107,7 +135,7 @@
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L1",
-      "community": 3,
+      "community": 7,
       "id": "ios_flutter_ephemeral_flutter_lldb_helper_py"
     },
     {
@@ -115,7 +143,7 @@
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L7",
-      "community": 3,
+      "community": 7,
       "id": "flutter_lldb_helper_handle_new_rx_page"
     },
     {
@@ -123,7 +151,7 @@
       "file_type": "code",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L24",
-      "community": 3,
+      "community": 7,
       "id": "flutter_lldb_helper_lldb_init_module"
     },
     {
@@ -131,7 +159,7 @@
       "file_type": "rationale",
       "source_file": "ios\\Flutter\\ephemeral\\flutter_lldb_helper.py",
       "source_location": "L8",
-      "community": 3,
+      "community": 7,
       "id": "flutter_lldb_helper_rationale_8"
     },
     {
@@ -139,7 +167,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L1",
-      "community": 0,
+      "community": 4,
       "id": "ios_runner_appdelegate_swift"
     },
     {
@@ -147,7 +175,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L4",
-      "community": 0,
+      "community": 4,
       "id": "appdelegate_appdelegate"
     },
     {
@@ -155,7 +183,7 @@
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "community": 0,
+      "community": 4,
       "id": "flutterappdelegate"
     },
     {
@@ -163,7 +191,7 @@
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "community": 0,
+      "community": 4,
       "id": "flutterimplicitenginedelegate"
     },
     {
@@ -171,7 +199,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L6",
-      "community": 0,
+      "community": 4,
       "id": "appdelegate_appdelegate_application"
     },
     {
@@ -179,7 +207,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\AppDelegate.swift",
       "source_location": "L13",
-      "community": 0,
+      "community": 4,
       "id": "appdelegate_appdelegate_didinitializeimplicitflutterengine"
     },
     {
@@ -191,7 +219,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 13,
       "id": "ios_plugin_registrant_h"
     },
     {
@@ -199,7 +227,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L1",
-      "community": 1,
+      "community": 6,
       "id": "ios_runner_generatedpluginregistrant_m"
     },
     {
@@ -207,7 +235,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\GeneratedPluginRegistrant.m",
       "source_location": "L71",
-      "community": 1,
+      "community": 6,
       "id": "generatedpluginregistrant_generatedpluginregistrant_registerwithregistry"
     },
     {
@@ -219,7 +247,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 13,
       "id": "ios_bridging_header"
     },
     {
@@ -227,7 +255,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L1",
-      "community": 6,
+      "community": 10,
       "id": "ios_runner_scenedelegate_swift"
     },
     {
@@ -235,7 +263,7 @@
       "file_type": "code",
       "source_file": "ios\\Runner\\SceneDelegate.swift",
       "source_location": "L4",
-      "community": 6,
+      "community": 10,
       "id": "scenedelegate_scenedelegate"
     },
     {
@@ -243,7 +271,7 @@
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "community": 6,
+      "community": 10,
       "id": "flutterscenedelegate"
     },
     {
@@ -251,7 +279,7 @@
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L1",
-      "community": 4,
+      "community": 8,
       "id": "ios_runnertests_runnertests_swift"
     },
     {
@@ -259,7 +287,7 @@
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L5",
-      "community": 4,
+      "community": 8,
       "id": "runnertests_runnertests"
     },
     {
@@ -267,7 +295,7 @@
       "file_type": "code",
       "source_file": "",
       "source_location": "",
-      "community": 4,
+      "community": 8,
       "id": "xctestcase"
     },
     {
@@ -275,21 +303,21 @@
       "file_type": "code",
       "source_file": "ios\\RunnerTests\\RunnerTests.swift",
       "source_location": "L7",
-      "community": 4,
+      "community": 8,
       "id": "runnertests_runnertests_testexample"
     },
     {
       "label": "silent_guardian.ps1",
       "file_type": "code",
       "source_file": "scripts/silent_guardian.ps1",
-      "community": 15,
+      "community": 25,
       "id": "silent_guardian_script"
     },
     {
       "label": "update_status.ps1",
       "file_type": "code",
       "source_file": "scripts/update_status.ps1",
-      "community": 16,
+      "community": 26,
       "id": "update_status_script"
     },
     {
@@ -297,7 +325,7 @@
       "file_type": "code",
       "source_file": "android\\generate_flowchart.py",
       "source_location": "L1",
-      "community": 9,
+      "community": 14,
       "id": "android_generate_flowchart_py"
     },
     {
@@ -305,7 +333,7 @@
       "file_type": "code",
       "source_file": "android\\generate_flowchart.py",
       "source_location": "L5",
-      "community": 9,
+      "community": 14,
       "id": "generate_flowchart_create_flowchart_docx"
     },
     {
@@ -317,7 +345,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 17,
+      "community": 27,
       "id": "claude_ui_framework"
     },
     {
@@ -329,7 +357,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 15,
       "id": "claude_github_dark_theme"
     },
     {
@@ -341,19 +369,19 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 1,
       "id": "claude_impeller_backend"
     },
     {
-      "label": "Admin Dashboard",
+      "label": "Admin Dashboard with Node Map",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Admin Dashboard section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 19,
       "id": "claude_admin_dashboard"
     },
     {
@@ -369,15 +397,15 @@
       "id": "claude_rsa_key_transfers"
     },
     {
-      "label": "Transfers Data Model",
+      "label": "Transfers Collection",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Data Model section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 19,
+      "community": 5,
       "id": "claude_transfers"
     },
     {
@@ -389,38 +417,38 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 20,
+      "community": 28,
       "id": "claude_transfers_log"
     },
     {
-      "label": "User Profiles Data Model",
+      "label": "User Profiles Collection",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Data Model section",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 21,
-      "id": "claude_users"
-    },
-    {
-      "label": "Security Lifecycle Mixin",
-      "file_type": "code",
-      "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
       "community": 5,
+      "id": "claude_users"
+    },
+    {
+      "label": "SecurityLifecycleMixin - Zero-Wipe Mixin",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 1,
       "id": "claude_security_lifecycle_mixin"
     },
     {
-      "label": "Session Manager",
-      "file_type": "code",
+      "label": "SessionManager with Kill-Switch Handshake",
+      "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
@@ -429,10 +457,10 @@
       "id": "claude_session_manager"
     },
     {
-      "label": "Encryption Service",
-      "file_type": "code",
+      "label": "EncryptionService with closeReceiverSession",
+      "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
@@ -441,39 +469,39 @@
       "id": "claude_encryption_service"
     },
     {
-      "label": "Transfer Service",
-      "file_type": "code",
+      "label": "TransferService with 64KB Chunking",
+      "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "community": 22,
-      "id": "claude_transfer_service"
-    },
-    {
-      "label": "Receiver Screen",
-      "file_type": "code",
-      "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
       "community": 2,
-      "id": "claude_receiver_screen"
+      "id": "claude_transfer_service"
     },
     {
-      "label": "Sender Screen",
-      "file_type": "code",
+      "label": "ReceiverScreen - Mailbox Management",
+      "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Layer Architecture section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 23,
+      "community": 1,
+      "id": "claude_receiver_screen"
+    },
+    {
+      "label": "SenderScreen with Chunked File Reads",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 2,
       "id": "claude_sender_screen"
     },
     {
@@ -485,19 +513,19 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 1,
       "id": "claude_main_activity"
     },
     {
       "label": "Silent Guardian Security Scanner",
-      "file_type": "code",
+      "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Automation Scripts section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 11,
       "id": "claude_silent_guardian"
     },
     {
@@ -513,15 +541,15 @@
       "id": "claude_kill_switch"
     },
     {
-      "label": "Android FLAG_SECURE",
+      "label": "Android FLAG_SECURE - Screenshot Blocking",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "Security hardening section",
+      "source_location": null,
       "source_url": null,
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 1,
       "id": "claude_flag_secure"
     },
     {
@@ -533,7 +561,7 @@
       "captured_at": "2026-05-23 21:06:07",
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 29,
       "id": "master_color_palette"
     },
     {
@@ -545,7 +573,7 @@
       "captured_at": "2026-05-23 21:06:07",
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 15,
       "id": "master_cyberpunk_ui"
     },
     {
@@ -557,8 +585,532 @@
       "captured_at": "2026-05-23 21:06:07",
       "author": null,
       "contributor": null,
-      "community": 26,
+      "community": 30,
       "id": "master_immersive_experience"
+    },
+    {
+      "label": "CrypTransfer Application",
+      "file_type": "code",
+      "source_file": "scratch/thesis_corrections.py",
+      "id": "CrypTransfer",
+      "community": 9
+    },
+    {
+      "label": "Flutter Framework",
+      "file_type": "code",
+      "source_file": "scratch/thesis_corrections.py",
+      "id": "Flutter",
+      "community": 9
+    },
+    {
+      "label": "PointyCastle Library",
+      "file_type": "code",
+      "source_file": "scratch/thesis_corrections.py",
+      "id": "PointyCastle",
+      "community": 9
+    },
+    {
+      "label": "Corrected Thesis Document",
+      "file_type": "document",
+      "source_file": "graphify-out/converted/Corrected_Thesis_d5c35e66.md",
+      "id": "Thesis",
+      "community": 9
+    },
+    {
+      "label": "Hybrid Agile-Waterfall Methodology",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_methodology",
+      "community": 3
+    },
+    {
+      "label": "Flutter Framework",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_flutter",
+      "community": 3
+    },
+    {
+      "label": "Firebase Backend",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_firebase",
+      "community": 3
+    },
+    {
+      "label": "PointyCastle Cryptographic Library",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_pointycastle",
+      "community": 3
+    },
+    {
+      "label": "Dart Programming Language",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_dart",
+      "community": 3
+    },
+    {
+      "label": "GitHub Version Control",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_github",
+      "community": 16
+    },
+    {
+      "label": "Visual Studio Code IDE",
+      "file_type": "document",
+      "source_file": "chapter3_text.txt",
+      "source_location": null,
+      "id": "chapter3_vs_code",
+      "community": 16
+    },
+    {
+      "label": "Requirement Analysis Phase",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_requirement_analysis",
+      "community": 0
+    },
+    {
+      "label": "Use Case Diagram",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_use_case_diagram",
+      "community": 0
+    },
+    {
+      "label": "Class Diagram",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_class_diagram",
+      "community": 0
+    },
+    {
+      "label": "Sequence Diagram",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_sequence_diagram",
+      "community": 0
+    },
+    {
+      "label": "Activity Diagram",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_activity_diagram",
+      "community": 31
+    },
+    {
+      "label": "Database Design with Foreign Keys",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_database_design",
+      "community": 0
+    },
+    {
+      "label": "User Entity Model",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_user_class",
+      "community": 0
+    },
+    {
+      "label": "TransferSession Entity",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_transfer_session",
+      "community": 5
+    },
+    {
+      "label": "RSA Key Pair Entity",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_rsa_key",
+      "community": 0
+    },
+    {
+      "label": "AES Key Entity",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_aes_key",
+      "community": 0
+    },
+    {
+      "label": "File Entity with Metadata",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_file_entity",
+      "community": 0
+    },
+    {
+      "label": "Figma Interface Design",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_figma_design",
+      "community": 0
+    },
+    {
+      "label": "Hybrid Encryption Architecture",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_hybrid_encryption",
+      "community": 0
+    },
+    {
+      "label": "TLS Transport Layer Security",
+      "file_type": "document",
+      "source_file": "chapter4_text.txt",
+      "source_location": null,
+      "id": "chapter4_tls_protocol",
+      "community": 0
+    },
+    {
+      "label": "Project Achievements Summary",
+      "file_type": "document",
+      "source_file": "chapter5_text.txt",
+      "source_location": null,
+      "id": "chapter5_achievements",
+      "community": 0
+    },
+    {
+      "label": "Comparative Analysis with Existing Systems",
+      "file_type": "document",
+      "source_file": "chapter5_text.txt",
+      "source_location": null,
+      "id": "chapter5_comparative_study",
+      "community": 0
+    },
+    {
+      "label": "PSM 2 Implementation Plan",
+      "file_type": "document",
+      "source_file": "chapter5_text.txt",
+      "source_location": null,
+      "id": "chapter5_psm2_plan",
+      "community": 3
+    },
+    {
+      "label": "End-to-End System Testing",
+      "file_type": "document",
+      "source_file": "chapter5_text.txt",
+      "source_location": null,
+      "id": "chapter5_end_to_end_testing",
+      "community": 32
+    },
+    {
+      "label": "Flutter with Material 3 and Impeller",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_flutter",
+      "community": 3
+    },
+    {
+      "label": "RSA Key Handshakes Collection",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_handshakes",
+      "community": 0
+    },
+    {
+      "label": "Neutral Handshakes Collection",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_neutral_handshakes",
+      "community": 33
+    },
+    {
+      "label": "Transfer Logs Audit Collection",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_transfer_logs",
+      "community": 5
+    },
+    {
+      "label": "DecryptScreen - Save & Suicide Pattern",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_decrypt_screen",
+      "community": 1
+    },
+    {
+      "label": "TransferProgressScreen - Non-Repudiation Listener",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_transfer_progress",
+      "community": 17
+    },
+    {
+      "label": "CrypButton - 3D Session-State Visual Feedback",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_crypbutton",
+      "community": 2
+    },
+    {
+      "label": "Android R8 Minification for Release",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_r8_minification",
+      "community": 18
+    },
+    {
+      "label": "Android Release Signing Configuration",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_release_signing",
+      "community": 18
+    },
+    {
+      "label": "Kotlin-Dart MethodChannel Bridge",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_methodchannel",
+      "community": 1
+    },
+    {
+      "label": "Obsidian Security Audit Reporting",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_obsidian_audit",
+      "community": 11
+    },
+    {
+      "label": "State Scanner Rules for Status Verification",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_state_scanner",
+      "community": 11
+    },
+    {
+      "label": "Receiver-Authorized Handshake Model",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_receiver_auth_handshake",
+      "community": 1
+    },
+    {
+      "label": "Sender Reactive Cleanup Sync on Phase 7",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_sender_reactive_cleanup",
+      "community": 17
+    },
+    {
+      "label": "Global Glassmorphic 3D Design System",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_glassmorphic_design",
+      "community": 2
+    },
+    {
+      "label": "HomeScreen Snackbar Helper Extraction",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": null,
+      "id": "claude_snackbar_helpers",
+      "community": 34
+    },
+    {
+      "label": "Admin Role Access Control",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_access_control",
+      "community": 19
+    },
+    {
+      "label": "Session Isolation - One Sender Rule",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_session_isolation",
+      "community": 2
+    },
+    {
+      "label": "RSA-2048 & AES-256-GCM Hybrid Encryption",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_rsa_aes",
+      "community": 0
+    },
+    {
+      "label": "Impeller Rendering for Side-Channel Mitigation",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_impeller",
+      "community": 3
+    },
+    {
+      "label": "Core Security Rules (5 invariants)",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_core_rules",
+      "community": 1
+    },
+    {
+      "label": "Uint8List Zero-Wipe Buffer Pattern",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_wipe_pattern",
+      "community": 1
+    },
+    {
+      "label": "Handshake Dependency RISK-03 (Deliberate)",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_handshake_dependency",
+      "community": 1
+    },
+    {
+      "label": "6-Step Audit-Purge Lifecycle",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_audit_purge",
+      "community": 1
+    },
+    {
+      "label": "Audit Log Immutability Rules",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_audit_log_immutability",
+      "community": 5
+    },
+    {
+      "label": "TC-WIPE-001 to TC-WIPE-009 Test Suite",
+      "file_type": "document",
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "source_location": null,
+      "id": "protocol_test_coverage",
+      "community": 1
+    },
+    {
+      "label": "RSA Public Key Purging Lifecycle",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_rsa_public_purging",
+      "community": 0
+    },
+    {
+      "label": "RSA Private Key Destruction from Secure Storage",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_private_key_destruction",
+      "community": 2
+    },
+    {
+      "label": "64KB Chunked File Processing",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_chunked_processing",
+      "community": 2
+    },
+    {
+      "label": "Explicit Post-Crypto Buffer Zeroing",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_explicit_zeroing",
+      "community": 1
+    },
+    {
+      "label": "Isolate Safety & Plaintext Zero-Wipe",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_isolate_safety",
+      "community": 2
+    },
+    {
+      "label": "No Decrypted Storage Persistence Policy",
+      "file_type": "document",
+      "source_file": "ZERO_REMANENCE.md",
+      "source_location": null,
+      "id": "zero_no_persistent_storage",
+      "community": 1
+    },
+    {
+      "label": "God Nodes - High-Connectivity Abstractions",
+      "file_type": "document",
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "source_location": null,
+      "id": "graph_god_nodes",
+      "community": 20
+    },
+    {
+      "label": "27 Detected Communities in System Graph",
+      "file_type": "document",
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "source_location": null,
+      "id": "graph_communities",
+      "community": 20
+    },
+    {
+      "label": "Kill Switch Execution Chain Hyperedge",
+      "file_type": "document",
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "source_location": null,
+      "id": "graph_kill_switch_hyperedge",
+      "community": 2
+    },
+    {
+      "label": "Core Data Entities Hyperedge",
+      "file_type": "document",
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "source_location": null,
+      "id": "graph_data_entities_hyperedge",
+      "community": 5
+    },
+    {
+      "label": "Comparative Study Gap - SHAREit Zapya Send Anywhere",
+      "file_type": "document",
+      "source_file": "scratch_analysis.txt",
+      "source_location": null,
+      "id": "scratch_comparative_gap",
+      "community": 0
     }
   ],
   "links": [
@@ -837,6 +1389,17 @@
       "target": "claude_security_lifecycle_mixin"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_access_control",
+      "_tgt": "claude_admin_dashboard",
+      "source": "claude_admin_dashboard",
+      "target": "protocol_access_control"
+    },
+    {
       "relation": "shares_data_with",
       "confidence": "INFERRED",
       "confidence_score": 0.9,
@@ -847,6 +1410,39 @@
       "_tgt": "claude_rsa_key_transfers",
       "source": "claude_rsa_key_transfers",
       "target": "claude_encryption_service"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_transfers",
+      "_tgt": "chapter4_transfer_session",
+      "source": "claude_transfers",
+      "target": "chapter4_transfer_session"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_data_entities_hyperedge",
+      "_tgt": "claude_transfers",
+      "source": "claude_transfers",
+      "target": "graph_data_entities_hyperedge"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_data_entities_hyperedge",
+      "_tgt": "claude_users",
+      "source": "claude_users",
+      "target": "graph_data_entities_hyperedge"
     },
     {
       "relation": "calls",
@@ -873,19 +1469,85 @@
       "target": "claude_flag_secure"
     },
     {
-      "relation": "calls",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_security_lifecycle_mixin",
+      "_tgt": "claude_receiver_screen",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "claude_receiver_screen"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_security_lifecycle_mixin",
+      "_tgt": "claude_sender_screen",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "claude_sender_screen"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_security_lifecycle_mixin",
+      "_tgt": "claude_decrypt_screen",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "claude_decrypt_screen"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_wipe_pattern",
+      "_tgt": "claude_security_lifecycle_mixin",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "protocol_wipe_pattern"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_explicit_zeroing",
+      "_tgt": "claude_security_lifecycle_mixin",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "zero_explicit_zeroing"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_kill_switch_hyperedge",
+      "_tgt": "claude_security_lifecycle_mixin",
+      "source": "claude_security_lifecycle_mixin",
+      "target": "graph_kill_switch_hyperedge"
+    },
+    {
+      "relation": "shares_data_with",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md",
       "source_location": "Layer Architecture section",
       "weight": 1.0,
-      "_src": "claude_receiver_screen",
-      "_tgt": "claude_session_manager",
+      "_src": "claude_session_manager",
+      "_tgt": "claude_receiver_screen",
       "source": "claude_session_manager",
       "target": "claude_receiver_screen"
     },
     {
-      "relation": "calls",
+      "relation": "shares_data_with",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md",
@@ -909,6 +1571,116 @@
       "target": "claude_kill_switch"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_crypbutton",
+      "_tgt": "claude_session_manager",
+      "source": "claude_session_manager",
+      "target": "claude_crypbutton"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_session_isolation",
+      "_tgt": "claude_session_manager",
+      "source": "claude_session_manager",
+      "target": "protocol_session_isolation"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_kill_switch_hyperedge",
+      "_tgt": "claude_session_manager",
+      "source": "claude_session_manager",
+      "target": "graph_kill_switch_hyperedge"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_encryption_service",
+      "_tgt": "claude_transfer_service",
+      "source": "claude_encryption_service",
+      "target": "claude_transfer_service"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_private_key_destruction",
+      "_tgt": "claude_encryption_service",
+      "source": "claude_encryption_service",
+      "target": "zero_private_key_destruction"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_kill_switch_hyperedge",
+      "_tgt": "claude_encryption_service",
+      "source": "claude_encryption_service",
+      "target": "graph_kill_switch_hyperedge"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_transfer_service",
+      "_tgt": "claude_sender_screen",
+      "source": "claude_transfer_service",
+      "target": "claude_sender_screen"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_chunked_processing",
+      "_tgt": "claude_transfer_service",
+      "source": "claude_transfer_service",
+      "target": "zero_chunked_processing"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_receiver_auth_handshake",
+      "_tgt": "claude_receiver_screen",
+      "source": "claude_receiver_screen",
+      "target": "claude_receiver_auth_handshake"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_isolate_safety",
+      "_tgt": "claude_sender_screen",
+      "source": "claude_sender_screen",
+      "target": "zero_isolate_safety"
+    },
+    {
       "relation": "implements",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
@@ -919,6 +1691,523 @@
       "_tgt": "claude_flag_secure",
       "source": "claude_main_activity",
       "target": "claude_flag_secure"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_silent_guardian",
+      "_tgt": "claude_state_scanner",
+      "source": "claude_silent_guardian",
+      "target": "claude_state_scanner"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_obsidian_audit",
+      "_tgt": "claude_silent_guardian",
+      "source": "claude_silent_guardian",
+      "target": "claude_obsidian_audit"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_flag_secure",
+      "_tgt": "claude_methodchannel",
+      "source": "claude_flag_secure",
+      "target": "claude_methodchannel"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scratch/thesis_corrections.py",
+      "weight": 1.0,
+      "_src": "CrypTransfer",
+      "_tgt": "Flutter",
+      "source": "CrypTransfer",
+      "target": "Flutter"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scratch/thesis_corrections.py",
+      "weight": 1.0,
+      "_src": "CrypTransfer",
+      "_tgt": "PointyCastle",
+      "source": "CrypTransfer",
+      "target": "PointyCastle"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/converted/Corrected_Thesis_d5c35e66.md",
+      "weight": 1.0,
+      "_src": "Thesis",
+      "_tgt": "CrypTransfer",
+      "source": "CrypTransfer",
+      "target": "Thesis"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_methodology",
+      "_tgt": "chapter3_flutter",
+      "source": "chapter3_methodology",
+      "target": "chapter3_flutter"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_methodology",
+      "_tgt": "chapter3_firebase",
+      "source": "chapter3_methodology",
+      "target": "chapter3_firebase"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_flutter",
+      "_tgt": "chapter3_pointycastle",
+      "source": "chapter3_flutter",
+      "target": "chapter3_pointycastle"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_flutter",
+      "_tgt": "chapter3_dart",
+      "source": "chapter3_flutter",
+      "target": "chapter3_dart"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_flutter",
+      "_tgt": "chapter3_flutter",
+      "source": "chapter3_flutter",
+      "target": "claude_flutter"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_pointycastle",
+      "_tgt": "chapter3_dart",
+      "source": "chapter3_pointycastle",
+      "target": "chapter3_dart"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter5_text.txt",
+      "weight": 1.0,
+      "_src": "chapter5_psm2_plan",
+      "_tgt": "chapter3_pointycastle",
+      "source": "chapter3_pointycastle",
+      "target": "chapter5_psm2_plan"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter3_text.txt",
+      "weight": 1.0,
+      "_src": "chapter3_github",
+      "_tgt": "chapter3_vs_code",
+      "source": "chapter3_github",
+      "target": "chapter3_vs_code"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_requirement_analysis",
+      "_tgt": "chapter4_use_case_diagram",
+      "source": "chapter4_requirement_analysis",
+      "target": "chapter4_use_case_diagram"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_requirement_analysis",
+      "_tgt": "chapter4_class_diagram",
+      "source": "chapter4_requirement_analysis",
+      "target": "chapter4_class_diagram"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_requirement_analysis",
+      "_tgt": "chapter4_sequence_diagram",
+      "source": "chapter4_requirement_analysis",
+      "target": "chapter4_sequence_diagram"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_figma_design",
+      "_tgt": "chapter4_requirement_analysis",
+      "source": "chapter4_requirement_analysis",
+      "target": "chapter4_figma_design"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_class_diagram",
+      "_tgt": "chapter4_database_design",
+      "source": "chapter4_class_diagram",
+      "target": "chapter4_database_design"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_database_design",
+      "_tgt": "chapter4_user_class",
+      "source": "chapter4_database_design",
+      "target": "chapter4_user_class"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_database_design",
+      "_tgt": "chapter4_transfer_session",
+      "source": "chapter4_database_design",
+      "target": "chapter4_transfer_session"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_database_design",
+      "_tgt": "chapter4_rsa_key",
+      "source": "chapter4_database_design",
+      "target": "chapter4_rsa_key"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_database_design",
+      "_tgt": "chapter4_aes_key",
+      "source": "chapter4_database_design",
+      "target": "chapter4_aes_key"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_database_design",
+      "_tgt": "chapter4_file_entity",
+      "source": "chapter4_database_design",
+      "target": "chapter4_file_entity"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_transfer_logs",
+      "_tgt": "chapter4_transfer_session",
+      "source": "chapter4_transfer_session",
+      "target": "claude_transfer_logs"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_hybrid_encryption",
+      "_tgt": "chapter4_rsa_key",
+      "source": "chapter4_rsa_key",
+      "target": "chapter4_hybrid_encryption"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.88,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_handshakes",
+      "_tgt": "chapter4_rsa_key",
+      "source": "chapter4_rsa_key",
+      "target": "claude_handshakes"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_hybrid_encryption",
+      "_tgt": "chapter4_aes_key",
+      "source": "chapter4_aes_key",
+      "target": "chapter4_hybrid_encryption"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter4_text.txt",
+      "weight": 1.0,
+      "_src": "chapter4_hybrid_encryption",
+      "_tgt": "chapter4_tls_protocol",
+      "source": "chapter4_hybrid_encryption",
+      "target": "chapter4_tls_protocol"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter5_text.txt",
+      "weight": 1.0,
+      "_src": "chapter5_achievements",
+      "_tgt": "chapter4_hybrid_encryption",
+      "source": "chapter4_hybrid_encryption",
+      "target": "chapter5_achievements"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.92,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_rsa_aes",
+      "_tgt": "chapter4_hybrid_encryption",
+      "source": "chapter4_hybrid_encryption",
+      "target": "protocol_rsa_aes"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "chapter5_text.txt",
+      "weight": 1.0,
+      "_src": "chapter5_comparative_study",
+      "_tgt": "chapter5_achievements",
+      "source": "chapter5_achievements",
+      "target": "chapter5_comparative_study"
+    },
+    {
+      "relation": "supports",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "scratch_analysis.txt",
+      "weight": 1.0,
+      "_src": "scratch_comparative_gap",
+      "_tgt": "chapter5_comparative_study",
+      "source": "chapter5_comparative_study",
+      "target": "scratch_comparative_gap"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_impeller",
+      "_tgt": "claude_flutter",
+      "source": "claude_flutter",
+      "target": "protocol_impeller"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_rsa_public_purging",
+      "_tgt": "claude_handshakes",
+      "source": "claude_handshakes",
+      "target": "zero_rsa_public_purging"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_data_entities_hyperedge",
+      "_tgt": "claude_handshakes",
+      "source": "claude_handshakes",
+      "target": "graph_data_entities_hyperedge"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_audit_log_immutability",
+      "_tgt": "claude_transfer_logs",
+      "source": "claude_transfer_logs",
+      "target": "protocol_audit_log_immutability"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_data_entities_hyperedge",
+      "_tgt": "claude_transfer_logs",
+      "source": "claude_transfer_logs",
+      "target": "graph_data_entities_hyperedge"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_audit_purge",
+      "_tgt": "claude_decrypt_screen",
+      "source": "claude_decrypt_screen",
+      "target": "protocol_audit_purge"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ZERO_REMANENCE.md",
+      "weight": 1.0,
+      "_src": "zero_no_persistent_storage",
+      "_tgt": "claude_decrypt_screen",
+      "source": "claude_decrypt_screen",
+      "target": "zero_no_persistent_storage"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_sender_reactive_cleanup",
+      "_tgt": "claude_transfer_progress",
+      "source": "claude_transfer_progress",
+      "target": "claude_sender_reactive_cleanup"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_glassmorphic_design",
+      "_tgt": "claude_crypbutton",
+      "source": "claude_crypbutton",
+      "target": "claude_glassmorphic_design"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CLAUDE.md",
+      "weight": 1.0,
+      "_src": "claude_r8_minification",
+      "_tgt": "claude_release_signing",
+      "source": "claude_r8_minification",
+      "target": "claude_release_signing"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_handshake_dependency",
+      "_tgt": "claude_receiver_auth_handshake",
+      "source": "claude_receiver_auth_handshake",
+      "target": "protocol_handshake_dependency"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_core_rules",
+      "_tgt": "protocol_wipe_pattern",
+      "source": "protocol_core_rules",
+      "target": "protocol_wipe_pattern"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "SECURITY_PROTOCOLS.md",
+      "weight": 1.0,
+      "_src": "protocol_test_coverage",
+      "_tgt": "protocol_audit_purge",
+      "source": "protocol_audit_purge",
+      "target": "protocol_test_coverage"
+    },
+    {
+      "relation": "explains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md",
+      "weight": 1.0,
+      "_src": "graph_god_nodes",
+      "_tgt": "graph_communities",
+      "source": "graph_god_nodes",
+      "target": "graph_communities"
     }
   ],
   "hyperedges": [
@@ -930,24 +2219,52 @@
         "claude_encryption_service",
         "claude_security_lifecycle_mixin"
       ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-out/GRAPH_REPORT.md"
+    },
+    {
+      "id": "core_data_model",
+      "label": "Core Data Entities",
+      "nodes": [
+        "claude_handshakes",
+        "claude_transfers",
+        "claude_transfer_logs",
+        "claude_users"
+      ],
       "relation": "implement",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CLAUDE.md"
     },
     {
-      "id": "core_data_entities",
-      "label": "Core Data Entities",
+      "id": "thesis_architecture_stack",
+      "label": "Thesis Proposed Architecture",
       "nodes": [
-        "claude_rsa_key_transfers",
-        "claude_transfers",
-        "claude_transfers_log",
-        "claude_users"
+        "chapter3_flutter",
+        "chapter3_firebase",
+        "chapter3_pointycastle",
+        "chapter4_hybrid_encryption"
       ],
       "relation": "form",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
-      "source_file": "CLAUDE.md"
+      "source_file": "chapter4_text.txt"
+    },
+    {
+      "id": "implementation_security_stack",
+      "label": "Implemented Security Architecture",
+      "nodes": [
+        "claude_security_lifecycle_mixin",
+        "zero_explicit_zeroing",
+        "protocol_core_rules",
+        "protocol_audit_purge"
+      ],
+      "relation": "implement",
+      "confidence": "INFERRED",
+      "confidence_score": 0.88,
+      "source_file": "SECURITY_PROTOCOLS.md"
     }
   ]
 }

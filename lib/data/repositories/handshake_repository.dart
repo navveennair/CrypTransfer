@@ -145,6 +145,7 @@ class HandshakeRepository {
       // Update bidirectional friendships sub-collection documents
       // Current user's perspective (acceptor = partner)
       // They are adding the proposer to their friendships
+      // Note: Documents don't exist yet, so use batch.set() without SetOptions(merge: true)
       batch.set(
         myFriendshipRef,
         {
@@ -153,11 +154,11 @@ class HandshakeRepository {
           'status': 'accepted',
           'updatedAt': FieldValue.serverTimestamp(),
         },
-        SetOptions(merge: true),
       );
 
       // Proposer's perspective
       // They are updating their existing request to accepted
+      // Note: Documents don't exist yet, so use batch.set() without SetOptions(merge: true)
       batch.set(
         otherFriendshipRef,
         {
@@ -166,7 +167,6 @@ class HandshakeRepository {
           'status': 'accepted',
           'updatedAt': FieldValue.serverTimestamp(),
         },
-        SetOptions(merge: true),
       );
 
       await batch.commit();
@@ -298,51 +298,47 @@ class HandshakeRepository {
 
     DocumentSnapshot<Map<String, dynamic>>? outSnap;
     DocumentSnapshot<Map<String, dynamic>>? inSnap;
+    final ctrl = StreamController<({String status, String docId})?>();
 
-    ({String status, String docId})? derive() {
-      if (outSnap?.exists == true) {
-        final s = outSnap!.data()?['status'] as String?;
-        if (s == 'connected') return (status: 'accepted', docId: outSnap!.id);
-        if (s == 'pending') return (status: 'pending_sent', docId: outSnap!.id);
-      }
-      if (inSnap?.exists == true) {
-        final s = inSnap!.data()?['status'] as String?;
-        if (s == 'connected') return (status: 'accepted', docId: inSnap!.id);
-        if (s == 'pending') {
-          return (status: 'pending_received', docId: inSnap!.id);
-        }
-      }
-      return null;
-    }
+    // Single subscription — merge both document streams
+    final outSub = outRef.snapshots().listen((snap) {
+      outSnap = snap;
+      _emitIfResolved(ctrl, outSnap, inSnap, myUid, partnerUid);
+    });
 
-    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? outSub;
-    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? inSub;
-    late StreamController<({String status, String docId})?> ctrl;
+    final inSub = inRef.snapshots().listen((snap) {
+      inSnap = snap;
+      _emitIfResolved(ctrl, outSnap, inSnap, myUid, partnerUid);
+    });
 
-    ctrl = StreamController(
-      onListen: () {
-        outSub = outRef.snapshots().listen(
-          (snap) {
-            outSnap = snap;
-            ctrl.add(derive());
-          },
-          onError: ctrl.addError,
-        );
-        inSub = inRef.snapshots().listen(
-          (snap) {
-            inSnap = snap;
-            ctrl.add(derive());
-          },
-          onError: ctrl.addError,
-        );
-      },
-      onCancel: () {
-        outSub?.cancel();
-        inSub?.cancel();
-        ctrl.close();
-      },
-    );
+    ctrl.onCancel = () {
+      outSub.cancel();
+      inSub.cancel();
+      ctrl.close();
+    };
 
     return ctrl.stream;
+  }
+
+  /// Helper: Resolve and emit the first non-null status from either doc direction.
+  void _emitIfResolved(
+    StreamController<({String status, String docId})?> ctrl,
+    DocumentSnapshot<Map<String, dynamic>>? outSnap,
+    DocumentSnapshot<Map<String, dynamic>>? inSnap,
+    String myUid,
+    String partnerUid,
+  ) {
+    if (outSnap != null && inSnap != null) {
+      // Both snaps fetched — resolve
+      if (outSnap!.exists) {
+        final status = outSnap!.data()?['status'] as String? ?? 'unknown';
+        ctrl.add((status: status, docId: outSnap!.id));
+      } else if (inSnap!.exists) {
+        final status = inSnap!.data()?['status'] as String? ?? 'unknown';
+        ctrl.add((status: status, docId: inSnap!.id));
+      } else {
+        ctrl.add(null);
+      }
+    }
   }
 }

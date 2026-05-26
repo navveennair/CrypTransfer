@@ -85,7 +85,15 @@
       "Bash(tee test_output.log)",
       "Bash(firebase firestore:rules:list --project cryptransfer-96e9f)",
       "Bash(firebase help *)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\navve\\\\projects\\\\cryptransfer\\\\.planning\\\\phases\" -Directory | Where-Object {$_.Name -match \"07\"} | Select-Object -ExpandProperty Name)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\navve\\\\projects\\\\cryptransfer\\\\.planning\\\\phases\" -Directory | Where-Object {$_.Name -match \"07\"} | Select-Object -ExpandProperty Name)",
+      "PowerShell(python .graphify_ast_extract.py)",
+      "PowerShell(python .graphify_merge_extract.py)",
+      "PowerShell(python .graphify_build_and_merge.py)",
+      "PowerShell(python .graphify_build_and_merge_utf8.py)",
+      "PowerShell(python .graphify_label_communities.py)",
+      "PowerShell(python .graphify_regen_report.py)",
+      "PowerShell(python .graphify_final_regen.py)",
+      "PowerShell(python .graphify_gen_html.py)"
     ]
   }
 }
