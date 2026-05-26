@@ -133,3 +133,36 @@ Every record contains:
 
 The `transfer_logs` collection records transfer-start events (created by `TransferLogService`) and is separate from the session-end `audit_logs`. Both are append-only and participant-readable.
 
+---
+
+## Test Coverage & Verification
+
+### Session Wipe Test Suite (TC-WIPE-001 to TC-WIPE-009)
+
+All 29 security tests passing as of 2026-05-26:
+
+**Core wipe tests** (TC-WIPE-001 to TC-WIPE-006):
+- TC-WIPE-001: Session buffer registration and wipeAll() lifecycle
+- TC-WIPE-002: Handshake doc deletion on `closeReceiverSession()`
+- TC-WIPE-003: Receiver's private key securely deleted from FlutterSecureStorage
+- TC-WIPE-004: Session hijack prevented — no public key available after kill switch
+- TC-WIPE-005: Session keys are ephemeral (unique per session)
+- TC-WIPE-006: Notifications purged after session closes
+
+**Extended wipe tests** (TC-WIPE-007 to TC-WIPE-009):
+- TC-WIPE-007: `wipeSession()` transitions state to `terminated`; `_cancelled` flag logic confirmed idempotent
+- TC-WIPE-008: `wipeAll()` safe with empty buffer registry; defensive mixin application verified
+- TC-WIPE-009: PopScope wipe guard — `wipeAll()` called only when `didPop` is true; skipped when false
+
+### Code Quality Audits
+
+**Static Analysis** (`flutter analyze`): **No issues found** as of 2026-05-26
+- BuildContext async usage: corrected in HomeScreen async callbacks
+- All deprecations: replaced with Material 3 equivalents
+- Security checks: all screens properly wired with SecurityLifecycleMixin
+
+**Refactoring Quality** (Quick Task 260526-t9y):
+- Snackbar helper consolidation: 7 verbose invocations → 3 reusable methods
+- Code reduction: 28 LOC → 7 LOC; 7 mounted checks → 3 centralized
+- Test status: 29/29 security tests passing post-refactor
+

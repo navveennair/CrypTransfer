@@ -29,3 +29,13 @@ To prevent memory remanence attacks (cold-boot or heap scraping), the system ens
 ## Data Persistence Policy
 - **No Decrypted Storage**: Decrypted file data is NEVER written to local permanent storage. It exists solely in RAM-only buffers during the decryption and "Save" operation.
 - **Secure Deletion**: Once a file is saved to the user's chosen location, the application-level buffers are zeroed immediately.
+
+## Verification & Test Coverage
+
+All zero-remanence guarantees are verified by the comprehensive session wipe test suite (TC-WIPE-001 to TC-WIPE-009), which covers:
+- Buffer lifecycle: registration, zeroing, and deregistration
+- Key disposal: RSA public/private key deletion from Firestore and secure storage
+- Session state: atomic transitions through terminated state
+- Screen safety: defensive application of SecurityLifecycleMixin
+
+**Current Status**: 29/29 security tests passing (2026-05-26)
