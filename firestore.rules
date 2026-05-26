@@ -78,10 +78,15 @@ service cloud.firestore {
 
       // ── users/{userId}/friendships ────────────────────────────────────────
       // Owner can read/write their own list.
-      // A friend may delete their own mirror entry (needed for bilateral WriteBatch
+      // During accept flow, the accepting user (friendId) may create/update the proposer's
+      // friendship doc to establish bidirectional 'accepted' status.
+      // Also allow friendId to delete their own mirror entry (needed for bilateral WriteBatch
       // disconnect — user A deletes users/B/friendships/A where friendId == A).
       match /friendships/{friendId} {
-        allow read, write: if request.auth.uid == userId;
+        allow read: if request.auth.uid == userId;
+        allow write: if request.auth.uid == userId ||
+                       (request.auth.uid == friendId &&
+                        request.resource.data.status == 'accepted');
         allow delete: if request.auth.uid == friendId;
       }
     }
@@ -104,11 +109,11 @@ service cloud.firestore {
                          || exists(/databases/$(database)/documents/neutral_handshakes/$(request.auth.uid + '_' + request.resource.data.receiverId))
                          || exists(/databases/$(database)/documents/neutral_handshakes/$(request.resource.data.receiverId + '_' + request.auth.uid))
                        );
-      
+
       allow update: if isAuthenticated() &&
                        (resource.data.senderId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid);
-      
+
       // Receiver triggers cleanup (endSessionCleanup WriteBatch) — must be able to delete.
       allow delete: if isAuthenticated() &&
                        (resource.data.senderId == request.auth.uid ||
@@ -124,17 +129,17 @@ service cloud.firestore {
                        (resource.data.senderId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid ||
                         isAdmin());
-      
+
       // Only receiver may create (via selectSenderHandshake atomic WriteBatch).
       // Sender NEVER creates handshake docs; all session handshakes initiated by receiver.
       allow create: if isAuthenticated() &&
                        request.resource.data.receiverId == request.auth.uid;
-      
+
       // Either participant may update (receiver publishes key; sender may ack)
       allow update: if isAuthenticated() &&
                        (resource.data.receiverId == request.auth.uid ||
                         resource.data.senderId == request.auth.uid);
-      
+
       // Either participant may delete during zero-remanence cleanup
       allow delete: if isAuthenticated() &&
                        (resource.data.senderId == request.auth.uid ||
