@@ -120,13 +120,20 @@ class _SenderScreenState extends State<SenderScreen>
   void _startHandshakeListener() {
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? 'UNKNOWN';
     print('DEBUG: Starting handshake listener for sender=$myUid');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Listening for handshakes as sender: $myUid')),
-    );
+
+    // Defer SnackBar until after first frame (Scaffold is mounted)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Listening for handshakes as sender: $myUid')),
+      );
+    });
+
     _handshakeSub = _connService.streamHandshakesForSender().listen(
       _onHandshakeUpdate,
       onError: (error) {
         print('DEBUG: Stream error: $error');
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Stream error: $error'),

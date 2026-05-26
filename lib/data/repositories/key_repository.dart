@@ -654,13 +654,6 @@ class KeyRepository {
         // For now, we allow the transaction to proceed — the first one wins.
       } else {
         // I want to be receiver (selecting partner as my sender).
-        // Conflict: If I already have selectedSenderUid set, I'm already in receiver mode.
-        if (mySelectedSender != null) {
-          throw RoleConflictException(
-            'You are already in receiver mode with another user. '
-            'One user must be sender, another must be receiver.',
-          );
-        }
         // Conflict: If partner also has selectedSenderUid set to me, they're also receiver.
         // This means both are trying to be receiver.
         if (partnerSelectedSender == _uid) {
@@ -668,6 +661,14 @@ class KeyRepository {
           throw RoleConflictException(
             'Role conflict detected. Both users cannot be receivers. '
             'One user must be sender, another must be receiver.',
+          );
+        }
+        // FIX: Clear old role state if switching from previous receiver session
+        if (mySelectedSender != null && mySelectedSender != partnerUid) {
+          // User was receiver with a different partner; allow clearing old state
+          txn.update(
+            _db.collection(FirebaseConstants.users).doc(_uid),
+            {'selectedSenderUid': FieldValue.delete()},
           );
         }
       }
