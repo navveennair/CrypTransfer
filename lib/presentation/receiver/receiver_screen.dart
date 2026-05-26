@@ -125,15 +125,15 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         .listen((snap) {
       if (!mounted || snap.docs.isEmpty) return;
 
-      // Auto-select first incoming handshake with assigned sender role
+      // Auto-select first incoming handshake with a sender
       final doc = snap.docs.firstWhere(
-        (d) => (d.data()['senderUid'] as String?)?.isNotEmpty ?? false,
+        (d) => (d.data()['senderId'] as String?)?.isNotEmpty ?? false,
         orElse: () => snap.docs.first,
       );
 
       final senderUid = doc.data()['senderId'] as String?;
-      final senderUsername = doc.data()['senderUsername'] as String? ??
-                            doc.data()['fromUsername'] as String? ?? 'Sender';
+      // Get sender username from fromUsername field (set by selectSenderHandshake)
+      final senderUsername = doc.data()['fromUsername'] as String? ?? 'Sender';
 
       if (senderUid != null && senderUid.isNotEmpty) {
         // Auto-select this sender
@@ -404,7 +404,15 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       }
 
       // Signal per-handshake readiness: receiver is ready for this specific sender
-      await _connService.setReceiverReady(docId);
+      try {
+        await _connService.setReceiverReady(docId);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Warning: Could not signal readiness: $e')),
+          );
+        }
+      }
 
       if (mounted) {
         setState(() {
