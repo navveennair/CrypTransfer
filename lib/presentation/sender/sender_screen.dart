@@ -159,6 +159,7 @@ class _SenderScreenState extends State<SenderScreen>
           ?? doc['fromUsername'] as String?
           ?? 'Unknown';
       final publicKey = doc['publicKey'] as String?;
+      final status = doc['status'] as String? ?? '';
 
       // Role validation: verify senderUid matches current user if assigned
       final assignedSenderUid = doc['senderUid'] as String?;
@@ -178,6 +179,7 @@ class _SenderScreenState extends State<SenderScreen>
 
       if (publicKey != null &&
           publicKey.isNotEmpty &&
+          status == 'handshake_complete' &&
           receiverId.isNotEmpty &&
           (widget.preFilledPartnerUid == null ||
            receiverId == widget.preFilledPartnerUid)) {
