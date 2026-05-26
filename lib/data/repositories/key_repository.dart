@@ -668,7 +668,10 @@ class KeyRepository {
       final sortedUids = [currentUid, partnerUid]..sort();
       final docId = '${sortedUids[0]}_${sortedUids[1]}';
 
-      // Create or update handshake with assigned roles
+      print('DEBUG: assignTransferRole - currentUid=$currentUid, partnerUid=$partnerUid, isSender=$isSender');
+      print('DEBUG: assignTransferRole - docId=$docId, senderUid=$senderUid, receiverUid=$receiverUid');
+
+      // Create or update handshake with assigned roles (session-layer)
       await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
         'receiverId': receiverUid,
         'senderId': senderUid,
@@ -679,12 +682,18 @@ class KeyRepository {
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      print('DEBUG: assignTransferRole - SUCCESS, doc created: $docId');
       return docId;
-    } on NetworkException {
+    } on NetworkException catch (e) {
+      print('DEBUG: assignTransferRole - NetworkException: $e');
       rethrow;
     } on FirebaseException catch (e) {
+      print('DEBUG: assignTransferRole - FirebaseException: ${e.message ?? e.code}');
       throw NetworkException(
           'Failed to assign transfer roles: ${e.message ?? e.code}');
+    } catch (e) {
+      print('DEBUG: assignTransferRole - Unknown error: $e');
+      rethrow;
     }
   }
 

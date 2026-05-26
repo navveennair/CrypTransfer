@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
+import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_manager.dart';
@@ -388,7 +389,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       if (docId.isNotEmpty && mounted) {
         try {
           final handshakeDoc =
-              await FirebaseFirestore.instance.collection('handshakes').doc(docId).get();
+              await FirebaseFirestore.instance.collection(FirebaseConstants.handshakes).doc(docId).get();
           final receiverUid = handshakeDoc.data()?['receiverUid'] as String?;
           if (receiverUid != null && receiverUid.isNotEmpty && receiverUid != currentUid) {
             if (mounted) {
