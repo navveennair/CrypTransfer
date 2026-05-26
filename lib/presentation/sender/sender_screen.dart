@@ -118,6 +118,11 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   void _startHandshakeListener() {
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? 'UNKNOWN';
+    print('DEBUG: Starting handshake listener for sender=$myUid');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Listening for handshakes as sender: $myUid')),
+    );
     _handshakeSub =
         _connService.streamHandshakesForSender().listen(_onHandshakeUpdate);
   }

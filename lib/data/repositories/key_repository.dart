@@ -595,11 +595,14 @@ class KeyRepository {
   /// immediately with current state and again on every change — when the doc
   /// disappears (receiver wipes session / kill switch fires) the sender
   /// reverts to the waiting buffer.
-  Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() =>
-      _db
-          .collection(FirebaseConstants.handshakes)
-          .where('senderId', isEqualTo: _uid)
-          .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() {
+    final senderId = _uid;
+    print('DEBUG: streamHandshakesForSender() querying with senderId=$senderId');
+    return _db
+        .collection(FirebaseConstants.handshakes)
+        .where('senderId', isEqualTo: senderId)
+        .snapshots();
+  }
 
   /// Streams incoming handshakes where this user is the receiver and sender has assigned a role.
   /// Used for automatic sender detection when receiver opens mailbox.
