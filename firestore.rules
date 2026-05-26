@@ -83,7 +83,7 @@ service cloud.firestore {
       // Also allow friendId to delete their own mirror entry (needed for bilateral WriteBatch
       // disconnect — user A deletes users/B/friendships/A where friendId == A).
       match /friendships/{friendId} {
-        allow read: if request.auth.uid == userId;
+        allow read: if request.auth.uid == userId || isAdmin();
         allow write: if request.auth.uid == userId ||
                        (request.auth.uid == friendId &&
                         request.resource.data.status == 'accepted');

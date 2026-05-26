@@ -47,7 +47,7 @@ class UserRepository {
           final friendships = await _db
               .collection(FirebaseConstants.users)
               .doc(userId)
-              .collection(FirebaseConstants.connections)
+              .collection(FirebaseConstants.friendships)
               .where('status', isEqualTo: 'accepted')
               .get();
 

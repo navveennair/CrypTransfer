@@ -17,8 +17,6 @@ class TransferLogService {
   }) async {
     try {
       await _db
-          .collection(FirebaseConstants.users)
-          .doc(senderId)
           .collection(FirebaseConstants.transferLogs)
           .add({
         'transferId': transferId,
