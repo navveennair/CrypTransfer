@@ -17,10 +17,11 @@ The system includes an Admin Dashboard (`lib/presentation/admin/`) for platform 
 
 ### Data Model (Graphify Data Nodes)
 Main data entities as identified by the system graph:
-- **Handshakes (auto-ID)**: RSA public key exchange with unique Firestore auto-ID per session. `selectSenderHandshake()` creates atomic user doc + handshake in WriteBatch. Prevents collision when roles reverse by using unique IDs instead of user-pair deterministic IDs.
-- **Transfers (`transfers`)**: Tracks active file transfer metadata, initialization vectors (IV), and encrypted AES keys.
-- **User Audit (`transfers_log`)**: Immutable record of transfer events, including `participants` and security lifecycle events.
-- **User Profiles (`users`)**: Identity documents containing `publicKey`, `isReadyToReceive` status, `selectedSenderUid` (locked session authorization), and `isAdmin` flags.
+- **Neutral Handshakes (`neutral_handshakes`)**: Connection proposals with deterministic doc IDs (`${proposerId}_${partnerId}`). Tracks proposal status: `pending`, `connected`, or `rejected`.
+- **RSA Key Handshakes (`handshakes`)**: RSA public key exchange per receiver-sender pair. Auto-ID docs with `{receiverId, senderId, publicKey, status}`. Created by `selectSenderHandshake()` via atomic WriteBatch.
+- **Transfers (`transfers`)**: Tracks active file transfer metadata, initialization vectors (IV), encrypted AES keys, and receiver status lifecycle.
+- **User Audit (`transfer_logs`)**: Immutable record of transfer events (started/completed/kill_switch), including `participants` array and security lifecycle events.
+- **User Profiles (`users`)**: Identity documents containing `publicKey`, `isReadyToReceive` status, `selectedSenderUid` (locked session authorization), `sessionActive` flag, and `isAdmin` privileges.
 
 ---
 
@@ -70,9 +71,9 @@ SessionManager.reset()                 ← manual close via _onToggleReady
     ├── EncryptionService.closeReceiverSession()
     │       ├── Firestore: delete publicKey, isReadyToReceive=false
     │       ├── FlutterSecureStorage: delete private key
-    │       ├── Batch-delete rsa_key_transfers (fromUserId)
-    │       ├── Batch-delete notifications (rsa_key_received, fromUserId)
-    │       └── _logSecurityEvent (no key material)
+    │       ├── Batch-delete handshakes (receiverId)
+    │       ├── Batch-delete notifications (rsa_key_received, type)
+    │       └── Write audit log (kill_switch status)
     └── onBuffersWipe()  →  SecurityLifecycleMixin.wipeAll()
             └── Uint8List.fillRange(0) for every registered buffer
 ```
@@ -185,7 +186,7 @@ When scanning `lib/` for status updates (used by `scripts/silent_guardian.ps1` a
 - sender_screen.dart contains _handshakeSub → mark VERIFIED (receiver-authorized streaming; no static receiver list)
 - sender_screen.dart contains _WaitingForConnectionWidget → mark VERIFIED (pulsing wait state until receiver authorizes)
 - sender_screen.dart contains _revertToWaiting → mark VERIFIED (stream-driven wipe when receiver closes session)
-- key_repository.dart contains selectSenderHandshake → mark VERIFIED (atomic WriteBatch: user doc + rsa_key_transfers in one commit)
+- key_repository.dart contains selectSenderHandshake → mark VERIFIED (atomic WriteBatch: user doc + handshakes doc in one commit)
 - key_repository.dart contains streamHandshakesForSender → mark VERIFIED (sender listens for receiver authorization events)
 - encryption_service.dart closeReceiverSession contains selectedSenderUid → mark VERIFIED (kill-switch deletes authorization; sender stream reverts to waiting)
 - encryption_service.dart contains bindSession → mark VERIFIED (reactive kill-switch: EncryptionService listens to SessionManager.stateStream)
@@ -218,7 +219,7 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] Non-repudiation Firestore listener in TransferProgressScreen
 - [x] `receiverStatus` field updated at each decrypt phase in DecryptScreen
 - [x] `updateReceiverStatus()` in TransferRepository
-- [x] closeReceiverSession Kill Switch (`EncryptionService.closeReceiverSession()` — public key deleted from Firestore, private key wiped from device, batch-delete rsa_key_transfers + notifications)
+- [x] closeReceiverSession Kill Switch (`EncryptionService.closeReceiverSession()` — public key deleted from Firestore, private key wiped from device, batch-delete handshakes + notifications, write kill_switch audit log)
 - [x] Auto-Wipe on toggle/app close/screen exit:
   - `ReceiverScreen._onToggleReady()` — full open/close mailbox flow
   - `ReceiverScreen._showCloseSessionDialog()` — confirmation bottom sheet before close
@@ -254,10 +255,10 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] **Firestore double-stream fixed** — `_step3Content` previously created a new Firestore snapshot stream inline on every rebuild. Now `_transferStream` is a `Stream` field initialised once in `_onSenderSelected()` and cleared in `_onToggleReady(false)` / clear-sender button. `StreamBuilder` references the stable field — one subscription per session, no re-subscription on rebuild. (`receiver_screen.dart`)
 - [x] **Sender plaintext zero-wipe** — `SenderScreen._encryptFile()` now calls `registerBuffer(plaintext)` immediately after `TransferService.resolve()` (safety net for any throw before encryption), then after `compute()` returns calls `plaintext.fillRange(0, plaintext.length, 0)` + `unregisterBuffer(plaintext)` to eagerly erase the main-isolate copy. `SecurityLifecycleMixin` gained `unregisterBuffer()` to remove an already-wiped buffer from the registry, preventing a redundant second pass in `wipeAll()`. (`sender_screen.dart`, `security_lifecycle_mixin.dart`)
 - [x] **Receiver-Authorized Handshake** — connection model replaced: receiver explicitly selects a sender before any key material flows:
-  - Atomic authorization: `KeyRepository.selectSenderHandshake()` uses a Firestore `WriteBatch` to atomically write `selectedSenderUid` to the receiver's user doc AND upsert the `rsa_key_transfers` doc with `status: 'handshake_complete'` — single network round-trip, no partial-write window
-  - Sender streaming: `SenderScreen` replaces the static receiver-list with a live `StreamSubscription` on `streamHandshakesForSender()` (`rsa_key_transfers WHERE toUserId==senderUid AND status==handshake_complete`); connection state is purely reactive
+  - Atomic authorization: `KeyRepository.selectSenderHandshake()` uses a Firestore `WriteBatch` to atomically write `selectedSenderUid` to the receiver's user doc AND upsert a `handshakes` doc (`{receiverId, senderId, publicKey, status}`) — single network round-trip, no partial-write window
+  - Sender streaming: `SenderScreen` replaces the static receiver-list with a live `StreamSubscription` on `streamHandshakesForSender()` (`handshakes WHERE senderId==senderUid AND receiverId==partnerId`); connection state is purely reactive
   - Waiting animation: `_WaitingForConnectionWidget` (pulsing `ScaleTransition` + `AnimationController`) shown until a handshake doc appears; replaced by `_ConnectedBadge` ("Secure Channel Established / Key received from @username") on connect
-  - Kill-switch reactive revert: `closeReceiverSession()` deletes `selectedSenderUid` AND batch-deletes `rsa_key_transfers` docs → sender stream emits empty → `_onHandshakeUpdate` calls `_revertToWaiting()`, wiping all cached key/file data and snackbar-notifying the user
+  - Kill-switch reactive revert: `closeReceiverSession()` deletes `selectedSenderUid` AND batch-deletes `handshakes` docs (WHERE `receiverId==uid`) → sender stream emits empty → `_onHandshakeUpdate` calls `_revertToWaiting()`, wiping all cached key/file data and snackbar-notifying the user
   - "Share Public Key" step removed from ReceiverScreen build — authorization is now automatic on sender selection via `_onSenderSelected()`
 - [x] **Reactive kill-switch binding (SessionManager → EncryptionService stream)** — closes the structural gap where `Encryption Module Documentation` was the only bridge between the `SessionManager State Machine` and `Kill Switch & Wipe Lifecycle` graph communities:
   - `SessionState` extracted to `lib/core/utils/session_state.dart` — standalone file prevents circular import when `EncryptionService` imports it
