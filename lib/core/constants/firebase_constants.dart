@@ -9,7 +9,8 @@ abstract class FirebaseConstants {
   static const String notifications = 'notifications';
   static const String friendships = 'friendships';
   static const String connections = 'connections';  // subcollection: users/{uid}/connections
-  static const String handshakes = 'handshakes';
+  // Use neutral_handshakes for both connection layer and session-layer RSA exchange
+  static const String handshakes = 'neutral_handshakes';
   static const String neutralHandshakes = 'neutral_handshakes';
   static const String securityAuditLog = 'security_audit_log';
   static const String rsaKeyManager = 'rsa_key_manager';  // subcollection: users/{uid}/rsa_key_manager
