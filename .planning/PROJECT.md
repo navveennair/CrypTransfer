@@ -103,10 +103,31 @@ lib/
 | `users/{uid}/audit_logs/{logId}` | Immutable per-user transfer history |
 | `users/{uid}/rsa_key_manager/{logId}` | Immutable RSA key lifecycle audit |
 | `users/{uid}/profile/preferences` | Theme preference, biometric settings |
-| `handshakes/{id}` | RSA public key exchange (receiverId, senderId, status) |
+| `handshakes/{id}` | RSA public key exchange (auto-ID docs, one per locked session) |
 | `transfers/{transferId}` | Active transfer metadata, IV, encrypted AES key |
 | `transfer_logs/{logId}` | Append-only transfer start log |
 | `security_audit_log/{logId}` | Security events (kill-switch fires, key wipes) |
+
+### Handshakes Collection — Auto-ID Architecture (Phase 07.1 fix)
+
+The `handshakes/{id}` collection uses **Firestore auto-ID** for all documents. Each locked session gets a unique ID, independent of user UIDs. This eliminates collision when roles reverse in bidirectional transfers.
+
+**Document structure:**
+- `receiverId`: User who opened the mailbox
+- `senderId`: User who will send the file
+- `receiverUid`, `senderUid`: Role identifiers for validation
+- `publicKey`: Receiver's RSA public key (encrypted by sender)
+- `status`: `'handshake_complete'` (ready for transfer)
+- `receiverReady`: Boolean signaling receiver readiness
+
+**Creation flow:**
+`KeyRepository.selectSenderHandshake()` is called when receiver explicitly selects a sender. It:
+1. Generates a new Firestore auto-ID
+2. Atomically writes receiver's user doc (`selectedSenderUid`) + handshake doc in a WriteBatch
+3. Returns the auto-ID for reference during session cleanup
+
+**Stream query:**
+`streamHandshakesForSender()` queries `WHERE senderId == currentUser` and discovers all handshakes where the current user is the intended sender. This works regardless of document ID scheme since the query filters by field, not ID.
 
 ---
 

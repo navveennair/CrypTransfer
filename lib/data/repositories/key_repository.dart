@@ -543,50 +543,6 @@ class KeyRepository {
     }
   }
 
-  /// Publishes the current user's RSA public key to [targetUserId] using a
-  /// deterministic document ID (`${_uid}_${targetUserId}`), signalling the
-  /// sender that a secure channel is ready.
-  ///
-  /// Unlike [selectSenderHandshake], this does not lock the session to a
-  /// single sender — it only makes the public key available so the sender can
-  /// begin encrypting before the receiver formally selects them.
-  ///
-  /// The sender's [streamHandshakesForSender] stream picks up the write and
-  /// transitions them out of the "Waiting for Connection" state.
-  ///
-  /// Throws [KeyNotFoundException] if the receiver has not yet generated keys.
-  Future<void> publishRSAPublicKey(String targetUserId) async {
-    try {
-      final userDoc =
-          await _db.collection(FirebaseConstants.users).doc(_uid).get();
-      final publicKey = userDoc.data()?['publicKey'] as String?;
-      if (publicKey == null || publicKey.isEmpty) {
-        throw KeyNotFoundException('Generate RSA keys first');
-      }
-      final fromUsername = userDoc.data()?['username'] as String? ??
-          _auth.currentUser?.displayName ??
-          'Unknown';
-      // Check if receiver's mailbox is open
-      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
-
-      // Deterministic doc ID ensures idempotent re-sends without duplicates.
-      final docId = '${_uid}_$targetUserId';
-      await _db.collection(FirebaseConstants.handshakes).doc(docId).set({
-        'receiverId': _uid,
-        'senderId': targetUserId,
-        'publicKey': publicKey,
-        'receiverUsername': fromUsername,
-        'fromUsername': fromUsername,
-        'status': 'handshake_complete',
-        'sentAt': FieldValue.serverTimestamp(),
-        'receiverReady': isReadyToReceive,
-      }, SetOptions(merge: true));
-    } on KeyNotFoundException {
-      rethrow;
-    } on FirebaseException catch (e) {
-      throw NetworkException('Failed to publish key: ${e.message ?? e.code}');
-    }
-  }
 
   /// Real-time stream of [handshakes] docs where the current user is
   /// the intended recipient and the status is `handshake_complete`.

@@ -17,10 +17,10 @@ The system includes an Admin Dashboard (`lib/presentation/admin/`) for platform 
 
 ### Data Model (Graphify Data Nodes)
 Main data entities as identified by the system graph:
-- **Handshakes (`rsa_key_transfers`)**: Stores ephemeral RSA public keys and handshake status (`handshake_complete`) for secure AES key exchange.
+- **Handshakes (auto-ID)**: RSA public key exchange with unique Firestore auto-ID per session. `selectSenderHandshake()` creates atomic user doc + handshake in WriteBatch. Prevents collision when roles reverse by using unique IDs instead of user-pair deterministic IDs.
 - **Transfers (`transfers`)**: Tracks active file transfer metadata, initialization vectors (IV), and encrypted AES keys.
 - **User Audit (`transfers_log`)**: Immutable record of transfer events, including `participants` and security lifecycle events.
-- **User Profiles (`users`)**: Identity documents containing `publicKey`, `isReadyToReceive` status, and `isAdmin` flags.
+- **User Profiles (`users`)**: Identity documents containing `publicKey`, `isReadyToReceive` status, `selectedSenderUid` (locked session authorization), and `isAdmin` flags.
 
 ---
 

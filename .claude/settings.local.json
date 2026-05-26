@@ -80,7 +80,11 @@
       "Read(//tmp/**)",
       "Bash(firebase use *)",
       "Bash(firebase --version)",
-      "Bash(firebase firestore:delete --help)"
+      "Bash(firebase firestore:delete --help)",
+      "Bash(git stash *)",
+      "Bash(tee test_output.log)",
+      "Bash(firebase firestore:rules:list --project cryptransfer-96e9f)",
+      "Bash(firebase help *)"
     ]
   }
 }

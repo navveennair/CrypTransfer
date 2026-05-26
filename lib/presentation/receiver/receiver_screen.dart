@@ -830,7 +830,6 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
   List<UserModel> _results = [];
   final Map<String, String> _statusCache = {};
   final Map<String, bool> _sendingKey = {};
-  final Set<String> _keySentTo = {};
   late List<UserModel> _connectedList;
   StreamSubscription<List<UserModel>>? _friendsSub;
 
@@ -901,18 +900,12 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
   Future<void> _sendKey(UserModel user) async {
     setState(() => _sendingKey[user.uid] = true);
     try {
-      await widget.service.publishRSAPublicKey(user.uid);
+      // All handshake creation now happens in _onSenderSelected via selectSenderHandshake()
+      // This method just triggers the selection flow.
       if (mounted) {
-        setState(() {
-          _sendingKey[user.uid] = false;
-          _keySentTo.add(user.uid);
-        });
-        // Brief tick display, then close sheet and complete the handshake.
-        await Future.delayed(const Duration(milliseconds: 700));
-        if (mounted) {
-          Navigator.pop(context);
-          widget.onSenderSelected(user);
-        }
+        setState(() => _sendingKey[user.uid] = false);
+        Navigator.pop(context);
+        widget.onSenderSelected(user);
       }
     } catch (e) {
       if (mounted) {
@@ -920,7 +913,7 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to send key: ${e.toString().replaceFirst("Exception: ", "")}',
+              'Error: ${e.toString().replaceFirst("Exception: ", "")}',
             ),
             backgroundColor: Colors.red,
           ),
@@ -979,9 +972,7 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                                     height: 20,
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
-                                : _keySentTo.contains(u.uid)
-                                  ? const Icon(Icons.check_rounded, color: Colors.green, size: 22)
-                                  : FilledButton(
+                                : FilledButton(
                                       onPressed: () => _sendKey(u),
                                       style: FilledButton.styleFrom(
                                         backgroundColor: Colors.green,
