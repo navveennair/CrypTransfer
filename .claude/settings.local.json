@@ -78,7 +78,9 @@
       "Skill(gsd:map-codebase)",
       "Bash(cat)",
       "Read(//tmp/**)",
-      "Bash(firebase use *)"
+      "Bash(firebase use *)",
+      "Bash(firebase --version)",
+      "Bash(firebase firestore:delete --help)"
     ]
   }
 }

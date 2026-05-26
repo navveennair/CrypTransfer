@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'app_theme.dart';
 import 'firebase_options.dart';
 import 'presentation/auth/splash_screen.dart';
+import 'services/firestore_migration.dart';
 import 'presentation/admin/admin_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'core/utils/theme_service.dart';
@@ -13,6 +14,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await FirestoreMigration.initializeCollections();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeService(),
