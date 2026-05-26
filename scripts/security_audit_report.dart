@@ -54,7 +54,7 @@ Date: $date
 | TC | Test | Result |
 |----|------|--------|
 | TC-WIPE-001 | publicKey deleted from Firestore | Run: flutter test test/security/session_wipe_test.dart |
-| TC-WIPE-002 | rsa_key_transfers purged | Run: flutter test test/security/session_wipe_test.dart |
+| TC-WIPE-002 | handshakes purged | Run: flutter test test/security/session_wipe_test.dart |
 | TC-WIPE-003 | AES key zeroed from memory | Run: flutter test test/security/session_wipe_test.dart |
 | TC-WIPE-004 | Session hijack prevented | Run: flutter test test/security/session_wipe_test.dart |
 | TC-WIPE-005 | Ephemeral keys per session | Run: flutter test test/security/session_wipe_test.dart |

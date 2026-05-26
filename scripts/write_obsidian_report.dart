@@ -191,7 +191,7 @@ ${failed == 0 ? '✅ ALL TESTS PASSED — System is SECURE' : '❌ FAILURES DETE
 | TC | Test Case | Result |
 |---|---|---|
 | TC-SEC-001 | Private key not in users | — |
-| TC-SEC-002 | Private key not in rsa_key_transfers | — |
+| TC-SEC-002 | Private key not in handshakes | — |
 | TC-SEC-003 | Private key not in transfers | — |
 | TC-SEC-004 | AES key encrypted not plaintext | — |
 | TC-SEC-005 | AES key not in users | — |

@@ -71,31 +71,31 @@ void main() {
     // ─── TC-WIPE-002 ──────────────────────────────────────────────────────────
 
     test(
-      'TC-WIPE-002: rsa_key_transfers purged after session closes',
+      'TC-WIPE-002: handshakes purged after session closes',
       () async {
-        const userId = 'test_receiver_uid';
+        const receiverId = 'test_receiver_uid';
 
-        await fakeFirestore.collection('rsa_key_transfers').add({
-          'fromUserId': userId,
-          'toUserId': 'sender_uid_1',
+        await fakeFirestore.collection('handshakes').add({
+          'senderId': 'sender_uid_1',
+          'receiverId': receiverId,
           'publicKey': 'FAKE_PUBLIC_KEY',
-          'sentAt': DateTime.now(),
+          'createdAt': DateTime.now(),
         });
-        await fakeFirestore.collection('rsa_key_transfers').add({
-          'fromUserId': userId,
-          'toUserId': 'sender_uid_2',
+        await fakeFirestore.collection('handshakes').add({
+          'senderId': 'sender_uid_2',
+          'receiverId': receiverId,
           'publicKey': 'FAKE_PUBLIC_KEY',
-          'sentAt': DateTime.now(),
+          'createdAt': DateTime.now(),
         });
 
         final beforeWipe = await fakeFirestore
-            .collection('rsa_key_transfers')
-            .where('fromUserId', isEqualTo: userId)
+            .collection('handshakes')
+            .where('receiverId', isEqualTo: receiverId)
             .get();
         expect(
           beforeWipe.docs.length,
           2,
-          reason: 'Should have 2 key transfers before wipe',
+          reason: 'Should have 2 handshakes before wipe',
         );
 
         final batch = fakeFirestore.batch();
@@ -105,19 +105,19 @@ void main() {
         await batch.commit();
 
         final afterWipe = await fakeFirestore
-            .collection('rsa_key_transfers')
-            .where('fromUserId', isEqualTo: userId)
+            .collection('handshakes')
+            .where('receiverId', isEqualTo: receiverId)
             .get();
 
         expect(
           afterWipe.docs.length,
           0,
-          reason: '❌ GHOST KEYS: rsa_key_transfers still exist after '
+          reason: '❌ GHOST KEYS: handshakes still exist after '
               'closeReceiverSession()!',
         );
 
         // ignore: avoid_print
-        print('✅ TC-WIPE-002 PASSED: rsa_key_transfers purged');
+        print('✅ TC-WIPE-002 PASSED: handshakes purged');
       },
     );
 
