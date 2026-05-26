@@ -34,3 +34,8 @@ class NetworkException extends AppException {
 class KeyNotFoundException extends AppException {
   const KeyNotFoundException(super.message, {super.code});
 }
+
+/// Thrown when both users attempt to assign the same role (both sender or both receiver).
+class RoleConflictException extends AppException {
+  const RoleConflictException(super.message, {super.code});
+}

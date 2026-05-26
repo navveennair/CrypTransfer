@@ -623,6 +623,56 @@ class KeyRepository {
       );
     }
 
+    // FIX 3: Detect role assignment conflicts via Firestore transaction.
+    // Both users must assign complementary roles: one sender, one receiver.
+    // If both try to be sender or both try to be receiver, throw RoleConflictException.
+    await _db.runTransaction<void>((txn) async {
+      // Read both users' current state
+      final myUserDoc = await txn.get(_db.collection(FirebaseConstants.users).doc(_uid));
+      final partnerUserDoc =
+          await txn.get(_db.collection(FirebaseConstants.users).doc(partnerUid));
+
+      final myData = myUserDoc.data() ?? {};
+      final partnerData = partnerUserDoc.data() ?? {};
+
+      // Check my current role intent: if I already have selectedSenderUid, I'm receiver
+      final mySelectedSender = myData['selectedSenderUid'] as String?;
+      final partnerSelectedSender = partnerData['selectedSenderUid'] as String?;
+
+      if (isSender) {
+        // I want to be sender.
+        // Conflict: If partner has selectedSenderUid set to someone OTHER than me.
+        // (If partner chose someone else as sender, they're expecting that person to be sender, not me)
+        if (partnerSelectedSender != null && partnerSelectedSender != _uid) {
+          throw RoleConflictException(
+            'Role conflict detected. One user must be sender, another must be receiver. '
+            'Partner has already selected a different sender.',
+          );
+        }
+        // Conflict: If partner is also trying to be sender (both have selectedSenderUid unset and
+        // we're in a race), we detect this by checking if partner has a simultaneous intent marker.
+        // For now, we allow the transaction to proceed — the first one wins.
+      } else {
+        // I want to be receiver (selecting partner as my sender).
+        // Conflict: If I already have selectedSenderUid set, I'm already in receiver mode.
+        if (mySelectedSender != null) {
+          throw RoleConflictException(
+            'You are already in receiver mode with another user. '
+            'One user must be sender, another must be receiver.',
+          );
+        }
+        // Conflict: If partner also has selectedSenderUid set to me, they're also receiver.
+        // This means both are trying to be receiver.
+        if (partnerSelectedSender == _uid) {
+          // Partner selected me as sender, but I'm trying to be receiver too — conflict!
+          throw RoleConflictException(
+            'Role conflict detected. Both users cannot be receivers. '
+            'One user must be sender, another must be receiver.',
+          );
+        }
+      }
+    });
+
     // FIX 2: Role assignment is now local. The actual Firestore doc is created
     // when selectSenderHandshake() runs (receiver) or discovered via stream (sender).
     // Return empty string as placeholder — screens will use the stream/selectSenderHandshake

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/errors/app_exceptions.dart';
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/handshake_repository.dart';
@@ -91,6 +92,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showErrorMessage(String message) {
     _showErrorSnackBar(message);
+  }
+
+  void _showRoleConflictDialog(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Role Assignment Conflict'),
+        content: Text(
+          'One user must be sender, another must be receiver. Please try again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _startNotifListener() {
@@ -277,7 +297,11 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           } catch (e) {
             if (!mounted) return;
-            _showInfoSnackBar('Error: ${e.toString()}');
+            if (e is RoleConflictException) {
+              _showRoleConflictDialog(e.toString());
+            } else {
+              _showInfoSnackBar('Error: ${e.toString()}');
+            }
           }
         },
         onReceiveFile: () async {
@@ -300,7 +324,11 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           } catch (e) {
             if (!mounted) return;
-            _showInfoSnackBar('Error: ${e.toString()}');
+            if (e is RoleConflictException) {
+              _showRoleConflictDialog(e.toString());
+            } else {
+              _showInfoSnackBar('Error: ${e.toString()}');
+            }
           }
         },
       ),
