@@ -125,10 +125,10 @@ service cloud.firestore {
                         resource.data.receiverId == request.auth.uid ||
                         isAdmin());
       
-      // Either party may create (receiver publishes key OR role assignment creates handshake)
+      // Only receiver may create (via selectSenderHandshake atomic WriteBatch).
+      // Sender NEVER creates handshake docs; all session handshakes initiated by receiver.
       allow create: if isAuthenticated() &&
-                       (request.resource.data.receiverId == request.auth.uid ||
-                        request.resource.data.senderId == request.auth.uid);
+                       request.resource.data.receiverId == request.auth.uid;
       
       // Either participant may update (receiver publishes key; sender may ack)
       allow update: if isAuthenticated() &&
