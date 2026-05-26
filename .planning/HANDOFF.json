@@ -1,45 +1,85 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-26T23:30:00Z",
-  "phase": "07.1",
-  "phase_name": "Layer Decoupling Refactor (Complete)",
-  "status": "phase_complete",
-  "work_completed_this_session": [
-    "Fixed infinite loading spinner bug (finally block in _handleTap)",
-    "Fixed TC-HAND-06c (WriteBatch instead of runTransaction)",
-    "Ran autonomous test suite: 100/101 passing (99% success)",
-    "Verified Firebase rules are deployed and current"
-  ],
-  "session_summary": {
-    "bugs_fixed": 2,
-    "tests_fixed": 1,
-    "deployments": 1,
-    "commits": 5
-  },
-  "current_blockers": [
+  "timestamp": "2026-05-26T16:35:12.101Z",
+  "phase": null,
+  "phase_name": "debug: sender-step3-rsa-handshake-stateless",
+  "phase_dir": ".planning/debug",
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
     {
-      "description": "Biometric auth broken — BiometricHelper.authenticate() causing silent vault screen failure (bypassed via commit 62cf219)",
-      "type": "blocking",
-      "severity": "critical",
-      "workaround": "Currently bypassed; requires debug session"
+      "id": 1,
+      "name": "Fix receiverReady race condition in selectSenderHandshake()",
+      "status": "done",
+      "commit": "4d91de6"
+    },
+    {
+      "id": 2,
+      "name": "Remove redundant setReceiverReady() call from receiver_screen.dart",
+      "status": "done",
+      "commit": "4d91de6"
+    },
+    {
+      "id": 3,
+      "name": "Add debug logging to trace Step 3 button state",
+      "status": "done",
+      "commit": "70ebad5"
     }
   ],
-  "test_status": {
-    "total": 101,
-    "passed": 100,
-    "failed": 1,
-    "failing_test": "TC010 (Logout) — test infrastructure only, not production",
-    "success_rate": "99%"
-  },
-  "next_actions": [
-    "Debug biometric auth (silent failure on BiometricHelper.authenticate)",
-    "Run manual UAT on Android device with Send/Receive flows",
-    "Fix TC010 test infrastructure (TestWidgetsFlutterBinding) — optional",
-    "Prepare for pre-viva thesis updates"
+  "remaining_tasks": [
+    {
+      "id": 4,
+      "name": "Collect flutter run console output — user must paste DEBUG lines",
+      "status": "not_started"
+    },
+    {
+      "id": 5,
+      "name": "Confirm if _revertToWaiting() is clearing _encryptedBytes after Step 2",
+      "status": "not_started"
+    },
+    {
+      "id": 6,
+      "name": "Apply targeted fix so Step 3 button remains enabled after Step 2",
+      "status": "not_started"
+    },
+    {
+      "id": 7,
+      "name": "Remove all debug print statements before shipping",
+      "status": "not_started"
+    }
   ],
-  "deployment_status": {
-    "firebase_rules": "✅ Just deployed (133e2cb rules now live)",
-    "app_code": "Ready for testing"
-  },
-  "context_notes": "Phase 07.1 complete. All 4 waves executed (14 violations eliminated from presentation layer). Core features verified: encryption, zero-remanence, session cleanup. 99% test pass rate indicates production readiness. Main blocker is biometric auth gate (Phase 08 or post-viva). UI bugs fixed this session enable smooth navigation testing."
+  "blockers": [
+    {
+      "description": "Step 3 'Encrypt Key for @' button onPressed is null — tapping produces zero console output, meaning _fileEncrypted is false despite Step 2 showing the encryption badge",
+      "type": "technical",
+      "workaround": "Debug logging committed (70ebad5). Need user console paste from flutter run during the full flow"
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Run 'flutter run', go through flow: receiver open mailbox → select sender → Step 1 pick file → Step 2 encrypt → tap Step 3. Paste all DEBUG lines from console.",
+      "context": "Debug prints in sender_screen.dart will show if _revertToWaiting() is being called unexpectedly and clearing _encryptedBytes",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Always write receiverReady: true in selectSenderHandshake() instead of reading isReadyToReceive",
+      "rationale": "Eliminated two-phase write race condition. Confirmed: Firestore does have receiverReady: true, and the 'Secure channel established' snackbar does fire.",
+      "phase": "debug"
+    },
+    {
+      "decision": "Remove setReceiverReady() call from receiver_screen.dart",
+      "rationale": "Was redundant — second write caused double-snapshot where transition already set _receiverReady=true, so the else-if branch could then clear state",
+      "phase": "debug"
+    }
+  ],
+  "uncommitted_files": [
+    ".planning/debug/sender-step3-rsa-handshake-stateless.md",
+    "lib/presentation/sender/sender_screen.dart (has debug print statements — MUST remove before shipping)"
+  ],
+  "next_action": "Ask user for the DEBUG console output. Then grep sender_screen.dart for all _revertToWaiting() call sites and trace whether any fire AFTER _onReceiverBecameReady() — specifically the else-if at line 246.",
+  "context_notes": "Architecture: neutral handshake connects users first, then role (send/receive) is assigned. receiverReady signals the receiver opened their mailbox. The full chain: receiver opens mailbox -> receiver selects sender -> selectSenderHandshake() writes receiverReady:true -> sender stream fires -> _onReceiverBecameReady() sets _receiverReady=true -> IgnorePointer gate opens. After this, sender picks file (Step 1), encrypts (Step 2), then Step 3 should be tappable. But _fileEncrypted is somehow false at Step 3 tap time, meaning _encryptedBytes was cleared between Step 2 completion and Step 3 tap."
 }
