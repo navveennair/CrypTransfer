@@ -95,15 +95,16 @@ class HandshakeRepository {
       final mutualRef = _db
           .collection(FirebaseConstants.neutralHandshakes)
           .doc('${_uid}_$proposerId');
-      await _db.runTransaction((txn) async {
-        final mutualSnap = await txn.get(mutualRef);
-        txn.update(primaryRef,
+      final batch = _db.batch();
+      batch.update(primaryRef,
+          {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
+      // Only update mutual if it exists (check first with a separate get)
+      final mutualSnap = await mutualRef.get();
+      if (mutualSnap.exists) {
+        batch.update(mutualRef,
             {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-        if (mutualSnap.exists) {
-          txn.update(mutualRef,
-              {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-        }
-      });
+      }
+      await batch.commit();
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Failed to accept proposal: ${e.message ?? e.code}');
