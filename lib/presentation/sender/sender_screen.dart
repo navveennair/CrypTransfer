@@ -118,21 +118,9 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   void _startHandshakeListener() {
-    final myUid = FirebaseAuth.instance.currentUser?.uid ?? 'UNKNOWN';
-    print('DEBUG: Starting handshake listener for sender=$myUid');
-
-    // Defer SnackBar until after first frame (Scaffold is mounted)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Listening for handshakes as sender: $myUid')),
-      );
-    });
-
     _handshakeSub = _connService.streamHandshakesForSender().listen(
       _onHandshakeUpdate,
       onError: (error) {
-        print('DEBUG: Stream error: $error');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -148,20 +136,6 @@ class _SenderScreenState extends State<SenderScreen>
   void _onHandshakeUpdate(
       QuerySnapshot<Map<String, dynamic>> snap) {
     if (!mounted) return;
-
-    // DEBUG: Show stream updates as snackbars
-    if (snap.docs.isNotEmpty) {
-      final doc = snap.docs.first.data();
-      final hasKey = doc['publicKey'] != null;
-      final receiverReady = doc['receiverReady'] as bool? ?? false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Stream fired: ${snap.docs.length} doc(s) | publicKey: $hasKey | receiverReady: $receiverReady'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
 
     if (snap.docs.isEmpty) {
       // CR-01: skip the first empty snapshot (Firestore stream fires synchronously
@@ -236,18 +210,14 @@ class _SenderScreenState extends State<SenderScreen>
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
-        print('DEBUG [_onHandshakeUpdate] receiverReady=$receiverReady, _receiverReady=$_receiverReady');
 
         if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
-          print('DEBUG [_onHandshakeUpdate] Starting readiness timer');
           _startReadinessTimer();
         }
 
         if (!_receiverReady && receiverReady) {
-          print('DEBUG [_onHandshakeUpdate] TRANSITION FIRED: receiver became ready!');
           _onReceiverBecameReady();
         } else if (_receiverReady != receiverReady) {
-          print('DEBUG [_onHandshakeUpdate] Receiver state changed, reverting to waiting');
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -375,26 +345,26 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   Future<void> _encryptAesKey() async {
-    print('DEBUG [_encryptAesKey] CALLED! _fileEncrypted=$_fileEncrypted, _encryptingKey=$_encryptingKey, _aesKey=${_aesKey != null}, _publicKeyJson=${_selectedReceiverPublicKeyJson != null}');
+    if (_encryptingKey) return;
     final aesKey = _aesKey;
     final publicKeyJson = _selectedReceiverPublicKeyJson;
     if (aesKey == null) {
-      print('DEBUG [_encryptAesKey] aesKey is null');
       _showError('Encrypt the file first (Step 2).');
       return;
     }
     if (publicKeyJson == null) {
-      print('DEBUG [_encryptAesKey] publicKeyJson is null');
       _showError('Select a receiver first (Step 0).');
       return;
     }
 
+    setState(() => _encryptingKey = true);
     final ok = await BiometricHelper.authenticate(
         'Authenticate to encrypt the AES key for '
         '${_receiverUsername ?? "receiver"}');
-    if (!ok || !mounted) return;
-
-    setState(() => _encryptingKey = true);
+    if (!ok || !mounted) {
+      setState(() => _encryptingKey = false);
+      return;
+    }
     try {
       final encryptedAESKey = await compute(
         _rsaOaepEncryptIsolate,
@@ -496,12 +466,10 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   void _onReceiverBecameReady() {
-    print('DEBUG [_onReceiverBecameReady] Setting _receiverReady = true');
     _readinessTimer?.cancel();
     _readinessTimer = null;
     setState(() {
       _receiverReady = true;
-      print('DEBUG [_onReceiverBecameReady] setState complete, _receiverReady is now $_receiverReady');
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -687,9 +655,10 @@ class _SenderScreenState extends State<SenderScreen>
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(ctx);
+                    final nav = Navigator.of(context);
                     await _connService.clearTransferRoles(
                         handshakeDocId: _handshakeDocId!);
-                    if (mounted) Navigator.pop(context);
+                    if (mounted) nav.pop();
                   },
                   child: const Text('Clear & Go Back'),
                 ),
