@@ -388,17 +388,6 @@ Future<void> _onSenderSelected(UserModel sender) async {
         }
       }
 
-      // Signal per-handshake readiness: receiver is ready for this specific sender
-      try {
-        await _connService.setReceiverReady(docId);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Warning: Could not signal readiness: $e')),
-          );
-        }
-      }
-
       if (mounted) {
         setState(() {
           _handshakeDone = true;

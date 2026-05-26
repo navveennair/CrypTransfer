@@ -457,8 +457,6 @@ class KeyRepository {
       final fromUsername = userDoc.data()?['username'] as String? ??
           _auth.currentUser?.displayName ??
           'Unknown';
-      // Check if receiver's mailbox is open
-      final isReadyToReceive = userDoc.data()?['isReadyToReceive'] as bool? ?? false;
 
       // FIX 2: Use Firestore auto-ID to prevent collision when roles reverse
       final docId = _db.collection(FirebaseConstants.handshakes).doc().id;
@@ -483,7 +481,7 @@ class KeyRepository {
         // 'fromUsername' is kept for backward compatibility.
         'receiverUsername': fromUsername,
         'status': 'handshake_complete',
-        'receiverReady': isReadyToReceive,
+        'receiverReady': true,
       };
 
       batch.set(
