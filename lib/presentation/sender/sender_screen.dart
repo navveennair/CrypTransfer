@@ -125,6 +125,21 @@ class _SenderScreenState extends State<SenderScreen>
   void _onHandshakeUpdate(
       QuerySnapshot<Map<String, dynamic>> snap) {
     if (!mounted) return;
+
+    // DEBUG: Show stream updates as snackbars
+    if (snap.docs.isNotEmpty) {
+      final doc = snap.docs.first.data();
+      final hasKey = doc['publicKey'] != null;
+      final receiverReady = doc['receiverReady'] as bool? ?? false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Stream fired: ${snap.docs.length} doc(s) | publicKey: $hasKey | receiverReady: $receiverReady'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+
     if (snap.docs.isEmpty) {
       // CR-01: skip the first empty snapshot (Firestore stream fires synchronously
       // on subscription before any data has loaded — treat it as settled and return).
