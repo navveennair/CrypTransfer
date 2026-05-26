@@ -353,23 +353,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
     return result ?? false;
   }
 
-  void _openFindSenderSheet() {
-    if (_sessionManager.activeSenderUid != null) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _FindSenderSheet(
-        service: _connService,
-        initialConnected: _connectedFriends,
-        onConnectionMade: () {}, // no-op: stream keeps the list live
-        onSenderSelected: _onSenderSelected,
-      ),
-    );
-  }
-
-  Future<void> _onSenderSelected(UserModel sender) async {
+Future<void> _onSenderSelected(UserModel sender) async {
     _sessionManager.selectSender(sender.uid, sender.username);
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     _transferStream = _transferRepo.watchPendingTransfersFromSender(
@@ -621,25 +605,15 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GlassButton(
-          icon: const Icon(Icons.link_rounded, size: 20),
-          label: const Text('Find & Select Sender'),
-          onPressed: _step2Done ? _openFindSenderSheet : null,
-          color: AppTheme.primaryBlue,
-        ),
-        if (_connectedFriends.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Frequent Senders', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
-          const SizedBox(height: 8),
-          ..._connectedFriends.take(3).map((f) => Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: _ConnectedRow(username: f.username),
-          )),
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Icon(Icons.hourglass_empty_rounded, color: AppTheme.primaryBlue, size: 20),
+          const SizedBox(width: 14),
+          const Expanded(child: Text('Waiting for connected sender…', style: TextStyle(fontSize: 13))),
         ],
-      ],
+      ),
     );
   }
 
@@ -781,28 +755,6 @@ class _KeyInfoRow extends StatelessWidget {
         Text('$label: ', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
-    );
-  }
-}
-
-class _ConnectedRow extends StatelessWidget {
-  final String username;
-  const _ConnectedRow({required this.username});
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderRadius: 12,
-      child: Row(
-        children: [
-          UserAvatar(username: username, radius: 14),
-          const SizedBox(width: 10),
-          Text('@$username', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-          const Spacer(),
-          const Icon(Icons.bolt_rounded, color: Colors.amber, size: 16),
-        ],
-      ),
     );
   }
 }
