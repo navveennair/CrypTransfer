@@ -51,6 +51,7 @@ See: .planning/PROJECT.md
 - 2026-05-23: Phase 07 complete — 07-01 executed, code reviewed (5 warnings fixed), debug fix applied (_startTransferListener moved to _startUpload), UAT 3/3 passed; global glassmorphic UI overhaul committed; milestone v1.0 complete
 - 2026-05-25: Quick task 260525-kur complete — removed duplicate _runAesGcm from sender_screen.dart; RSA-OAEP encrypt moved to compute() isolate; dead methods and unused pointycastle import removed
 - 2026-05-25: Phase 07.1 all 4 waves executed — Wave 0 repository expansion, Wave 1 transfer screens migration (16 violations), Wave 2 cleanup screen migration, Wave 3 admin & misc screens migration; total 14 FirebaseFirestore.instance violations eliminated from presentation layer; flutter analyze clean
+- 2026-05-26: Quick task 260526-sxe complete — removed all deprecated rsa_key_transfers collection references from test fixtures and audit reports; TC-WIPE-002 migrated to handshakes with senderId/receiverId fields; all 9 session wipe tests passing; flutter analyze clean; zero references to rsa_key_transfers remain
 
 ## Accumulated Context
 
@@ -85,3 +86,4 @@ See: .planning/PROJECT.md
 |---|-------------|------|--------|-----------|
 | 260520-001 | Synchronized turn-based destruction sequence | 2026-05-20 | 6491ab7 | [260520-001-synchronized-turn-based-cleanup](.planning/quick/260520-001-synchronized-turn-based-cleanup/) |
 | 260525-kur | Fix duplicate _runAesGcm and move RSA-OAEP encrypt to compute isolate | 2026-05-25 | fdf8a84 | [260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae](.planning/quick/260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae/) |
+| 260526-sxe | Remove unused deterministic ID implementation (rsa_key_transfers cleanup) | 2026-05-26 | f9351db | [260526-sxe-remove-unused-deterministic-id-implement](.planning/quick/260526-sxe-remove-unused-deterministic-id-implement/) |
