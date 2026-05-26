@@ -136,8 +136,9 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       // Get sender username from fromUsername field (set by selectSenderHandshake)
       final senderUsername = doc.data()['fromUsername'] as String? ?? 'Sender';
 
-      if (senderUid != null && senderUid.isNotEmpty) {
-        // Auto-select this sender
+      if (senderUid != null && senderUid.isNotEmpty && !_handshakeDone && !_handshaking) {
+        // Auto-select this sender (guard prevents re-entry from the doc the
+        // call itself creates, which would loop indefinitely).
         _onSenderSelected(UserModel(
           uid: senderUid,
           username: senderUsername,

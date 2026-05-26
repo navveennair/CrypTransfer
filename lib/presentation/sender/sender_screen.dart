@@ -151,6 +151,9 @@ class _SenderScreenState extends State<SenderScreen>
         _ejectToHomeScreen();
         return;
       }
+      // Don't wipe mid-encryption — let the compute() isolate finish so the
+      // user doesn't lose their progress silently.
+      if (_encrypting || _encryptingKey) return;
       final wasConnected = _receiverId != null;
       _revertToWaiting();
       if (wasConnected) {
@@ -218,6 +221,8 @@ class _SenderScreenState extends State<SenderScreen>
         if (!_receiverReady && receiverReady) {
           _onReceiverBecameReady();
         } else if (_receiverReady != receiverReady) {
+          // Don't wipe mid-encryption — compute() is in flight.
+          if (_encrypting || _encryptingKey) return;
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -361,8 +366,10 @@ class _SenderScreenState extends State<SenderScreen>
     final ok = await BiometricHelper.authenticate(
         'Authenticate to encrypt the AES key for '
         '${_receiverUsername ?? "receiver"}');
-    if (!ok || !mounted) {
+    if (!mounted) return;
+    if (!ok) {
       setState(() => _encryptingKey = false);
+      _showError('Authentication failed or was cancelled. Tap to retry.');
       return;
     }
     try {
