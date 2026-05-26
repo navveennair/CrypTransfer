@@ -660,6 +660,15 @@ class KeyRepository {
   }) async {
     try {
       final currentUid = _uid;
+
+      // FIX 1: Validate connection exists before role assignment
+      final connectionStatus = await getConnectionStatus(partnerUid);
+      if (connectionStatus != 'accepted') {
+        throw AuthException(
+          'Connection with @$partnerUid not established yet. Status: $connectionStatus'
+        );
+      }
+
       final senderUid = isSender ? currentUid : partnerUid;
       final receiverUid = isSender ? partnerUid : currentUid;
 
