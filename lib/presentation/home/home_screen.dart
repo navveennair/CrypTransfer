@@ -72,6 +72,27 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _showErrorSnackBar(String message, {Color? bgColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: bgColor ?? Theme.of(context).colorScheme.error,
+      ),
+    );
+  }
+
+  void _showInfoSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _showErrorMessage(String message) {
+    _showErrorSnackBar(message);
+  }
+
   void _startNotifListener() {
     final uid = _authRepo.currentUid;
     if (uid == null) return;
@@ -195,22 +216,14 @@ class _HomeScreenState extends State<HomeScreen> {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           _handshakeRepo.acceptProposal(docId, proposerId).catchError((e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text("Couldn't accept request. Try again."),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ));
+            _showErrorSnackBar("Couldn't accept request. Try again.");
           });
         },
         onReject: () {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
           _handshakeRepo.rejectProposal(docId).catchError((e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text("Couldn't decline request. Try again."),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ));
+            _showErrorSnackBar("Couldn't decline request. Try again.");
           });
         },
         onDismiss: () {
@@ -250,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
               partnerUid: partnerUid,
               isSender: true,
             );
-            if (!context.mounted) return;
+            if (!mounted) return;
             Navigator.pop(context);
             Navigator.push(
               context,
@@ -263,10 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           } catch (e) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: ${e.toString()}')),
-            );
+            if (!mounted) return;
+            _showInfoSnackBar('Error: ${e.toString()}');
           }
         },
         onReceiveFile: () async {
@@ -275,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
               partnerUid: partnerUid,
               isSender: false,
             );
-            if (!context.mounted) return;
+            if (!mounted) return;
             Navigator.pop(context);
             Navigator.push(
               context,
@@ -288,10 +299,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           } catch (e) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error: ${e.toString()}')),
-            );
+            if (!mounted) return;
+            _showInfoSnackBar('Error: ${e.toString()}');
           }
         },
       ),
@@ -329,9 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () {
                   Navigator.pop(ctx);
                   _handshakeRepo.cancelProposal(docId).catchError((_) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Couldn't cancel request. Try again.")));
+                    _showErrorSnackBar("Couldn't cancel request. Try again.");
                   });
                 },
               ),
@@ -353,11 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _handshakeRepo.acceptProposal(docId, proposerId);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text("Couldn't accept request. Try again."),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ));
+      _showErrorSnackBar("Couldn't accept request. Try again.");
       rethrow;
     }
   }
@@ -366,11 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await _handshakeRepo.rejectProposal(docId);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text("Couldn't decline request. Try again."),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ));
+      _showErrorSnackBar("Couldn't decline request. Try again.");
       rethrow;
     }
   }
@@ -469,9 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onConnectionTap: _openRolePicker,
               onCancelTap: _cancelProposal,
               onAddPressed: _openAddConnectionSheet,
-              onShowError: (msg) => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(msg), backgroundColor: cs.error),
-              ),
+              onShowError: _showErrorMessage,
             ),
             const SizedBox(height: 32),
 
@@ -480,9 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
               incomingPendingStream: _incomingPendingStream,
               onAccept: _acceptProposal,
               onReject: _rejectProposal,
-              onShowError: (msg) => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(msg), backgroundColor: cs.error),
-              ),
+              onShowError: _showErrorMessage,
             ),
             const SizedBox(height: 32),
 

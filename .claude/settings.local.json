@@ -84,7 +84,8 @@
       "Bash(git stash *)",
       "Bash(tee test_output.log)",
       "Bash(firebase firestore:rules:list --project cryptransfer-96e9f)",
-      "Bash(firebase help *)"
+      "Bash(firebase help *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\navve\\\\projects\\\\cryptransfer\\\\.planning\\\\phases\" -Directory | Where-Object {$_.Name -match \"07\"} | Select-Object -ExpandProperty Name)"
     ]
   }
 }
