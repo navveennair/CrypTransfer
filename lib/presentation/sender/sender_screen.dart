@@ -236,14 +236,18 @@ class _SenderScreenState extends State<SenderScreen>
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
+        print('DEBUG [_onHandshakeUpdate] receiverReady=$receiverReady, _receiverReady=$_receiverReady');
 
         if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
+          print('DEBUG [_onHandshakeUpdate] Starting readiness timer');
           _startReadinessTimer();
         }
 
         if (!_receiverReady && receiverReady) {
+          print('DEBUG [_onHandshakeUpdate] TRANSITION FIRED: receiver became ready!');
           _onReceiverBecameReady();
         } else if (_receiverReady != receiverReady) {
+          print('DEBUG [_onHandshakeUpdate] Receiver state changed, reverting to waiting');
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -371,13 +375,16 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   Future<void> _encryptAesKey() async {
+    print('DEBUG [_encryptAesKey] CALLED! _fileEncrypted=$_fileEncrypted, _encryptingKey=$_encryptingKey, _aesKey=${_aesKey != null}, _publicKeyJson=${_selectedReceiverPublicKeyJson != null}');
     final aesKey = _aesKey;
     final publicKeyJson = _selectedReceiverPublicKeyJson;
     if (aesKey == null) {
+      print('DEBUG [_encryptAesKey] aesKey is null');
       _showError('Encrypt the file first (Step 2).');
       return;
     }
     if (publicKeyJson == null) {
+      print('DEBUG [_encryptAesKey] publicKeyJson is null');
       _showError('Select a receiver first (Step 0).');
       return;
     }
@@ -489,9 +496,13 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   void _onReceiverBecameReady() {
+    print('DEBUG [_onReceiverBecameReady] Setting _receiverReady = true');
     _readinessTimer?.cancel();
     _readinessTimer = null;
-    setState(() => _receiverReady = true);
+    setState(() {
+      _receiverReady = true;
+      print('DEBUG [_onReceiverBecameReady] setState complete, _receiverReady is now $_receiverReady');
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Secure channel established. Receiver is ready.'),
