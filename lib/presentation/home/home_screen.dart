@@ -1386,6 +1386,7 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
+    } finally {
       if (mounted) {
         setState(() {
           _loading = false;
