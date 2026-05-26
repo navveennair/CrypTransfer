@@ -47,7 +47,9 @@ void main() {
           .doc('user1_user2')
           .set({
         'proposerId': 'user1',
+        'proposerUsername': 'testuser1',
         'partnerId': 'user2',
+        'partnerUsername': 'alice',
         'status': 'pending',
       });
 
@@ -63,6 +65,52 @@ void main() {
           .doc('user1_user2')
           .get();
       expect(snap.data()!['status'], equals('connected'));
+    });
+
+    // HAND-02b: acceptProposal() also updates bidirectional friendships sub-collection
+    test('TC-HAND-02b: acceptProposal updates friendships sub-collection with status=accepted',
+        () async {
+      await fakeFirestore
+          .collection('neutral_handshakes')
+          .doc('user1_user2')
+          .set({
+        'proposerId': 'user1',
+        'proposerUsername': 'testuser1',
+        'partnerId': 'user2',
+        'partnerUsername': 'alice',
+        'status': 'pending',
+      });
+
+      // Current user is user2 (the partner accepting the proposal)
+      final auth2 = MockFirebaseAuth(
+          signedIn: true, mockUser: MockUser(uid: 'user2'));
+      final repo = HandshakeRepository(db: fakeFirestore, auth: auth2);
+
+      await repo.acceptProposal('user1_user2', 'user1');
+
+      // Check user2's friendship doc for user1
+      final user2FriendshipSnap = await fakeFirestore
+          .collection('users')
+          .doc('user2')
+          .collection('friendships')
+          .doc('user1')
+          .get();
+      expect(user2FriendshipSnap.exists, isTrue);
+      expect(user2FriendshipSnap.data()?['status'], equals('accepted'));
+      expect(user2FriendshipSnap.data()?['uid'], equals('user1'));
+      expect(user2FriendshipSnap.data()?['username'], equals('testuser1'));
+
+      // Check user1's friendship doc for user2
+      final user1FriendshipSnap = await fakeFirestore
+          .collection('users')
+          .doc('user1')
+          .collection('friendships')
+          .doc('user2')
+          .get();
+      expect(user1FriendshipSnap.exists, isTrue);
+      expect(user1FriendshipSnap.data()?['status'], equals('accepted'));
+      expect(user1FriendshipSnap.data()?['uid'], equals('user2'));
+      expect(user1FriendshipSnap.data()?['username'], equals('alice'));
     });
 
     // HAND-03: rejectProposal() updates status to rejected
@@ -196,7 +244,9 @@ void main() {
           .doc('user1_user2')
           .set({
         'proposerId': 'user1',
+        'proposerUsername': 'testuser1',
         'partnerId': 'user2',
+        'partnerUsername': 'alice',
         'status': 'pending',
       });
 

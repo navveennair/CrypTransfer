@@ -86,24 +86,89 @@ class HandshakeRepository {
   /// proposal by the same user — it is also updated to `connected` in the
   /// same batch (mutual-accept pattern, Pitfall 4).
   ///
+  /// Also updates the bidirectional `users/{uid}/friendships/{partnerId}` and
+  /// `users/{partnerId}/friendships/{uid}` sub-collection documents with
+  /// `status: 'accepted'` to enable downstream role assignment checks.
+  ///
   /// [proposerId] is required to derive the mutual doc ID.
   Future<void> acceptProposal(String docId, String proposerId) async {
     try {
       final primaryRef = _db
           .collection(FirebaseConstants.neutralHandshakes)
           .doc(docId);
+
+      // Fetch the primary doc to extract user data
+      final primarySnap = await primaryRef.get();
+      if (!primarySnap.exists) {
+        throw NetworkException('Proposal not found: $docId');
+      }
+
+      final data = primarySnap.data()!;
+      final proposerUsername = data['proposerUsername'] as String? ?? '';
+      final partnerUsername = data['partnerUsername'] as String? ?? '';
+
+      // The current user (_uid) is the partner accepting the proposal
+      // The proposerId is the person who originally sent the proposal
+      final otherUserUid = proposerId;
+
+      // Build friendships sub-collection refs for both directions
+      // myFriendshipRef is for the current user (_uid = partner accepting)
+      final myFriendshipRef = _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.friendships)
+          .doc(otherUserUid);
+      // partnerFriendshipRef is for the proposer
+      final otherFriendshipRef = _db
+          .collection(FirebaseConstants.users)
+          .doc(otherUserUid)
+          .collection(FirebaseConstants.friendships)
+          .doc(_uid);
+
       final mutualRef = _db
           .collection(FirebaseConstants.neutralHandshakes)
           .doc('${_uid}_$proposerId');
+
       final batch = _db.batch();
+
+      // Update neutral_handshakes
       batch.update(primaryRef,
           {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
-      // Only update mutual if it exists (check first with a separate get)
+
+      // Check and update mutual neutral_handshakes doc if it exists
       final mutualSnap = await mutualRef.get();
       if (mutualSnap.exists) {
         batch.update(mutualRef,
             {'status': 'connected', 'updatedAt': FieldValue.serverTimestamp()});
       }
+
+      // Update bidirectional friendships sub-collection documents
+      // Current user's perspective (acceptor = partner)
+      // They are adding the proposer to their friendships
+      batch.set(
+        myFriendshipRef,
+        {
+          'uid': otherUserUid,
+          'username': proposerUsername,
+          'status': 'accepted',
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      // Proposer's perspective
+      // They are updating their existing request to accepted
+      batch.set(
+        otherFriendshipRef,
+        {
+          'uid': _uid,
+          'username': partnerUsername,
+          'status': 'accepted',
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
       await batch.commit();
     } on FirebaseException catch (e) {
       throw NetworkException(
