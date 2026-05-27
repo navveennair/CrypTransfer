@@ -93,7 +93,23 @@
       "PowerShell(python .graphify_label_communities.py)",
       "PowerShell(python .graphify_regen_report.py)",
       "PowerShell(python .graphify_final_regen.py)",
-      "PowerShell(python .graphify_gen_html.py)"
+      "PowerShell(python .graphify_gen_html.py)",
+      "Skill(gsd:progress)",
+      "Bash(Remove-Item .planning\\\\HANDOFF.json)",
+      "Bash(flutter run *)",
+      "Bash(echo \"Flutter run started, PID=$!\")",
+      "Bash(mkdir -p /mnt/c/tmp)",
+      "Read(//mnt/c/tmp/**)",
+      "PowerShell(Copy-Item *)",
+      "Bash(cp /mnt/c/tmp/screen1.png \"/mnt/c/Users/navve/Downloads/screen1.png\")",
+      "Bash(cmd.exe /c \"if exist C:\\\\tmp\\\\screen1.png echo exists_in_windows\")",
+      "Bash(wslpath -w /mnt/c/tmp/screen1.png)",
+      "Bash(ls /mnt/)",
+      "Bash(echo \"PID=$!\")",
+      "Bash(pkill -f \"flutter_run3\")",
+      "Bash(pkill -f \"emulator-5554\")",
+      "Bash(echo \"Logcat 5554 PID: $!\")",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

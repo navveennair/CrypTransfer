@@ -169,14 +169,16 @@ service cloud.firestore {
       // Partner may accept or reject; proposer's own doc may be marked connected
       // by a mutual-accept WriteBatch (proposer cannot reject their own proposal)
       // WR-06: update restricted to status+updatedAt fields only
+      // WR-01: proposer may resend (idempotent) — status back to 'pending' allowed for usernames refresh
       allow update: if isAuthenticated() && (
         (resource.data.partnerId == request.auth.uid &&
          request.resource.data.status in ['connected', 'rejected'] &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
         ||
         (resource.data.proposerId == request.auth.uid &&
-         request.resource.data.status == 'connected' &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
+         (request.resource.data.status == 'connected' ||
+          request.resource.data.status == 'pending') &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'proposerUsername', 'partnerUsername']))
       );
 
       // Either party may delete (cancel proposal or post-session cleanup).

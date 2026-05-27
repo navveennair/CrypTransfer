@@ -304,66 +304,26 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
   Future<void> _startUpload() async {
     try {
-      final ref = FirebaseStorage.instance
-          .ref('transfers/${widget.transferId}/encrypted_file');
-
-      final metadata = SettableMetadata(
-        contentType: 'application/octet-stream',
-        customMetadata: {'fileName': widget.fileName},
-      );
-
-      _uploadTask = ref.putData(widget.encryptedBytes, metadata);
-
-      _uploadTask!.snapshotEvents.listen((snapshot) {
-        if (mounted && snapshot.totalBytes > 0) {
-          setState(() {
-            _bytesTransferred = snapshot.bytesTransferred;
-            _totalBytes = snapshot.totalBytes;
-            _progress = snapshot.bytesTransferred / snapshot.totalBytes;
+      await _transferRepo
+          .uploadAndCreate(
+            transferId: widget.transferId,
+            encryptedBytes: widget.encryptedBytes,
+            fileName: widget.fileName,
+            fileSize: widget.fileSize,
+            senderId: widget.senderId,
+            receiverId: widget.receiverId,
+            encryptedAESKeyB64: widget.encryptedAESKeyB64,
+            ivB64: widget.ivB64,
+          )
+          .forEach((progress) {
+            if (mounted) {
+              setState(() {
+                _bytesTransferred = (progress * widget.encryptedBytes.length).toInt();
+                _totalBytes = widget.encryptedBytes.length;
+                _progress = progress;
+              });
+            }
           });
-        }
-      });
-
-      final snapshot = await _uploadTask!;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-
-      // Create transfer document with all required fields
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'senderId',
-        widget.senderId,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'receiverId',
-        widget.receiverId,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'encryptedAESKey',
-        widget.encryptedAESKeyB64,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'encryptedFileUrl',
-        downloadUrl,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'fileName',
-        widget.fileName,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'fileSize',
-        widget.fileSize,
-      );
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'iv',
-        widget.ivB64,
-      );
-      await _transferRepo.updateTransferStatus(widget.transferId, 'pending');
 
       // Start the non-repudiation listener NOW — doc exists, security rule can evaluate.
       // Starting before .set() would subscribe to a non-existent doc, causing

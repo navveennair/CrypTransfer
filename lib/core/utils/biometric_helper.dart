@@ -13,7 +13,8 @@ class BiometricHelper {
   static Future<bool> checkBiometrics() async {
     try {
       return await _auth.canCheckBiometrics;
-    } catch (_) {
+    } catch (e) {
+      print('[BiometricHelper] checkBiometrics() error: $e');
       return false;
     }
   }
@@ -26,13 +27,21 @@ class BiometricHelper {
   static Future<bool> authenticate(String reason) async {
     try {
       final canAuth = await checkBiometrics();
-      if (!canAuth) return true;
-      return await _auth.authenticate(
+      print('[BiometricHelper] authenticate: canAuth=$canAuth');
+      if (!canAuth) {
+        print('[BiometricHelper] No biometrics available, returning true');
+        return true;
+      }
+      print('[BiometricHelper] Calling _auth.authenticate(reason="$reason")');
+      final result = await _auth.authenticate(
         localizedReason: reason,
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
-    } catch (_) {
+      print('[BiometricHelper] authenticate() returned: $result');
+      return result;
+    } catch (e) {
+      print('[BiometricHelper] authenticate() EXCEPTION: $e');
       return false;
     }
   }
