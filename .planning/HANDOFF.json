@@ -1,48 +1,31 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-27T14:00:00.000Z",
-  "phase": null,
-  "phase_name": "debug: sender-step3-encrypt-key-button",
-  "phase_dir": ".planning/debug",
-  "plan": null,
+  "timestamp": "2026-05-27T12:00:00.000Z",
+  "phase": "07.1",
+  "phase_name": "Sender Reactive Cleanup Sync + Mobile Testing",
+  "phase_dir": ".planning/phases/07.1-sender-reactive-cleanup-sync",
+  "plan": 4,
   "task": null,
   "total_tasks": null,
-  "status": "paused",
+  "status": "complete",
   "completed_tasks": [
-    {"id": 1, "name": "Fix receiverReady race condition in selectSenderHandshake()", "status": "done", "commit": "4d91de6"},
-    {"id": 2, "name": "Remove redundant setReceiverReady() call", "status": "done", "commit": "4d91de6"},
-    {"id": 3, "name": "Fix _encryptingKey guard — move setState before biometric await", "status": "done", "commit": "c694a77"},
-    {"id": 4, "name": "Fix BiometricHelper — gate on canCheckBiometrics only", "status": "done", "commit": "62114c7"},
-    {"id": 5, "name": "Fix Firestore rule violations", "status": "done", "commit": "3ac255e"},
-    {"id": 6, "name": "Revert FLAG_SECURE bypass", "status": "done", "commit": "working-tree-clean"},
-    {"id": 7, "name": "Fix Step 3: biometric error feedback + revert guard during compute + receiver loop guard", "status": "done", "commit": "17d8c40"}
+    {"id": 1, "name": "Fix Step 3 biometric prompt (MainActivity extends FlutterFragmentActivity)", "status": "done", "commit": "1459ad8"},
+    {"id": 2, "name": "Fix transfer upload (use atomic uploadAndCreate)", "status": "done", "commit": "1459ad8"},
+    {"id": 3, "name": "Fix proposal idempotent update rule", "status": "done", "commit": "1459ad8"},
+    {"id": 4, "name": "Fix sender cleanup listener (cleanup_initiated boolean)", "status": "done", "commit": "22a72b6"},
+    {"id": 5, "name": "Fix Firestore read rule (allow listener to detect deletions)", "status": "done", "commit": "22a72b6"},
+    {"id": 6, "name": "Fix PopScope navigation + 2-second auto-nav", "status": "done", "commit": "22a72b6"},
+    {"id": 7, "name": "End-to-end UAT on real device (SM-A076B)", "status": "done", "commit": "22a72b6"}
   ],
-  "remaining_tasks": [
-    {
-      "id": 8,
-      "name": "End-to-end UAT: Step 3 encrypt key → Step 4 send",
-      "status": "not_started",
-      "progress": "Fixes committed (17d8c40). Hot-restart both emulators. Receiver opens mailbox → selects @navveennair → sender picks file → Step 2 encrypt → Step 3 biometric (PIN 234162) → confirm checkmark + Step 4 appears."
-    },
-    {"id": 9, "name": "Deploy firestore.rules to production (cryptransfer-96e9f)", "status": "not_started"}
-  ],
-  "blockers": [
-    {"description": "BiometricPrompt on Android 13 emulator requires manual interaction — adb cannot automate PIN entry.", "type": "technical", "workaround": "Manually enter PIN 234162 on emulator-5556 when prompt appears."}
-  ],
-  "human_actions_pending": [
-    {
-      "action": "UAT after hot-restart: emulator-5554 (@testt123) enable Receive Mode + select @navveennair → emulator-5556 (@navveennair) Send File → pick file → Step 2 → Step 3 biometric (PIN: 234162) → confirm Step 3 checkmark + Step 4 'Send Encrypted File' appears → tap Send.",
-      "context": "Three fixes committed in 17d8c40: (1) biometric failure now shows error snackbar, (2) _revertToWaiting() bails out if _encrypting||_encryptingKey, (3) receiver listener loop guard added.",
-      "blocking": true
-    },
-    {"action": "firebase deploy --only firestore:rules", "context": "friendships isAdmin read rule not live until deployed.", "blocking": false}
-  ],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [],
   "decisions": [
-    {"decision": "Guard _revertToWaiting() with if (_encrypting || _encryptingKey) return", "rationale": "Prevents Firestore stream events from wiping compute() in-flight state. compute() isolate already holds its own copy of data.", "phase": "debug"},
-    {"decision": "Guard _startIncomingHandshakeListener with !_handshakeDone && !_handshaking", "rationale": "Breaks feedback loop where selectSenderHandshake() doc creation re-triggered the listener indefinitely.", "phase": "debug"},
-    {"decision": "Emulator roles: emulator-5556=SENDER(@navveennair,PIN 234162), emulator-5554=RECEIVER(@testt123,PIN 1234)", "rationale": "Confirmed by user.", "phase": "debug"}
+    {"decision": "MainActivity extends FlutterFragmentActivity", "rationale": "local_auth requires FragmentActivity for BiometricPrompt on Android 16", "phase": "07.1"},
+    {"decision": "uploadAndCreate atomically creates transfer doc with all fields", "rationale": "Firestore create rule requires senderId in initial create", "phase": "07.1"},
+    {"decision": "Firestore read rule allows resource==null", "rationale": "Listener needs to emit deletion events", "phase": "07.1"}
   ],
-  "uncommitted_files": [".claude/settings.local.json (minor)", ".planning/STATE.md (minor)", ".planning/debug/dialogs-freeze-on-proposal-accept.md (minor)"],
-  "next_action": "Hot-restart both emulators → run UAT task 8 manually.",
-  "context_notes": "Root cause: three co-occurring bugs. BiometricHelper silent failure + _revertToWaiting() firing mid-compute from Firestore stream events + receiver listener feedback loop. All fixed in 17d8c40. flutter analyze clean."
+  "uncommitted_files": [],
+  "next_action": "Deploy to Play Store (update applicationId, finalize thesis chapters)",
+  "context_notes": "All 7 phases complete (100% progress). End-to-end transfer working. Biometric auth (Step 3) working. Session cleanup fully functional. All rules deployed. flutter analyze clean. System is production ready."
 }

@@ -97,7 +97,8 @@ service cloud.firestore {
     //       (selectedSenderUid == auth.uid) OR a neutral_handshake exists.
     match /transfers/{transferId} {
       allow read:   if isAuthenticated() &&
-                       (resource.data.senderId == request.auth.uid ||
+                       (resource == null ||
+                        resource.data.senderId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid);
 
       allow create: if isAuthenticated() &&

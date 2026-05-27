@@ -289,10 +289,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          GlassButton(
+                          CrypButton(
                             onPressed: _isLoading ? null : _loginWithGoogle,
                             icon: const _GoogleGIcon(),
                             label: const Text('Sign in with Google'),
+                            color: Theme.of(context).colorScheme.secondary,
+                            height: 48,
                           ),
                         ],
                       ),

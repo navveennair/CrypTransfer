@@ -109,7 +109,9 @@
       "Bash(pkill -f \"flutter_run3\")",
       "Bash(pkill -f \"emulator-5554\")",
       "Bash(echo \"Logcat 5554 PID: $!\")",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -n \"\\\\.listen\\\\|}\\);$\")",
+      "Bash(git push *)"
     ]
   }
 }

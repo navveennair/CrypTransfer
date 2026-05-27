@@ -420,12 +420,12 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         subtitle: Text('Wants to connect with you',
                             style:
                                 TextStyle(color: cs.onSurfaceVariant)),
-                        trailing: GlassButton(
+                        trailing: CrypButton(
                           onPressed: () => _acceptRequest(req),
-                          borderRadius: 8,
                           label: const Text('Accept',
                               style: TextStyle(fontSize: 12)),
                           color: cs.secondary,
+                          height: 36,
                         ),
                       ),
                     ),

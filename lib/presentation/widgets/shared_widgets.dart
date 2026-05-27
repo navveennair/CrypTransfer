@@ -72,92 +72,6 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-// ─── GlassButton ──────────────────────────────────────────────────────────────
-class GlassButton extends StatefulWidget {
-  final Widget label;
-  final Widget? icon;
-  final VoidCallback? onPressed;
-  final Color? color;
-  final double borderRadius;
-
-  const GlassButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-    this.icon,
-    this.color,
-    this.borderRadius = 14,
-  });
-
-  @override
-  State<GlassButton> createState() => _GlassButtonState();
-}
-
-class _GlassButtonState extends State<GlassButton> {
-  bool _isPressed = false;
-
-  void _handleTapDown(TapDownDetails _) {
-    if (widget.onPressed != null) {
-      HapticFeedback.lightImpact();
-      setState(() => _isPressed = true);
-    }
-  }
-
-  void _handleTapUp(TapUpDetails _) {
-    if (widget.onPressed != null) {
-      setState(() => _isPressed = false);
-      widget.onPressed!();
-    }
-  }
-
-  void _handleTapCancel() {
-    if (widget.onPressed != null) {
-      setState(() => _isPressed = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Opacity(
-      opacity: widget.onPressed == null ? 0.5 : 1.0,
-      child: GestureDetector(
-        onTapDown: _handleTapDown,
-        onTapUp: _handleTapUp,
-        onTapCancel: _handleTapCancel,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          transform: Matrix4.diagonal3Values(_isPressed ? 0.98 : 1.0, _isPressed ? 0.98 : 1.0, 1.0),
-          transformAlignment: Alignment.center,
-          child: GlassContainer(
-            borderRadius: widget.borderRadius,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            color: widget.color?.withValues(alpha: 0.15),
-            borderColor: widget.color?.withValues(alpha: 0.3),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null) ...[
-                  widget.icon!,
-                  const SizedBox(width: 10),
-                ],
-                DefaultTextStyle(
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: widget.color ?? cs.onSurface,
-                  ),
-                  child: widget.label,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── StepCard ─────────────────────────────────────────────────────────────────
 
 class StepCard extends StatelessWidget {
@@ -178,15 +92,15 @@ class StepCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 16),
       child: GlassContainer(
         borderRadius: 24,
         padding: const EdgeInsets.all(20),
-        borderColor: done ? Colors.green.withValues(alpha: 0.4) : null,
-        color: done ? Colors.green.withValues(alpha: isDark ? 0.05 : 0.02) : null,
+        borderColor: done ? cs.secondary.withValues(alpha: 0.3) : null,
+        color: done ? cs.secondary.withValues(alpha: isDark ? 0.08 : 0.04) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -198,10 +112,10 @@ class StepCard extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: done ? Colors.green : cs.primary,
+                    color: done ? cs.secondary : cs.primary,
                     boxShadow: [
                       BoxShadow(
-                        color: (done ? Colors.green : cs.primary).withValues(alpha: 0.3),
+                        color: (done ? cs.secondary : cs.primary).withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -224,9 +138,9 @@ class StepCard extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700, 
+                      fontWeight: FontWeight.w700,
                       fontSize: 15,
-                      color: done ? Colors.green : cs.onSurface),
+                      color: done ? cs.secondary : cs.onSurface),
                 ),
               ],
             ),
@@ -328,23 +242,24 @@ class _StatusBannerState extends State<StatusBanner>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return FadeTransition(
       opacity: _fade,
       child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        color: Colors.deepPurple.withValues(alpha: 0.2),
-        borderColor: Colors.deepPurple.withValues(alpha: 0.3),
+        color: cs.tertiary.withValues(alpha: 0.2),
+        borderColor: cs.tertiary.withValues(alpha: 0.3),
         child: Row(
           children: [
-            const Icon(Icons.file_download_rounded,
-                color: Colors.white, size: 20),
+            Icon(Icons.file_download_rounded,
+                color: cs.onSurface, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 widget.message,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: cs.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -354,7 +269,7 @@ class _StatusBannerState extends State<StatusBanner>
               TextButton(
                 onPressed: widget.onView,
                 style: TextButton.styleFrom(
-                    foregroundColor: Colors.white),
+                    foregroundColor: cs.onSurface),
                 child: const Text('View'),
               ),
           ],
@@ -374,24 +289,25 @@ class SecurityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.1),
+        color: cs.secondary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+        border: Border.all(color: cs.secondary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.lock_outline_rounded,
-              size: 13, color: Colors.green),
+          Icon(Icons.lock_outline_rounded,
+              size: 13, color: cs.secondary),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
-              color: Colors.green,
+              color: cs.secondary,
               fontWeight: FontWeight.w600,
             ),
           ),

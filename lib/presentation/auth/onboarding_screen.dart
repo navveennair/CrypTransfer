@@ -67,7 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           
           // Next / Finish button
-          GlassButton(
+          CrypButton(
             label: Text(_currentPage == 2 ? 'Finish' : 'Next'),
             color: cs.primary,
             onPressed: () {

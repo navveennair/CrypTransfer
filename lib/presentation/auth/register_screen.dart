@@ -527,10 +527,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ],
                         ),
                         const SizedBox(height: 24),
-                        GlassButton(
+                        CrypButton(
                           onPressed: _isLoading ? null : _registerWithGoogle,
                           icon: const _GoogleGIcon(),
                           label: const Text('Sign up with Google'),
+                          color: Theme.of(context).colorScheme.secondary,
+                          height: 48,
                         ),
                       ],
                     ),

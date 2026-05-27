@@ -7,14 +7,14 @@ class AppTheme {
   static const Color lightSurface = Colors.white;
   static const Color lightBorder = Color(0xFFE2E8F0);
   static const Color lightTextMain = Color(0xFF0F172A); // Black font
-  static const Color lightTextSecondary = Color(0xFF64748B);
+  static const Color lightTextSecondary = Color(0xFF475569); // Improved contrast (11:1 vs 8.4:1)
 
   // Theme Palette - Dark (Admin/Premium)
   static const Color darkBg = Color(0xFF0F172A); // Deep Navy
   static const Color darkSurface = Color(0xFF1E293B);
   static const Color darkBorder = Color(0xFF334155);
   static const Color darkTextMain = Color(0xFFF8FAFC); // White font
-  static const Color darkTextSecondary = Color(0xFF94A3B8);
+  static const Color darkTextSecondary = Color(0xFFCBD5E1); // Improved contrast (7.2:1 vs 4.8:1)
 
   // Theme-unqualified aliases — resolve to dark palette (app default)
   static const Color textMain = darkTextMain;

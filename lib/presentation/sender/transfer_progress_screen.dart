@@ -103,30 +103,56 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   // ─── Non-repudiation: real-time receiver status ───────────────────────────
 
   void _startTransferListener() {
+    print('[Sender] Starting transfer listener for ${widget.transferId}');
     _transferListener = _transferRepo
         .watchTransferStatus(widget.transferId)
-        .listen((snapshot) async {
+        .listen(
+      (snapshot) async {
+        print('[Sender] Transfer doc update: exists=${snapshot.exists}');
+
       // Turn 4: doc deleted by receiver — session closed; notify sender and return home.
       if (!snapshot.exists) {
-        if (_sessionEnded) return;
-        if (!_done) return; // ignore spurious deletion before upload finishes
+        print('[Sender] Turn 4: Doc deleted. _sessionEnded=$_sessionEnded, _done=$_done');
+        if (_sessionEnded) {
+          print('[Sender] Already ended, returning');
+          return;
+        }
+        if (!_done) {
+          print('[Sender] Upload not done yet, ignoring deletion');
+          return;
+        }
+        print('[Sender] Processing deletion - navigating home');
         _cleanupTimeoutTimer?.cancel();
         _sessionEnded = true;
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey (registered in initState)
+        print('[Sender] mounted=$mounted');
         if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..clearSnackBars()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text('✓ Receiver has securely closed the session'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 4),
-              ),
-            );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (_) => false,
-          );
+          try {
+            print('[Sender] Showing snackbar and scheduling navigation in 2 seconds...');
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('✓ Session closed securely'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            // Navigate after 2 seconds — use pushReplacementNamed to bypass PopScope
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted && Navigator.canPop(context)) {
+                print('[Sender] Navigating to home after 2 second delay');
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (_) => false,
+                );
+              }
+            });
+          } catch (e) {
+            print('[Sender] Navigation FAILED: $e');
+          }
+        } else {
+          print('[Sender] Widget not mounted, skipping navigation');
         }
         return;
       }
@@ -159,14 +185,18 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
       // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
       final cleanupInitiated = data['cleanup_initiated'] as bool? ?? false;
+      print('[Sender] cleanup_initiated=$cleanupInitiated, _done=$_done, _senderWipeSent=$_senderWipeSent, _sessionEnded=$_sessionEnded');
       if (cleanupInitiated && _done && !_senderWipeSent && !_sessionEnded) {
+        print('[Sender] Turn 2: Wiping AES key...');
         _cleanupTimeoutTimer?.cancel();
         _senderWipeSent = true;
         try {
           await _transferRepo.senderWipeAESKey(widget.transferId);
+          print('[Sender] AES key wiped successfully');
         } catch (e) {
           // Remote AES key erasure failed — local wipe still runs below.
           // Log so the failure is visible in security review (no key material logged).
+          print('[Sender] AES key wipe FAILED: $e');
           debugPrint('[Security] Turn 2 Firestore key erasure failed: $e');
         }
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
@@ -370,8 +400,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (_, _) => _showAbortDialog(),
+      canPop: _sessionEnded,
+      onPopInvokedWithResult: (_, result) {
+        if (!_sessionEnded) _showAbortDialog();
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text(

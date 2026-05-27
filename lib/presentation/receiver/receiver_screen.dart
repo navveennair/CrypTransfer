@@ -338,10 +338,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GlassButton(
+                  child: CrypButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     label: const Text('Close Session'),
-                    color: Colors.orange,
+                    color: Theme.of(ctx).colorScheme.tertiary,
+                    height: 44,
                   ),
                 ),
               ],
@@ -941,11 +942,11 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                     child: ListTile(
                       leading: UserAvatar(username: f.username),
                       title: Text(f.username),
-                      trailing: GlassButton(
+                      trailing: CrypButton(
                         label: const Text('Select', style: TextStyle(fontSize: 12)),
                         onPressed: () { Navigator.pop(context); widget.onSenderSelected(f); },
-                        color: AppTheme.primaryBlue,
-                        borderRadius: 8,
+                        color: Theme.of(context).colorScheme.primary,
+                        height: 36,
                       ),
                     ),
                   )),
