@@ -158,7 +158,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       }
 
       // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
-      if (status == 'cleanup_initiated' && _done && !_senderWipeSent && !_sessionEnded) {
+      final cleanupInitiated = data['cleanup_initiated'] as bool? ?? false;
+      if (cleanupInitiated && _done && !_senderWipeSent && !_sessionEnded) {
         _cleanupTimeoutTimer?.cancel();
         _senderWipeSent = true;
         try {
