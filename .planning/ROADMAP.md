@@ -146,3 +146,13 @@ Plans:
 - [ ] 07.1-02-PLAN.md — Wave 1: Transfer screens migration — transfer_progress_screen (6 calls), sender_session_ended_screen (2 calls), sender_screen (1 call), receiver_transfer_screen (2 calls), receiver_screen (2 calls), decrypt_screen (2 calls), home_screen (1 call)
 - [ ] 07.1-03-PLAN.md — Wave 2: Cleanup screen migration — receiver_end_session_screen (4 calls) using CleanupRepository, preserving D-03 order
 - [ ] 07.1-04-PLAN.md — Wave 3: Admin & misc screens — admin_dashboard (3 calls), admin_dashboard_screen (1 call), connection_node_map (2 calls), security_pulse_feed (1 call), transfer_volume_chart (1 call), onboarding_screen (1 call)
+
+### Phase 8: applicationId rename — replace com.example.cryptransfer with production package across android/app/build.gradle.kts (applicationId), Kotlin package + directory (MainActivity.kt), MethodChannel namespace com.example.cryptransfer/security (referenced in MainActivity.kt and lib/core/utils/security_lifecycle_mixin.dart), regenerated google-services.json from Firebase project cryptransfer-96e9f, and any -keep rules in android/app/proguard-rules.pro that reference the old package. Pre-release Play Store blocker per .planning/codebase/CONCERNS.md §3. Must remain regression-free: flutter analyze clean, full test suite passes, FLAG_SECURE pre-flight still functional, kill-switch reactive binding intact.
+
+**Goal:** Rename Android `applicationId` from `com.example.cryptransfer` to `com.navveennair.cryptransfer` across all coupled touchpoints (Gradle namespace/applicationId, Kotlin package + physical directory, MethodChannel namespaces decoupled per D-04 to package-independent `cryptransfer/{security,file}`, multi-app `google-services.json`, `firebase_options.dart` iosBundleId, delete old `com/example/` tree) so the app can be published to Google Play. Must remain regression-free: `flutter analyze` clean, 107/108 test baseline preserved, FLAG_SECURE pre-flight functional, kill-switch reactive binding (`SessionManager.stateStream → EncryptionService.bindSession`) intact.
+**Requirements**: D-01..D-07 (no formal REQ-IDs; CONTEXT.md locked decisions are the requirement anchors)
+**Depends on:** Phase 7
+**Plans:** 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — Single plan, 3 waves: (W1) Firebase Console + google-services.json regeneration (manual, autonomous: false); (W2) Gradle rename + Kotlin physical move + MethodChannel decoupling + firebase_options + delete com/example/ + flutter clean (7 autonomous tasks); (W3) D-06 acceptance gates — analyze + test + debug APK build + on-device smoke (5a/5b/5c/5d/5e) + atomic commit
