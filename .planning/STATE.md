@@ -5,9 +5,9 @@ milestone_name: milestone
 current_phase: 07.1 (executing)
 current_plan: 04 (complete — 4/4 waves executed)
 status: executing
-last_updated: "2026-05-27T04:21:35.338Z"
+last_updated: "2026-05-28T16:38:21.862Z"
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 7
   total_plans: 29
   completed_plans: 29
@@ -67,6 +67,7 @@ See: .planning/PROJECT.md
 - Phase 05 added: Neutral Handshake Model — decouple connection establishment from sender/receiver role assignment; proposerId/partnerId semantics, pending-approval flow with global listener + approval dialog, role selection deferred to Active Connection tap
 - Phase 06 added: Synchronized Readiness Gate — receiverReady/senderReady fields on Transfers model; receiver sets receiverReady: true after Stepper 3 completes; sender-side stream gate blocks progression until receiverReady; pulsing waiting UI + auto-advance on unlock; safety timer kicks sender to HomeScreen if doc deleted or rejected
 - Phase 07 added: Sender Reactive Cleanup Sync — sender stream listener on receiver's cleanup status after successful transfer; sender verifies AES key wiped and cleans its own artifacts; both parties navigate to HomeScreen; Firebase rules updated for sender cleanup permissions; safety timeout for unresponsive receiver
+- Phase 08 added: applicationId rename — replace `com.example.cryptransfer` with production package across `android/app/build.gradle.kts` (applicationId), Kotlin package + directory (`MainActivity.kt`), MethodChannel namespace `com.example.cryptransfer/security` (referenced in `MainActivity.kt` and `lib/core/utils/security_lifecycle_mixin.dart`), regenerated `google-services.json` from Firebase project `cryptransfer-96e9f`, and any `-keep` rules in `android/app/proguard-rules.pro` that reference the old package. Pre-release Play Store blocker per `.planning/codebase/CONCERNS.md` §3. Must remain regression-free: `flutter analyze` clean, full test suite passes, FLAG_SECURE pre-flight still functional, kill-switch reactive binding intact.
 
 ### Decisions
 
