@@ -1,174 +1,168 @@
-# Codebase Concerns
+# Concerns — CrypTransfer
 
-**Analysis Date:** 2026-05-25
+**Mapped:** 2026-05-28
+**Scope:** Technical debt, known issues, security gaps, fragile patterns, and pre-release blockers.
 
-## Session Propagation & Lifecycle Gap
+Concerns are grouped by category and labeled with severity:
 
-**ReceiverTransferScreen not propagated with SessionManager:**
-- Issue: `ReceiverTransferScreen` is navigation-pushed automatically from `ReceiverScreen` and receives `SessionManager` as a constructor parameter (`widget.sessionManager`), but does not propagate it further. If an app backgrounding event occurs mid-transfer (in `ReceiverTransferScreen`), the `ReceiverScreen`'s `didChangeAppLifecycleState` will fire and call `SessionManager.handleLifecycleState()` → `wipeSession()`, marking `SessionState.terminated`. However, `ReceiverTransferScreen` only listens to `stateNotifier` for the kill-switch — it does NOT listen to the Firestore `EncryptionService.bindSession()` reactive cleanup. If the user backgrounds during decryption, the session is marked terminated, but the Firestore binding may have stale state.
-- Files: `lib/presentation/receiver/receiver_screen.dart` (line 212, bindSession call), `lib/presentation/receiver/receiver_transfer_screen.dart` (line 21, sessionManager param), `lib/core/utils/session_manager.dart` (line 39–48, stateStream)
-- Impact: Decryption-in-progress state is not observed by the reactive EncryptionService binding if the user closes the app via back navigation while in `ReceiverTransferScreen`. The `SessionManager.terminated` transition fires locally, but if `ReceiverScreen.dispose()` is skipped (e.g., activity destroyed before pop), the binding cleanup may not fire as expected.
-- Test coverage: `test/security/session_wipe_test.dart` tests the kill-switch from `ReceiverScreen` directly but does not cover app pause/detach while in the nested `ReceiverTransferScreen`. The test suite assumes the user never backgrounds mid-transfer.
-- Fix approach: Pass `sessionManager` to `ReceiverTransferScreen` and explicitly call `EncryptionService.bindSession()` again in its `initState()` (idempotent — binding will replace the prior subscription), and `unbindSession()` in its `dispose()`. Alternatively, use an `InheritedWidget` at the home-screen level to propagate `SessionManager` to all nested screens without threading it through navigation parameters.
-
----
-
-## Platform Limitation: Compute Isolate Ciphertext Zeroing
-
-**Encrypted bytes in isolate heap are not zeroed:**
-- Issue: RSA-OAEP encrypted AES key and AES-256-GCM ciphertext are generated inside `compute()` isolates (`lib/presentation/sender/sender_screen.dart` line 327–328 for RSA, `lib/data/services/encryption_service.dart` line 73 for AES). The isolate returns the result as a `Uint8List`, which is copied back to the main isolate. However, the isolate's heap copy (and any intermediate allocations during encryption) remain in the isolate process memory and cannot be accessed by the main isolate for zeroing via `fillRange()`.
-- Files: `lib/presentation/sender/sender_screen.dart` (line 327–328, `compute(_rsaOaepEncryptIsolate, ...)`), `lib/data/services/encryption_service.dart` (line 73, `compute(runAesGcmEncrypt, ...)`), `lib/presentation/receiver/decrypt_screen.dart` (line 231–232, `compute(_decryptAesKeyIsolate, ...)`)
-- Cause: Dart's `compute()` function spawns a temporary isolate, which is garbage-collected by the Dart VM after the function returns. No explicit cleanup hook is available to userland code to wipe the isolate's heap before GC.
-- Risk: Residual ciphertext on the isolate heap could theoretically be recovered via memory forensics on a physically-captured device or VM escape. This is an inherited platform limitation — Dart/Flutter do not provide memory-clearing compute() variants.
-- Acceptance: **Accepted risk** — documented in `CLAUDE.md` Known Open Issues. The Dart VM's GC is best-effort; requesting native GC via `System.gc()` in `MainActivity.kt` (wired in `SecurityLifecycleMixin.requestNativeClear()`) provides a GC pressure hint but offers no guarantees.
-- Mitigation: Do not use `compute()` for post-decryption plaintext (the plaintext bytes from the isolate would also be left on the isolate heap). Current codebase correctly uses `compute()` only for key generation and symmetric encryption — plaintexts are handled in the main isolate and registered with `SecurityLifecycleMixin.registerBuffer()` for explicit zeroing. Decryption isolates (`_decryptAesKeyIsolate`, `runAesGcmDecrypt`) take ciphertext as input and return plaintext only — plaintext is then immediately registered for zeroing in the main isolate.
+- 🔴 **Blocker** — must fix before next release / production use
+- 🟠 **High** — material risk; schedule soon
+- 🟡 **Medium** — known limitation; tracked, accepted for now
+- 🟢 **Low** — cleanup / hygiene
+- ✅ **Resolved** — formerly flagged, verified fixed (kept for memory)
 
 ---
 
-## Firestore Security Rule Complexity
+## 1. Security Gaps
 
-**Complex rule evaluation path with nested get() calls:**
-- Issue: The `transfers` collection create rule (`firestore.rules` lines 98–106) performs two nested `get()` calls in a single rule evaluation:
-  1. `get(/databases/.../documents/users/$(request.resource.data.receiverId)).data['selectedSenderUid']`
-  2. `exists(/databases/.../documents/neutral_handshakes/...)`
-  
-  Each `get()` and `exists()` call is a separate Firestore read operation charged to the user's quota. A failed `get()` (e.g., receiver document not found) will cause the rule to fail with a PERMISSION_DENIED error rather than gracefully falling back to the `exists()` check.
-- Files: `firestore.rules` (lines 98–106)
-- Impact: If a receiver's user document is deleted between the time the handshake is accepted and the transfer is initiated, the create rule will fail even if a valid `neutral_handshake` document exists. The sender sees PERMISSION_DENIED instead of being able to initiate a fallback transfer path.
-- Recommendation: Wrap the `get()` call with a defensive check: `(get(/databases/.../users/$(request.resource.data.receiverId)).data?.get('selectedSenderUid') == request.auth.uid)` to safely handle missing receiver documents, or use `exists()` exclusively for the handshake check if receiver authorization is optional.
+### 🟡 `compute()` isolate ciphertext not zeroed
+- **Where:** `lib/data/services/encryption_service.dart` — encryption + decryption run inside `compute()` (a Flutter helper that uses a `RawReceivePort`-backed isolate).
+- **Issue:** The encrypted `Uint8List` is allocated in the isolate's own heap. After `compute()` returns, the main isolate gets a copy back, but the isolate-side copy is unreachable from the main isolate — `fillRange(0)` cannot be called against it from outside.
+- **Risk:** Until isolate GC runs, ciphertext bytes remain in process memory. Plaintext is mitigated (see §1.✅ below), but ciphertext + AES key plaintext live briefly in the isolate.
+- **Status:** Inherent Dart isolate-model limitation; documented and accepted. Source: `graphify-out/ZERO_REMANENCE_ANALYSIS.md`.
+- **Mitigations in place:** main-isolate copy is `fillRange`'d via `SecurityLifecycleMixin.wipeAll()` on every `dispose`/state transition.
 
----
+### ✅ Sender plaintext zero-wipe — RESOLVED
+- **Where:** `lib/presentation/sender/sender_screen.dart:323, 332-333`
+- **Pattern:** `registerBuffer(plaintext)` immediately after `TransferService.resolve()` (safety net for throws), then `plaintext.fillRange(0, plaintext.length, 0)` + `unregisterBuffer(plaintext)` after `compute()` returns.
+- **Verification:** present in current code; covered by silent-guardian scanner rule "_encryptFile contains registerBuffer → VERIFIED".
 
-## Circular Dependency Risk: SessionManager & SecurityLifecycleMixin
-
-**Potential re-entrancy if both trigger cleanup:**
-- Issue: `SessionManager` (owned by `ReceiverScreen` state) calls `SecurityLifecycleMixin.wipeAll()` when `wipeSession()` is invoked. `SecurityLifecycleMixin` is also a mixin on the same `ReceiverScreen` state. If `SessionManager.wipeSession()` is called from `didChangeAppLifecycleState` AND the widget is disposed simultaneously (e.g., OS kills the activity), both `handleLifecycleState()` and `dispose()` will call `wipeAll()` in close succession.
-- Files: `lib/core/utils/session_manager.dart` (lines 98–110, `wipeSession()` method), `lib/core/utils/security_lifecycle_mixin.dart` (lines 84–94, `wipeAll()` method), `lib/presentation/receiver/receiver_screen.dart` (line 135, `didChangeAppLifecycleState` handler)
-- Impact: `wipeAll()` is idempotent (zeroing an already-zero buffer is safe), but the double-call consumes extra CPU cycles and may delay app shutdown on low-end devices. No data corruption risk.
-- Fix approach: Add a boolean flag `_wipedComplete` to `SecurityLifecycleMixin` to track if `wipeAll()` has run, and skip the second invocation if true. Or, make `SessionManager.wipeSession()` check if `stateNotifier.value == SessionState.terminated` before calling `onBuffersWipe()` to avoid re-entrance.
+### ✅ Session hijack via stale `selectedSenderUid` — RESOLVED
+- **Where:** `lib/data/services/encryption_service.dart#closeReceiverSession`
+- **Pattern:** kill-switch deletes `selectedSenderUid` from receiver user doc + batch-deletes `handshakes` docs `WHERE receiverId==uid`. Sender stream goes empty → `_revertToWaiting()` clears cached state.
+- **Tests:** `test/security/session_wipe_test.dart` TC-WIPE-001..006 all green.
 
 ---
 
-## Large Screen Files & Cognitive Complexity
+## 2. Session Architecture
 
-**High line counts in presentation screens:**
-- Issue: `lib/presentation/home/home_screen.dart` (1484 lines), `lib/presentation/sender/sender_screen.dart` (1324 lines), `lib/presentation/receiver/receiver_screen.dart` (1048 lines) exceed typical single-file readability thresholds. Each integrates state management, Firestore listeners, navigation, and business logic.
-- Files: `lib/presentation/home/home_screen.dart`, `lib/presentation/sender/sender_screen.dart`, `lib/presentation/receiver/receiver_screen.dart`
-- Impact: Difficult to review security-critical sections (e.g., `_encryptFile()` in SenderScreen, kill-switch binding in ReceiverScreen) without scrolling through unrelated UI code. Increases risk of overlooking subtle bugs during code review.
-- Fix approach: Extract stateless widget sub-components and stream-listener wrappers into separate files. For example:
-  - `lib/presentation/home/active_connections_widget.dart` — Active Connections section (currently inline in HomeScreen)
-  - `lib/presentation/home/pending_requests_widget.dart` — Pending Requests section
-  - `lib/presentation/sender/encryption_progress_widget.dart` — Encryption phase logic from SenderScreen
-  - This reduces per-file line count to <800 without changing behavior.
+### ✅ `ReceiverTransferScreen` SessionManager propagation — RESOLVED
+- **Previously flagged in CLAUDE.md.** Verified fixed.
+- **Where:** `lib/presentation/receiver/receiver_transfer_screen.dart:21, 27, 92-93, 104, 198`
+- **Implementation:** `final SessionManager sessionManager;` is now a required constructor arg; `initState` adds a listener via `widget.sessionManager.stateNotifier.addListener(_onSessionStateChanged)`, `dispose` removes it, and `_onSessionStateChanged` pops the screen when `state == SessionState.terminated`.
+- **Action:** update CLAUDE.md → move this item from "Known Open Issues" to "Completed Features".
 
----
-
-## Firestore Listener Leaks Risk: Search Result Tiles
-
-**Per-tile StreamSubscription management in FindFriendsScreen:**
-- Issue: `lib/presentation/home/find_friends_screen.dart` creates a `_SearchResultTile` StatefulWidget for each search result. Each tile subscribes to `HandshakeRepository.streamHandshakeWithUser()` in `initState()` and cancels in `dispose()`. If a search result is filtered out (e.g., user updates the search text), the list is rebuilt, old tiles are removed, and their `dispose()` methods should run — but if the widget tree is not properly cleaned up (e.g., during rapid re-builds), subscriptions may leak.
-- Files: `lib/presentation/home/find_friends_screen.dart` (implementation of `_SearchResultTile` StatefulWidget)
-- Impact: Each leaked subscription holds a reference to a Firestore `StreamController` from `HandshakeRepository.streamHandshakeWithUser()`, which holds references to the two directional handshake docs. Over time (e.g., user searching 20+ users), this can accumulate 20+ active subscriptions, increasing memory usage and Firebase billing for reads.
-- Mitigation: Current implementation appears correct (tile `dispose()` cancels the subscription), but worth monitoring with a memory profiler. Consider adding a `debugPrint` in `_SearchResultTile.dispose()` during development to verify cleanup is running.
-- Recommendation: Add automated testing for subscription cleanup during rapid list rebuilds. Alternatively, use `Builder` or `Consumer` with a `ChangeNotifier` at the parent level to manage subscriptions centrally rather than per-tile.
+### 🟡 Cross-screen reactive binding fragility
+- **Pattern:** `SessionManager.stateStream` (broadcast `StreamController`) is consumed by `EncryptionService.bindSession()` to trigger `closeReceiverSession()` reactively. Works correctly today.
+- **Fragility:** any future code path that allocates an `EncryptionService` without calling `bindSession` (or fails to call `unbindSession` on dispose) will silently break kill-switch reactivity. There is no compile-time guarantee.
+- **Mitigation suggestion:** add a debug-mode assertion in `closeReceiverSession` that warns if no active subscription is detected.
 
 ---
 
-## Missing Test Coverage: App Backgrounding During Transfer
+## 3. Pre-Release Blockers (Play Store)
 
-**No automated tests for lifecycle transitions mid-transfer:**
-- Issue: `test/security/session_wipe_test.dart` (TC-WIPE-001–006) tests the kill-switch from `ReceiverScreen` directly, but does not simulate:
-  1. App backgrounding (`didChangeAppLifecycleState(AppLifecycleState.paused)`) while in `ReceiverTransferScreen`
-  2. Back navigation from `ReceiverTransferScreen` triggering `PopScope` + session wipe
-  3. Rapid toggle-off while an incoming transfer is in-flight
-- Files: `test/security/session_wipe_test.dart`, `test/receiver/receiver_transfer_screen_test.dart` (if it exists)
-- Impact: Regression risk — future refactors may inadvertently break lifecycle handling mid-transfer without immediate test failure. Current test suite only covers the happy path and direct kill-switch scenarios.
-- Fix approach: Add integration tests using `WidgetTester` to:
-  - Push `ReceiverTransferScreen`, simulate `didChangeAppLifecycleState(paused)`, verify `SessionState.terminated` fires and EncryptionService cleanup runs
-  - Push `ReceiverTransferScreen`, call `Navigator.pop()` via `PopScope`, verify same cleanup
-  - Test rapid toggle-off (close mailbox) while a transfer is incoming
+### 🔴 `applicationId` still placeholder
+- **Where:** `android/app/build.gradle.kts:43` → `applicationId = "com.example.cryptransfer"`
+- **Issue:** `com.example.*` is reserved for examples and **cannot be published to Google Play**.
+- **Coupling:** changing `applicationId` requires:
+  1. Renaming the Kotlin package in `android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt`
+  2. Updating MethodChannel namespace `com.example.cryptransfer/security` (referenced in `MainActivity.kt` and `lib/core/utils/security_lifecycle_mixin.dart`)
+  3. Regenerating `google-services.json` from Firebase console with new package name (Firebase project `cryptransfer-96e9f`)
+  4. Updating any keep rules in `android/app/proguard-rules.pro` that reference `com.example.cryptransfer.*`
+- **Status:** Tracked in CLAUDE.md → Roadmap → Pre-Release.
 
----
+### 🟠 Uncommitted `UI-FIX-SUMMARY.md` at repo root
+- **Where:** `UI-FIX-SUMMARY.md` (8.5 KB, dated 2026-05-27)
+- **Issue:** ad-hoc summary from Phase 1 UI fix work; not referenced by any other doc; not part of `design-system/`.
+- **Action:** either (a) move into `design-system/cryptransfer/PHASE-1-COMPLETION.md` for archive, or (b) delete — content is duplicative of `design-system/cryptransfer/UI-AUDIT-REPORT.md` and the `## Design System` section of `CLAUDE.md`.
 
-## Inconsistent Error Handling in Async Cleanup
-
-**Some cleanup paths ignore errors; others propagate:**
-- Issue: `EncryptionService.closeReceiverSession()` (line 354) uses `.catchError((_) {})` to silently swallow errors when closing the session reactively. However, `ReceiverScreen._onToggleReady(false)` (imperative close) may propagate errors to a SnackBar. Inconsistency means some cleanup failures are hidden from the user.
-- Files: `lib/data/services/encryption_service.dart` (line 354, `closeReceiverSession(uid).catchError((_) {})`), `lib/presentation/receiver/receiver_screen.dart` (call site of `setupReceiverSession` / `closeReceiverSession`)
-- Impact: If Firestore is temporarily offline and a reactive close fires, the error is silently swallowed, potentially leaving orphaned `selectedSenderUid` or `rsa_key_transfers` docs on the server. The user may not realize the cleanup failed and could attempt to re-authorize the sender, creating duplicate handshakes.
-- Fix approach: Implement exponential backoff retry in `EncryptionService.closeReceiverSession()` for transient Firestore errors (network timeout, unavailable). For permanent failures (permission denied), log a security event and prompt the user to retry or contact support.
-
----
-
-## Native Channel Return Type Ambiguity
-
-**isFlagSecureActive() safe-fallback behavior may mask bugs:**
-- Issue: `SecurityLifecycleMixin.isFlagSecureActive()` (lines 50–59) returns `true` on `MissingPluginException` and for any other exception. This is intentional ("safe fallback to assume flag is active"), but on a platform where the plugin is registered and the flag check suddenly fails (e.g., due to a bug in the Kotlin handler), the error is swallowed and returns `true`. If the Kotlin handler has a typo and crashes, the Dart layer assumes the window is protected and proceeds with encryption — a false sense of security.
-- Files: `lib/core/utils/security_lifecycle_mixin.dart` (lines 50–59)
-- Impact: Low risk in practice (the flag is set once in `MainActivity.onCreate()` and never changes), but a misbehaving Kotlin handler could silently fail without alerting the developer.
-- Recommendation: In debug builds, log a `debugPrint()` when the exception fallback is taken, so developers notice the handler is not working as expected. For release builds, keep the silent fallback to avoid blocking transfers due to a non-critical probe failure.
+### 🟡 Thesis-side items (out of scope for code, in scope for project)
+- Chapter 3 thesis update
+- Chapter 5 testing results
+- Figure numbering
+- Acknowledgements shoutout
+- **Source:** CLAUDE.md → Roadmap → Pre-Viva. Tracked here so they don't get lost when planning phases.
 
 ---
 
-## Sparse Documentation of Firestore Schema Evolution
+## 4. Design System — Phase 2 Pending
 
-**No versioning strategy for handshake/transfer document evolution:**
-- Issue: `handshakes` collection schema (`receiverId`, `senderId`, `status`) and `transfers` collection schema (`encryptedAESKey`, `iv`, `receiverStatus`, `cleanup_initiated`) are undocumented beyond comments in `firestore.rules`. If a future phase needs to add new fields (e.g., `handshakeTimeout`, `transferVersion`), there is no migration guide or versioning scheme for apps running older code to gracefully handle new fields.
-- Files: `firestore.rules`, `lib/data/models/transfer_model.dart`, `lib/data/models/user_model.dart`
-- Impact: **Deferred risk** — relevant only if multi-version app support (old + new app users in the same ecosystem) becomes a requirement for future Play Store releases. Currently, the app auto-updates, so schema evolution is not a blocker.
-- Recommendation: Document the current schema version in a root-level `FIRESTORE_SCHEMA.md` file. If future versions require backward compatibility, add a `schemaVersion` field to the Firestore collection metadata (top-level `_metadata` document) so the app can detect and migrate gracefully.
+**Status:** Phase 1 complete (commit `6503b66`, 2026-05-27). Phase 2 estimated **7–9 hours**, fully documented in `design-system/cryptransfer/QUICK-FIX-GUIDE.md`. None of these are blockers, but each is a known inconsistency.
 
----
+| # | Item | Effort | Severity |
+|---|------|--------|----------|
+| 1 | Extract typography to theme | 1–2 hrs | 🟠 High — currently inline `TextStyle` literals scattered across screens |
+| 2 | Standardize glass opacity | 30 min | 🟡 Medium |
+| 3 | StepCard visual hierarchy | 1.5 hrs | 🟠 High — affects sender/receiver step clarity |
+| 4 | Session state colors | 30 min | 🟡 Medium — partially driven by `CrypButton.sessionState` already |
+| 5 | Touch target verification (≥48dp) | 1 hr | 🟠 High — a11y compliance |
+| 6 | Focus states for accessibility | 1.5 hrs | 🟠 High — keyboard/screen-reader users |
+| 7 | Dark/light mode transitions | 1 hr | 🟢 Low |
 
-## Unverified Kotlin Method Channel Handler Response
-
-**MainActivity.kt clearSession handler does not return a value:**
-- Issue: `SecurityLifecycleMixin.requestNativeClear()` invokes `_securityChannel.invokeMethod<void>('clearSession')` expecting a return value, but the `MainActivity.kt` handler may not return anything explicitly. Dart will treat `null` as a successful return, but if the Kotlin code throws an exception, it will be caught by the `catch (_) {}` block, silently hiding the failure.
-- Files: `lib/core/utils/security_lifecycle_mixin.dart` (line 34, invokeMethod call)
-- Impact: Best-effort GC hint failure is silent — does not affect security, only memory pressure after session close.
-- Recommendation: Verify that `MainActivity.kt` explicitly returns `true` or calls `result.success(null)` for the `clearSession` method. Add a debug log in Dart if the result is not as expected.
+**Recommendation:** bundle items 1, 3, 5, 6 into one accessibility/typography phase before Play Store submission; defer 2, 4, 7.
 
 ---
 
-## Orphaned References in UI State During Navigation
+## 5. Recently-Discovered Bug Classes (Watch List)
 
-**PopScope back-navigation from nested screens may not trigger parent cleanup:**
-- Issue: `ReceiverScreen` wraps its Scaffold in a `PopScope` that calls `SessionManager.wipeSession()` on back-nav. However, if the user navigates deeply (ReceiverScreen → ReceiverTransferScreen → DecryptScreen) and hits back from DecryptScreen, the `PopScope` on ReceiverScreen may not fire because the back navigation is handled by `DecryptScreen`'s own `PopScope` (if it has one). The nested screens' `PopScope` handlers will execute first, potentially consuming the back event before parent screens' handlers.
-- Files: `lib/presentation/receiver/receiver_screen.dart` (PopScope implementation), `lib/presentation/receiver/receiver_transfer_screen.dart`, `lib/presentation/receiver/decrypt_screen.dart`
-- Impact: If `DecryptScreen` has a `PopScope` that does not delegate to `SessionManager.wipeSession()`, back-navigation could bypass the parent kill-switch. However, current codebase appears to use navigation transitions (auto-push on transfer incoming) rather than nested PopScope chains, so risk is low.
-- Recommendation: Document the navigation model clearly: are screens pushed/popped independently, or nested in a single Scaffold hierarchy? If nested, ensure each `PopScope` explicitly calls `SessionManager.wipeSession()` or delegates cleanly.
+These are not currently broken, but each surfaced as a real bug in recent history. Future code in the same shape should be reviewed against them.
 
----
+### 🟠 Listener field-name drift
+- **Incident:** commit `22a72b6` — sender cleanup listener was checking `status` (string) when the actual signal field is `cleanup_initiated` (boolean). Silent failure; sender hung on "Waiting for receiver…" until 300s timeout.
+- **Pattern:** any Firestore listener that filters on a field name typed as a string literal is exposed to schema drift.
+- **Suggested guard:** centralize field names as `const` strings in repository classes; reference these from both writers and listeners.
 
-## Type Safety Gap: Firestore Data Casting
+### 🟠 StreamBuilder double-subscription
+- **Incident:** receiver Step 3 previously created a new Firestore snapshot stream inline on every rebuild → multiple parallel subscriptions, charges, and race conditions.
+- **Fix in place:** stream is now a `Stream` field initialised once in `_onSenderSelected()` and referenced by `StreamBuilder`.
+- **Watch list rule:** **never construct `Stream` inside `build()`**. Always init once on State, store as field, pass to `StreamBuilder`.
+- **Where to enforce:** any new screen with realtime data.
 
-**Unsafe `as String?` casts when reading Firestore documents:**
-- Issue: Throughout the codebase (e.g., `encryption_service.dart` line 245, `transfer_repository.dart` data reads), Firestore document data is cast to expected types without null-coalescing:
-  ```dart
-  final selectedSenderUid = userSnap.data()?['selectedSenderUid'] as String?;
-  final status = snap.data()?['status'] as String?;
-  ```
-  If the Firestore document schema changes or a field is accidentally deleted, the cast will fail silently (returns `null`) rather than throwing a type error. A downstream comparison like `status == 'pending'` will be false, silently masking the missing field.
-- Files: Multiple files — `lib/data/services/encryption_service.dart`, `lib/data/repositories/transfer_repository.dart`, `lib/presentation/receiver/receiver_transfer_screen.dart`
-- Impact: Subtle bugs where missing fields are silently treated as null rather than surfacing as errors. For example, if `status` field is missing from a transfer doc, the receiver-status listener will not fire, and the sender will wait indefinitely for cleanup signals.
-- Recommendation: Create typed Firestore models (e.g., `TransferModel`, `HandshakeModel`) with `.fromFirestore()` factory constructors that validate all required fields and throw `FormatException` if data is malformed. Replace all inline casts with `.fromFirestore()` calls.
+### 🟠 R8 strip of crypto class names
+- **Incident:** PointyCastle reflection-based algorithm lookup would fail in release builds without keep rules.
+- **Fix in place:** `android/app/proguard-rules.pro` has explicit keep rules for Flutter engine, Firebase, PointyCastle.
+- **Watch list rule:** any new native-reflective dependency (PointyCastle algorithms, Firebase services, MethodChannel codecs) requires a matching `-keep` rule before merging.
 
----
-
-## Pre-Release Checklist Items (from CLAUDE.md)
-
-**Play Store Release Blockers:**
-- [ ] Update `applicationId` from `com.example.cryptransfer` to final app ID (`android/app/build.gradle.kts`)
-- Files: `android/app/build.gradle.kts`
-- Impact: Current app ID is a placeholder. Play Store rejects re-releases with the same package name across different developer accounts. This must be updated before final submission.
-
-**Thesis Documentation Pending:**
-- [ ] Chapter 3 thesis update
-- [ ] Chapter 5 testing results
-- [ ] Fix figure numbering in thesis
-- [ ] Fix shoutout in acknowledgements
-- Impact: Thesis submission blockers, not app functionality.
+### 🟡 Native package-name coupling
+- **Pattern:** `applicationId`, Kotlin package, MethodChannel namespace `com.example.cryptransfer/security`, and `google-services.json` all encode the same string. Changing one without the others silently breaks the bridge.
+- **Suggested guard:** add a `flutter analyze`-level check or a `silent_guardian.ps1` rule that compares the three.
 
 ---
 
-*Concerns audit: 2026-05-25*
+## 6. Recently Resolved (kept for memory, do not re-flag)
+
+| Item | Commit | Note |
+|------|--------|------|
+| Sender Step 3 biometric flow + transfer upload + proposal idempotency | `1459ad8` | UAT confirmed via subsequent commits |
+| Sender cleanup listener field bug | `22a72b6` | Field-name drift fixed |
+| Phase 1 UI consistency (20+ hardcoded colors → 0, button systems unified) | `6503b66` | 46 files; `flutter analyze` clean |
+| Step 3 biometric error feedback + receiver loop guard | `17d8c40` | followed by `7559047` (wip) → resolved by `1459ad8` |
+| Reactive kill-switch binding (SessionManager → EncryptionService) | (multiple) | Replaces manual `closeReceiverSession` call from `wipeSession` |
+| Bidirectional disconnect via `disconnectFromUser` WriteBatch | (multiple) | Removes both `connections` sub-collection docs atomically |
+
+---
+
+## 7. Untracked / Stale Files
+
+| File | Status | Recommendation |
+|------|--------|----------------|
+| `UI-FIX-SUMMARY.md` (root) | Untracked, 2026-05-27 | Move to `design-system/cryptransfer/` archive or delete |
+| `.planning/STATE.md` | Modified | Verify in sync with current phase; commit if intentional |
+| `CLAUDE.md` | Modified | Should be committed alongside Phase 1 UI fixes if not already |
+| `.claude/settings.local.json` | Modified | Review before commit — may contain machine-local paths/permissions |
+
+---
+
+## 8. Performance / Memory Notes
+
+- **64 KB chunked file reads** (`lib/data/services/transfer_service.dart`, `kChunkSize`) keeps RAM bounded for large transfers. Verified — no concern.
+- **Plaintext lifecycle:** registered → encrypted → wiped → unregistered, all on main isolate. No concern.
+- **Ciphertext lifecycle in isolate:** see §1.🟡 — accepted limitation.
+- **Broadcast `StreamController` in `SessionManager`** — broadcast streams do not buffer events. If `EncryptionService.bindSession()` subscribes *after* a `terminated` event fires (unlikely given current wiring, but possible in race conditions), it will miss the signal. Worth a unit test.
+
+---
+
+## Summary
+
+| Severity | Count |
+|----------|-------|
+| 🔴 Blocker | 1 (applicationId) |
+| 🟠 High | 7 (4 design-system a11y items + 3 watch-list rules) |
+| 🟡 Medium | 4 |
+| 🟢 Low | 1 |
+| ✅ Resolved | 6 |
+
+**Top 3 priorities before next release:**
+1. Rename `applicationId` away from `com.example.*` (with all 4 coupling fixes).
+2. Phase 2 design-system items 1, 3, 5, 6 (a11y + typography).
+3. Resolve `UI-FIX-SUMMARY.md` and the 3 other modified-but-uncommitted files.
