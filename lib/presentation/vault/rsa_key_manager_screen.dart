@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../app_theme.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/models/user_model.dart';
@@ -64,16 +62,17 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     // final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
     // if (!gateOk || !mounted) return;
 
+    final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
       icon: Icons.refresh_rounded,
-      iconColor: AppTheme.primaryBlue,
+      iconColor: cs.primary,
       title: 'Regenerate RSA Keys?',
       message: 'This will generate a new RSA-2048 keypair.\n\n'
           'Your old private key will be replaced on this device '
           'and your public key in Firestore will be updated.\n\n'
           'Active sessions will be notified automatically.',
       confirmLabel: 'Regenerate',
-      confirmColor: AppTheme.primaryBlue,
+      confirmColor: cs.primary,
     );
     if (!confirmed || !mounted) return;
 
@@ -131,15 +130,16 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     // final gateOk = await BiometricHelper.authenticate('Confirm: Delete RSA Keys');
     // if (!gateOk || !mounted) return;
 
+    final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
       icon: Icons.delete_forever_rounded,
-      iconColor: Theme.of(context).colorScheme.error,
+      iconColor: cs.error,
       title: 'Delete RSA Keys?',
       message: 'This will permanently delete your private key from this device '
           'and clear your public key from Firestore.\n\n'
           'You will not be able to receive encrypted files until you generate new keys.',
       confirmLabel: 'Delete',
-      confirmColor: Theme.of(context).colorScheme.error,
+      confirmColor: cs.error,
     );
     if (!confirmed || !mounted) return;
 
@@ -200,59 +200,60 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final result = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => GlassContainer(
-        borderRadius: 24,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.24),
-                borderRadius: BorderRadius.circular(2),
+      builder: (ctx) {
+        final tt = Theme.of(ctx).textTheme;
+        final cs = Theme.of(ctx).colorScheme;
+        return GlassContainer(
+          borderRadius: 24,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Icon(icon, size: 48, color: iconColor),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                  fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  color: AppTheme.textSecondary, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
+              const SizedBox(height: 20),
+              Icon(icon, size: 48, color: iconColor),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CrypButton(
-                    label: Text(confirmLabel),
-                    onPressed: () => Navigator.pop(ctx, true),
-                    color: confirmColor,
-                    height: 44,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GlassButton(
+                      label: Text(confirmLabel),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      color: confirmColor,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: MediaQuery.of(ctx).viewInsets.bottom + 8),
-          ],
-        ),
-      ),
+                ],
+              ),
+              SizedBox(height: MediaQuery.of(ctx).viewInsets.bottom + 8),
+            ],
+          ),
+        );
+      },
     );
     return result ?? false;
   }
@@ -285,21 +286,22 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   @override
   Widget build(BuildContext context) {
     final uid = _authRepo.currentUid;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: Text(
           'RSA Key Vault',
-          style: GoogleFonts.poppins(
-              color: AppTheme.textMain, fontWeight: FontWeight.w600),
+          style: tt.titleMedium?.copyWith(color: cs.onSurface, fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppTheme.darkBg,
+        backgroundColor: cs.surface,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          color: AppTheme.textMain,
+          color: cs.onSurface,
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -324,6 +326,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
 
   Widget _buildVaultBody(UserModel? user, bool hasKey, String uid) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -353,7 +356,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
                     const SizedBox(width: 8),
                     Text(
                       hasKey ? 'RSA-2048 Key Active' : 'No RSA Keys Found',
-                      style: GoogleFonts.poppins(
+                      style: tt.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: hasKey ? cs.secondary : cs.tertiary,
                       ),
@@ -373,8 +376,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
                   const SizedBox(height: 8),
                   Text(
                     'Generate an RSA-2048 keypair to enable secure file transfers.',
-                    style: GoogleFonts.poppins(
-                        color: AppTheme.textSecondary, fontSize: 13),
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
               ],
@@ -389,7 +391,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
             ),
             label: Text(hasKey ? 'Regenerate Keys' : 'Generate Keys'),
             onPressed: _regenerating ? null : _onRegenerate,
-            color: AppTheme.primaryBlue,
+            color: cs.primary,
           ),
           if (hasKey) ...[
             const SizedBox(height: 12),
@@ -405,8 +407,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
           Text(
             'Your private key is stored securely on this device. '
             'Your public key is stored in Firestore and shared with senders.',
-            style: GoogleFonts.poppins(
-                color: AppTheme.textSecondary, fontSize: 12),
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -427,6 +428,8 @@ class _KeyInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -434,22 +437,20 @@ class _KeyInfoRow extends StatelessWidget {
           width: 100,
           child: Text(
             label,
-            style: GoogleFonts.poppins(
-                color: AppTheme.textSecondary, fontSize: 12),
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ),
         Expanded(
           child: Text(
             value,
             style: mono
-                ? const TextStyle(
+                ? TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    color: AppTheme.primaryBlue, // GitHub Dark palette — NOT hardcoded hex
+                    color: cs.primary, // GitHub Dark palette — NOT hardcoded hex
                     letterSpacing: 1.2,
                   )
-                : GoogleFonts.poppins(
-                    color: AppTheme.textMain, fontSize: 12),
+                : tt.bodySmall?.copyWith(color: cs.onSurface),
           ),
         ),
       ],

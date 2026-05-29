@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../data/repositories/admin_repository.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
@@ -16,7 +15,7 @@ class AdminDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           'Admin Dashboard',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(

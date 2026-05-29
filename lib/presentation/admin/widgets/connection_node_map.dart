@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../data/repositories/admin_repository.dart';
 import '../../../data/repositories/user_repository.dart';
 
@@ -63,7 +62,7 @@ class _NodeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isActive = connectionCount > 0;
-    final color = isActive ? cs.primary : Colors.white10;
+    final color = isActive ? cs.primary : cs.onSurface.withValues(alpha: 0.1);
 
     return Container(
       decoration: BoxDecoration(
@@ -92,13 +91,13 @@ class _NodeTile extends StatelessWidget {
                   bottom: 0,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
+                    decoration: BoxDecoration(
+                      color: cs.secondary,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       connectionCount.toString(),
-                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: cs.onSecondary, fontSize: 8, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -107,7 +106,7 @@ class _NodeTile extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '@$username',
-            style: GoogleFonts.poppins(
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: cs.onSurface,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -118,7 +117,7 @@ class _NodeTile extends StatelessWidget {
           Text(
             isActive ? 'CONNECTED' : 'ISOLATED',
             style: TextStyle(
-              color: isActive ? Colors.greenAccent : Colors.white24,
+              color: isActive ? cs.secondary : cs.onSurface.withValues(alpha: 0.24),
               fontSize: 8,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
