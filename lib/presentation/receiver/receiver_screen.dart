@@ -656,8 +656,8 @@ Future<void> _onSenderSelected(UserModel sender) async {
             final navigator = Navigator.of(context);
             _showCloseSessionDialog().then((confirmed) {
               if (confirmed && mounted) {
-                _sessionManager.wipeSession(onBuffersWipe: wipeAll);
                 navigator.pop();
+                _sessionManager.wipeSession(onBuffersWipe: wipeAll);
               }
             });
           }
@@ -665,7 +665,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           // D-04: didPop == true means canPop was true (mailbox closed).
           // Clear transfer roles if a handshake doc exists.
           if (_handshakeDocId != null) {
-            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
+            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!).catchError((_) {});
           }
         }
       },

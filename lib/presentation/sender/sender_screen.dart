@@ -211,10 +211,11 @@ class _SenderScreenState extends State<SenderScreen>
           _selectedReceiverPublicKeyJson = publicKey;
         });
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
-        _checkTofuStatus(receiverId, publicKey);
 
-        // D-06: mid-flight guard — skip stale check and receiverReady logic if encryption is in flight
+        // D-06: mid-flight guard — skip TOFU check, stale check, and receiverReady logic if encryption is in flight
         if (_encrypting || _encryptingKey) return;
+
+        _checkTofuStatus(receiverId, publicKey);
 
         // D-05: stale AES key invalidation — key changed while encrypted AES key exists
         if (previousPublicKey != null &&
