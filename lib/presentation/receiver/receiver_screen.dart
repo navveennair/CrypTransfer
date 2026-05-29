@@ -643,14 +643,32 @@ Future<void> _onSenderSelected(UserModel sender) async {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return PopScope(
-      canPop: true,
+      canPop: _isReadyToReceive ? false : (_handshakeDocId == null),
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
-          if (_isReadyToReceive) {
-            _sessionManager.wipeSession(onBuffersWipe: wipeAll);
-          } else if (_handshakeDocId != null) {
-            // Mailbox not yet open; just clear roles and return
-            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
+        if (!didPop) {
+          if (_sessionLocked) {
+            // D-03: active transfer in progress — inform user, do NOT pop
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Cannot close session — transfer in progress.')),
+            );
+          } else if (_isReadyToReceive) {
+            // D-02: mailbox open — require confirmation before wipe
+            final navigator = Navigator.of(context);
+            _showCloseSessionDialog().then((confirmed) {
+              if (confirmed && mounted) {
+                navigator.pop();
+                _sessionManager.wipeSession(onBuffersWipe: wipeAll);
+              }
+            });
+          }
+        } else {
+          // D-04: didPop==true means canPop was true (mailbox closed).
+          // Clear transfer roles if a handshake doc exists.
+          if (_handshakeDocId != null) {
+            _connService
+                .clearTransferRoles(handshakeDocId: _handshakeDocId!)
+                .catchError((_) {});
           }
         }
       },
@@ -661,7 +679,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_suggest_rounded),
-              onPressed: _openKeyManager,
+              onPressed: _isReadyToReceive ? null : _openKeyManager,
             ),
           ],
         ),
@@ -713,7 +731,18 @@ Future<void> _onSenderSelected(UserModel sender) async {
               ),
               const SizedBox(height: 32),
 
-              StepCard(step: 1, title: 'RSA Keypair', done: _step1Done, child: _step1Content()),
+              AnimatedOpacity(
+                opacity: _isReadyToReceive ? 0.4 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: IgnorePointer(
+                  ignoring: _isReadyToReceive,
+                  child: StepCard(
+                      step: 1,
+                      title: 'RSA Keypair',
+                      done: _step1Done,
+                      child: _step1Content()),
+                ),
+              ),
               const SizedBox(height: 16),
               AnimatedOpacity(
                 opacity: _step1Done ? 1.0 : 0.4,
