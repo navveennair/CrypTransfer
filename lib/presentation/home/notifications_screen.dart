@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -19,7 +18,7 @@ class NotificationsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Notifications',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         centerTitle: true,
         actions: [
           TextButton(
@@ -113,8 +112,8 @@ class _NotificationTile extends StatelessWidget {
             : Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                    color: Colors.deepPurple, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: cs.primary, shape: BoxShape.circle),
               ),
         onTap: () async {
           if (!isRead) await NotificationService.markRead(uid, docId);
