@@ -60,7 +60,7 @@ class _SecurityLogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isCritical = event.contains('ERROR') || event.contains('FAILURE') || event.contains('WIPE');
-    final color = isCritical ? Colors.redAccent : Colors.cyanAccent;
+    final color = isCritical ? cs.error : cs.primary;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -68,7 +68,7 @@ class _SecurityLogTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isCritical ? Colors.red.withValues(alpha: 0.5) : cs.outline),
+        border: Border.all(color: isCritical ? cs.error.withValues(alpha: 0.5) : cs.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

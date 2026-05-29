@@ -226,7 +226,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       ],
                     ),
                   ),
-                  const _PulseIndicator(color: Colors.greenAccent),
+                  _PulseIndicator(color: Theme.of(context).colorScheme.secondary),
                 ],
               ),
             );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils/theme_service.dart';
 import '../widgets/shared_widgets.dart';
@@ -10,9 +9,10 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text('Settings', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -42,18 +42,14 @@ class SettingsScreen extends StatelessWidget {
                       children: [
                         Text(
                           'Preferences',
-                          style: GoogleFonts.poppins(
+                          style: tt.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: cs.onSurface,
-                            fontSize: 16,
                           ),
                         ),
                         Text(
                           'Configure your secure environment.',
-                          style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -65,9 +61,8 @@ class SettingsScreen extends StatelessWidget {
 
             Text(
               'General',
-              style: GoogleFonts.poppins(
+              style: tt.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                fontSize: 14,
                 color: cs.onSurfaceVariant,
               ),
             ),
@@ -77,8 +72,14 @@ class SettingsScreen extends StatelessWidget {
               padding: EdgeInsets.zero,
               child: ListTile(
                 leading: Icon(Icons.palette_outlined, color: cs.primary),
-                title: Text('Appearance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: Text('Theme and display options', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                title: Text(
+                  'Appearance',
+                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Theme and display options',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => Navigator.push(
                   context,
@@ -99,11 +100,12 @@ class AppearanceSubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final themeService = context.watch<ThemeService>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Appearance', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text('Appearance', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -115,9 +117,7 @@ class AppearanceSubScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(4, 10, 16, 12),
               child: Text(
                 'Select Theme',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                style: tt.labelSmall?.copyWith(
                   color: cs.primary,
                   letterSpacing: 0.8,
                 ),
@@ -183,18 +183,25 @@ class _ThemeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return RadioListTile<ThemeMode>(
       value: value,
       title: Row(
         children: [
           Icon(icon, size: 18, color: cs.primary),
           const SizedBox(width: 10),
-          Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+          Text(
+            label,
+            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ],
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(left: 28),
-        child: Text(subtitle, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+        child: Text(
+          subtitle,
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(

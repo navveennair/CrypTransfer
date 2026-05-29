@@ -43,9 +43,9 @@ class UserManagementList extends StatelessWidget {
 
             return GlassContainer(
               padding: const EdgeInsets.all(16),
-              borderColor: user.isActive 
+              borderColor: user.isActive
                   ? (isSecured ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant)
-                  : Colors.red.withValues(alpha: 0.3),
+                  : cs.error.withValues(alpha: 0.3),
               child: Row(
                 children: [
                   // Unified Iconography
@@ -135,12 +135,13 @@ class _RevokeButton extends StatelessWidget {
       );
     }
 
+    final cs = Theme.of(context).colorScheme;
     return Switch(
       value: user.isActive,
-      activeThumbColor: Colors.greenAccent,
-      activeTrackColor: Colors.greenAccent.withValues(alpha: 0.2),
-      inactiveThumbColor: Colors.redAccent,
-      inactiveTrackColor: Colors.redAccent.withValues(alpha: 0.2),
+      activeThumbColor: cs.secondary,
+      activeTrackColor: cs.secondary.withValues(alpha: 0.2),
+      inactiveThumbColor: cs.error,
+      inactiveTrackColor: cs.error.withValues(alpha: 0.2),
       onChanged: onToggle,
     );
   }
