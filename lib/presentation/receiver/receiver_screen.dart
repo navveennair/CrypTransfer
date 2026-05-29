@@ -642,13 +642,29 @@ Future<void> _onSenderSelected(UserModel sender) async {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return PopScope(
-      canPop: true,
+      canPop: _isReadyToReceive ? false : (_handshakeDocId == null),
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
-          if (_isReadyToReceive) {
-            _sessionManager.wipeSession(onBuffersWipe: wipeAll);
-          } else if (_handshakeDocId != null) {
-            // Mailbox not yet open; just clear roles and return
+        if (!didPop) {
+          if (_sessionLocked) {
+            // D-03: blocked by active transfer — show info SnackBar, do NOT pop
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Cannot close session — transfer in progress.')),
+            );
+          } else if (_isReadyToReceive) {
+            // D-02: mailbox open — require confirmation before wipe
+            final navigator = Navigator.of(context);
+            _showCloseSessionDialog().then((confirmed) {
+              if (confirmed && mounted) {
+                _sessionManager.wipeSession(onBuffersWipe: wipeAll);
+                navigator.pop();
+              }
+            });
+          }
+        } else {
+          // D-04: didPop == true means canPop was true (mailbox closed).
+          // Clear transfer roles if a handshake doc exists.
+          if (_handshakeDocId != null) {
             _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
           }
         }
@@ -660,7 +676,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_suggest_rounded),
-              onPressed: _openKeyManager,
+              onPressed: _isReadyToReceive ? null : _openKeyManager,
             ),
           ],
         ),
@@ -712,18 +728,30 @@ Future<void> _onSenderSelected(UserModel sender) async {
               ),
               const SizedBox(height: 32),
 
-              StepCard(step: 1, title: 'RSA Keypair', done: _step1Done, child: _step1Content()),
+              AnimatedOpacity(
+                opacity: _isReadyToReceive ? 0.4 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: IgnorePointer(
+                  ignoring: _isReadyToReceive,
+                  child: StepCard(
+                      step: 1,
+                      title: 'RSA Keypair',
+                      done: _step1Done,
+                      currentStep: !_step1Done,
+                      child: _step1Content()),
+                ),
+              ),
               const SizedBox(height: 16),
               AnimatedOpacity(
                 opacity: _step1Done ? 1.0 : 0.4,
                 duration: const Duration(milliseconds: 300),
-                child: StepCard(step: 2, title: 'Receive Mode', done: _step2Done, child: _step2Content()),
+                child: StepCard(step: 2, title: 'Receive Mode', done: _step2Done, currentStep: _step1Done && !_step2Done, child: _step2Content()),
               ),
               const SizedBox(height: 16),
               AnimatedOpacity(
                 opacity: _step2Done ? 1.0 : 0.4,
                 duration: const Duration(milliseconds: 300),
-                child: StepCard(step: 3, title: 'Sender Handshake', done: _step3Done, child: _step3Content()),
+                child: StepCard(step: 3, title: 'Sender Handshake', done: _step3Done, currentStep: _step2Done && !_step3Done, child: _step3Content()),
               ),
               const SizedBox(height: 24),
             ],
