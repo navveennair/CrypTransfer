@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -90,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 const SizedBox(height: 32),
                 Text(
                   'CrypTransfer',
-                  style: GoogleFonts.poppins(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -1,

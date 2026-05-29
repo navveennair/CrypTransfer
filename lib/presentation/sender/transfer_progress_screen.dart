@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/transfer_repository.dart';
@@ -117,10 +116,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
             ..showSnackBar(
-              const SnackBar(
-                content: Text('✓ Receiver has securely closed the session'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 4),
+              SnackBar(
+                content: const Text('✓ Receiver has securely closed the session'),
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                duration: const Duration(seconds: 4),
               ),
             );
           Navigator.of(context).pushAndRemoveUntil(
@@ -143,10 +142,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
             ..showSnackBar(
-              const SnackBar(
-                content: Text('Transfer aborted — receiver terminated the tunnel'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 4),
+              SnackBar(
+                content: const Text('Transfer aborted — receiver terminated the tunnel'),
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                duration: const Duration(seconds: 4),
               ),
             );
           Navigator.of(context).pushAndRemoveUntil(
@@ -242,6 +241,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
   Future<void> _showAbortDialog() async {
     if (_aborting || _sessionEnded) return;
+    final errorColor = Theme.of(context).colorScheme.error;
     final abort = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -257,7 +257,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
             child: const Text('Stay'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: errorColor),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Abort & Destroy'),
           ),
@@ -290,10 +290,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Transfer aborted — tunnel destroyed.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: const Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       Navigator.of(context).pushAndRemoveUntil(
@@ -374,10 +374,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       onPopInvokedWithResult: (_, _) => _showAbortDialog(),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            _done ? 'Transfer Complete' : 'Sending File',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
+          title: Text(_done ? 'Transfer Complete' : 'Sending File'),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -403,13 +400,12 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                           ? Icons.lock_open_rounded
                           : Icons.lock_rounded,
                       size: 40,
-                      color: _done ? Colors.green.shade600 : cs.primary,
+                      color: _done ? cs.secondary : cs.primary,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       widget.fileName,
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600, fontSize: 15),
+                      style: Theme.of(context).textTheme.titleSmall,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 2,
@@ -446,10 +442,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                 const SizedBox(height: 16),
                 Text(
                   'Upload Failed',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                      color: cs.error),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 18, color: cs.error),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -474,18 +468,16 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                         height: 88,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.green.shade600,
+                          color: cs.secondary,
                         ),
-                        child: const Icon(Icons.check_rounded,
-                            color: Colors.white, size: 48),
+                        child: Icon(Icons.check_rounded,
+                            color: cs.onSecondary, size: 48),
                       ),
                       const SizedBox(height: 20),
                       Text(
                         'File Sent Successfully!',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
-                          color: Colors.green.shade700,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: cs.secondary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -510,15 +502,12 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: (_canEndSession
-                                ? Colors.green
-                                : Colors.deepPurple)
+                        color: (_canEndSession ? cs.secondary : cs.tertiary)
                             .withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _canEndSession
-                              ? Colors.green.shade300
-                              : Colors.deepPurple.shade200,
+                          color: (_canEndSession ? cs.secondary : cs.tertiary)
+                              .withValues(alpha: 0.4),
                         ),
                       ),
                       child: Row(
@@ -528,9 +517,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                                 ? Icons.verified_rounded
                                 : Icons.lock_open_rounded,
                             size: 18,
-                            color: _canEndSession
-                                ? Colors.green.shade700
-                                : Colors.deepPurple.shade700,
+                            color: _canEndSession ? cs.secondary : cs.tertiary,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -539,9 +526,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: _canEndSession
-                                    ? Colors.green.shade800
-                                    : Colors.deepPurple.shade800,
+                                color: _canEndSession ? cs.secondary : cs.tertiary,
                               ),
                             ),
                           ),
@@ -579,8 +564,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
               ] else ...[
                 Text(
                   'Uploading encrypted file…',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500, fontSize: 15),
+                  style: Theme.of(context).textTheme.titleSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -596,8 +580,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                 const SizedBox(height: 14),
                 Text(
                   '${(_progress * 100).toStringAsFixed(0)}%',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontSize: 28,
                     color: cs.primary,
                   ),

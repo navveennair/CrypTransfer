@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -207,10 +206,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('Account created successfully!'),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
+          duration: const Duration(seconds: 2),
         ),
       );
 
@@ -328,7 +327,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       case _FS.valid:
-        return const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20);
+        return Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.secondary, size: 20);
       case _FS.invalid:
         return Icon(Icons.cancel_rounded,
             color: Theme.of(context).colorScheme.error, size: 20);
@@ -342,7 +341,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (status == _FS.valid)
-          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20)
+          Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.secondary, size: 20)
         else if (status == _FS.invalid)
           Icon(Icons.cancel_rounded,
                 color: Theme.of(context).colorScheme.error, size: 20),
@@ -364,7 +363,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Create Account', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: const Text('Create Account'),
         backgroundColor: Colors.transparent,
       ),
       body: Stack(
@@ -423,6 +422,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: cs.primary, width: 2),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -441,6 +444,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: cs.primary, width: 2),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -458,6 +465,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: cs.primary, width: 2),
                             ),
                           ),
                         ),
@@ -481,6 +492,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: cs.primary, width: 2),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -503,6 +518,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(color: cs.primary, width: 2),
                             ),
                           ),
                         ),
