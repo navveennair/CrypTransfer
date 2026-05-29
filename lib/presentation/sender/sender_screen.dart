@@ -203,6 +203,8 @@ class _SenderScreenState extends State<SenderScreen>
         if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
           _handshakeDocId = docId;
         }
+        // D-05: capture old key BEFORE setState so the comparison is against the previous value
+        final previousPublicKey = _selectedReceiverPublicKeyJson;
         setState(() {
           _receiverId = receiverId;
           _receiverUsername = receiverUsername;
@@ -210,6 +212,22 @@ class _SenderScreenState extends State<SenderScreen>
         });
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
         _checkTofuStatus(receiverId, publicKey);
+
+        // D-06: mid-flight guard — skip stale check and receiverReady logic if encryption is in flight
+        if (_encrypting || _encryptingKey) return;
+
+        // D-05: stale AES key invalidation — key changed while encrypted AES key exists
+        if (previousPublicKey != null &&
+            publicKey != previousPublicKey &&
+            _encryptedAESKey != null) {
+          _wipeSensitiveData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Receiver key changed — re-encrypt required.')),
+            );
+          }
+        }
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
@@ -221,8 +239,6 @@ class _SenderScreenState extends State<SenderScreen>
         if (!_receiverReady && receiverReady) {
           _onReceiverBecameReady();
         } else if (_receiverReady != receiverReady) {
-          // Don't wipe mid-encryption — compute() is in flight.
-          if (_encrypting || _encryptingKey) return;
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -733,6 +749,7 @@ class _SenderScreenState extends State<SenderScreen>
               step: 0,
               title: 'Secure Connection',
               done: _receiverSelected && _receiverReady,
+              currentStep: !(_receiverSelected && _receiverReady),
               child: _receiverSelected
                   ? (_receiverReady
                       ? Column(
@@ -769,18 +786,55 @@ class _SenderScreenState extends State<SenderScreen>
                         step: 1,
                         title: 'Select File',
                         done: _fileSelected,
+                        currentStep: (_receiverSelected && _receiverReady) && !_fileSelected,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             CrypButton(
                               icon: const Icon(Icons.folder_open_rounded, size: 20),
-                              label: Text(_file == null ? 'Browse Files' : 'Change File'),
-                              onPressed: _receiverSelected ? _pickFile : null,
+                              label: const Text('Browse Files'),
+                              onPressed: (_receiverSelected && !_fileEncrypted) ? _pickFile : null,
                               color: cs.primary,
                             ),
                             if (_file != null) ...[
                               const SizedBox(height: 16),
                               _FileCard(file: _file!),
+                              if (_fileEncrypted) ...[
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    showDialog<void>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: Text(
+                                          'Change File?',
+                                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                                        ),
+                                        content: const Text(
+                                          'This will wipe your encrypted data and AES key. Are you sure?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(ctx);
+                                              _wipeSensitiveData();
+                                              _pickFile();
+                                            },
+                                            child: const Text('Confirm'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: cs.onSurfaceVariant),
+                                  child: const Text('Change File'),
+                                ),
+                              ],
                             ],
                           ],
                         ),
@@ -796,6 +850,7 @@ class _SenderScreenState extends State<SenderScreen>
                         step: 2,
                         title: 'AES-256-GCM Encryption',
                         done: _fileEncrypted,
+                        currentStep: _fileSelected && !_fileEncrypted,
                         child: _fileEncrypted
                             ? _EncryptedBadge(
                                 keyBits: _aesKey!.length * 8,
@@ -823,6 +878,7 @@ class _SenderScreenState extends State<SenderScreen>
                         step: 3,
                         title: 'RSA Key Handshake',
                         done: _readyToSend,
+                        currentStep: _fileEncrypted && !_readyToSend,
                         child: _readyToSend
                             ? _ReceiverBadge(username: _receiverUsername!)
                             : CrypButton(
