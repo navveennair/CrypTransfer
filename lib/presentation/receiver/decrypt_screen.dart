@@ -104,10 +104,10 @@ class _DecryptScreenState extends State<DecryptScreen>
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(
-              content: Text('Transfer aborted — sender terminated the tunnel'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
+            SnackBar(
+              content: const Text('Transfer aborted — sender terminated the tunnel'),
+              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              duration: const Duration(seconds: 4),
             ),
           );
         Navigator.of(context).pushAndRemoveUntil(
@@ -137,7 +137,7 @@ class _DecryptScreenState extends State<DecryptScreen>
             child: const Text('Stay'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Abort & Destroy'),
           ),
@@ -167,10 +167,10 @@ class _DecryptScreenState extends State<DecryptScreen>
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Transfer aborted — tunnel destroyed.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: const Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       Navigator.of(context).pushAndRemoveUntil(
@@ -310,7 +310,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('File saved to Downloads'),
-            backgroundColor: Colors.green.shade600,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -507,7 +507,7 @@ class _DecryptScreenState extends State<DecryptScreen>
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.green.shade600,
+              color: cs.secondary,
             ),
             child: const Icon(Icons.check_rounded,
                 color: Colors.white, size: 40),
@@ -519,7 +519,7 @@ class _DecryptScreenState extends State<DecryptScreen>
           style: GoogleFonts.poppins(
               fontWeight: FontWeight.w700,
               fontSize: 20,
-              color: Colors.green.shade700),
+              color: cs.secondary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -559,12 +559,12 @@ class _DecryptScreenState extends State<DecryptScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.check_circle_outline,
-                  size: 14, color: Colors.green.shade600),
+                  size: 14, color: cs.secondary),
               const SizedBox(width: 6),
               Text(
                 'Ready to save',
                 style: TextStyle(
-                    fontSize: 12, color: Colors.green.shade600),
+                    fontSize: 12, color: cs.secondary),
               ),
             ],
           ),

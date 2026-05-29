@@ -363,13 +363,13 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                 icon: Icons.upload_rounded,
                 label: 'Sender',
                 value: '@${widget.senderUsername}',
-                color: Colors.indigo.shade600,
+                color: cs.primary,
               ),
               _SummaryRow(
                 icon: Icons.download_rounded,
                 label: 'Receiver',
                 value: '@${FirebaseAuth.instance.currentUser?.displayName ?? 'Me'}',
-                color: Colors.deepPurple.shade600,
+                color: cs.tertiary,
               ),
             ],
           ),
@@ -381,15 +381,15 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.08),
+            color: cs.error.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.red.shade300),
+            border: Border.all(color: cs.error.withValues(alpha: 0.4)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.warning_amber_rounded,
-                  color: Colors.red.shade700, size: 22),
+                  color: cs.error, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -400,7 +400,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: Colors.red.shade800,
+                        color: cs.error,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -409,7 +409,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                       'permanently deleted — the encrypted file, RSA keys, '
                       'and transfer record cannot be recovered.',
                       style: TextStyle(
-                          color: Colors.red.shade800,
+                          color: cs.error,
                           fontSize: 13,
                           height: 1.5),
                     ),
@@ -458,7 +458,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
           icon: const Icon(Icons.lock_clock_rounded),
           label: Text(_error != null ? 'Retry End Session' : 'End Session'),
           onPressed: _initiateCleanup,
-          color: Colors.red.shade700,
+          color: cs.error,
         ),
       ],
     );
@@ -540,7 +540,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.green.shade600,
+                color: cs.secondary,
               ),
               child: const Icon(Icons.shield_rounded,
                   color: Colors.white, size: 52),
@@ -554,7 +554,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             fontSize: 24,
-            color: Colors.green.shade700,
+            color: cs.secondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -572,9 +572,9 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.06),
+            color: cs.secondary.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.green.shade200),
+            border: Border.all(color: cs.secondary.withValues(alpha: 0.2)),
           ),
           child: Column(
             children: _steps
@@ -592,7 +592,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
             MaterialPageRoute(builder: (_) => const HomeScreen()),
             (_) => false,
           ),
-          color: Colors.green.shade600,
+          color: cs.secondary,
         ),
       ],
     );
@@ -671,10 +671,10 @@ class _CleanStepTile extends StatelessWidget {
     Widget indicator;
 
     if (done) {
-      bg = Colors.green.withValues(alpha: 0.1);
-      fg = Colors.green.shade700;
+      bg = cs.secondary.withValues(alpha: 0.1);
+      fg = cs.secondary;
       indicator = Icon(Icons.check_circle_rounded,
-          color: Colors.green.shade600, size: 22);
+          color: cs.secondary, size: 22);
     } else if (active) {
       bg = cs.primaryContainer.withValues(alpha: 0.5);
       fg = cs.primary;
@@ -699,7 +699,7 @@ class _CleanStepTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: done
-              ? Colors.green.shade300
+              ? cs.secondary.withValues(alpha: 0.4)
               : active
                   ? cs.primary.withValues(alpha: 0.4)
                   : cs.outlineVariant,
@@ -737,18 +737,19 @@ class _DoneStepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Colors.green.shade600),
+          Icon(icon, size: 16, color: cs.secondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
                 style: const TextStyle(fontSize: 13)),
           ),
           Icon(Icons.check_rounded,
-              size: 16, color: Colors.green.shade600),
+              size: 16, color: cs.secondary),
         ],
       ),
     );

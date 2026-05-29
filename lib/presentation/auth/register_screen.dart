@@ -207,10 +207,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('Account created successfully!'),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
+          duration: const Duration(seconds: 2),
         ),
       );
 
@@ -328,7 +328,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       case _FS.valid:
-        return const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20);
+        return Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.secondary, size: 20);
       case _FS.invalid:
         return Icon(Icons.cancel_rounded,
             color: Theme.of(context).colorScheme.error, size: 20);
@@ -342,7 +342,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (status == _FS.valid)
-          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20)
+          Icon(Icons.check_circle_rounded, color: Theme.of(context).colorScheme.secondary, size: 20)
         else if (status == _FS.invalid)
           Icon(Icons.cancel_rounded,
                 color: Theme.of(context).colorScheme.error, size: 20),

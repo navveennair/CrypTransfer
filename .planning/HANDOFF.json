@@ -1,31 +1,47 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-27T12:00:00.000Z",
-  "phase": "07.1",
-  "phase_name": "Sender Reactive Cleanup Sync + Mobile Testing",
-  "phase_dir": ".planning/phases/07.1-sender-reactive-cleanup-sync",
-  "plan": 4,
+  "timestamp": "2026-05-29T12:46:22Z",
+  "phase": null,
+  "phase_name": "UI Phase 2 — QUICK-FIX-GUIDE ad-hoc implementation",
+  "phase_dir": null,
+  "plan": null,
   "task": null,
   "total_tasks": null,
-  "status": "complete",
+  "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Fix Step 3 biometric prompt (MainActivity extends FlutterFragmentActivity)", "status": "done", "commit": "1459ad8"},
-    {"id": 2, "name": "Fix transfer upload (use atomic uploadAndCreate)", "status": "done", "commit": "1459ad8"},
-    {"id": 3, "name": "Fix proposal idempotent update rule", "status": "done", "commit": "1459ad8"},
-    {"id": 4, "name": "Fix sender cleanup listener (cleanup_initiated boolean)", "status": "done", "commit": "22a72b6"},
-    {"id": 5, "name": "Fix Firestore read rule (allow listener to detect deletions)", "status": "done", "commit": "22a72b6"},
-    {"id": 6, "name": "Fix PopScope navigation + 2-second auto-nav", "status": "done", "commit": "22a72b6"},
-    {"id": 7, "name": "End-to-end UAT on real device (SM-A076B)", "status": "done", "commit": "22a72b6"}
+    {"id": 1, "name": "Fix #4: textTheme expansion (titleSmall/titleMedium/labelSmall/bodySmall) in app_theme.dart; StepCard title uses textTheme.titleSmall", "status": "done", "commit": "uncommitted"},
+    {"id": 2, "name": "Fix #5: glassBgLight 0.5→0.20, glassBgDark 0.05→0.08 in app_theme.dart", "status": "done", "commit": "uncommitted"},
+    {"id": 3, "name": "Fix #7: SessionColors extension on ColorScheme (sessionLocked/sessionDecrypting/sessionTerminated); CrypButton uses cs.sessionLocked", "status": "done", "commit": "uncommitted"},
+    {"id": 4, "name": "Fix #8: _ProposalBanner dismiss button touch target restored (removed padding:zero+BoxConstraints)", "status": "done", "commit": "uncommitted"},
+    {"id": 5, "name": "Hardcoded color cleanup in home_screen, find_friends_screen, register_screen, notifications_screen, decrypt_screen, receiver_end_session_screen", "status": "done", "commit": "uncommitted"}
   ],
-  "remaining_tasks": [],
+  "remaining_tasks": [
+    {"id": 6, "name": "sender_screen.dart — ~30 hardcoded colors. Pattern: green→cs.secondary, red→cs.error, orange→cs.tertiary, indigo→cs.primary. LEAVE Colors.amber (sessionLocked semantic) and file-type colors in _colorForFile()", "status": "not_started"},
+    {"id": 7, "name": "receiver_screen.dart — ~15 hardcoded colors. Same pattern.", "status": "not_started"},
+    {"id": 8, "name": "transfer_progress_screen.dart — ~15 hardcoded colors. green→cs.secondary, deepPurple→cs.tertiary, red→cs.error, orange→cs.tertiary", "status": "not_started"},
+    {"id": 9, "name": "receiver_transfer_screen.dart — ~5 hardcoded colors. Same pattern.", "status": "not_started"},
+    {"id": 10, "name": "sender_session_ended_screen.dart — ~15 hardcoded colors. green→cs.secondary, orange→cs.tertiary", "status": "not_started"},
+    {"id": 11, "name": "rsa_key_manager_screen.dart — ~5 hardcoded colors. green→cs.secondary, orange→cs.tertiary, red→cs.error", "status": "not_started"},
+    {"id": 12, "name": "Fix #9: Focus states for TextButton in dialogs (low priority — mobile app, Material 3 defaults sufficient)", "status": "not_started"}
+  ],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "MainActivity extends FlutterFragmentActivity", "rationale": "local_auth requires FragmentActivity for BiometricPrompt on Android 16", "phase": "07.1"},
-    {"decision": "uploadAndCreate atomically creates transfer doc with all fields", "rationale": "Firestore create rule requires senderId in initial create", "phase": "07.1"},
-    {"decision": "Firestore read rule allows resource==null", "rationale": "Listener needs to emit deletion events", "phase": "07.1"}
+    {"decision": "Colors.amber kept intentionally in sender_screen warning panels", "rationale": "Amber IS the sessionLocked semantic color per SessionColors extension (amber700=0xFFFFA000). Consistent by design.", "phase": null},
+    {"decision": "File type colors in sender_screen._colorForFile() left as-is", "rationale": "Colors.blue/purple/orange/red for image/video/audio/pdf — intentional distinguishable type indicators, not theme-driven UI", "phase": null},
+    {"decision": "Color(0xFF4285F4) Google Blue in login/register left as-is", "rationale": "Google brand color for Sign-In button — must be accurate per Google branding guidelines", "phase": null},
+    {"decision": "Semantic mapping: cs.secondary=success/connected, cs.tertiary=warning/pending/accent, cs.error=destructive/error", "rationale": "Derived from app theme palette: secondary=gold, tertiary=purple, error=red", "phase": null}
   ],
-  "uncommitted_files": [],
-  "next_action": "Deploy to Play Store (update applicationId, finalize thesis chapters)",
-  "context_notes": "All 7 phases complete (100% progress). End-to-end transfer working. Biometric auth (Step 3) working. Session cleanup fully functional. All rules deployed. flutter analyze clean. System is production ready."
+  "uncommitted_files": [
+    "lib/app_theme.dart",
+    "lib/presentation/widgets/shared_widgets.dart",
+    "lib/presentation/home/home_screen.dart",
+    "lib/presentation/home/find_friends_screen.dart",
+    "lib/presentation/home/notifications_screen.dart",
+    "lib/presentation/auth/register_screen.dart",
+    "lib/presentation/receiver/decrypt_screen.dart",
+    "lib/presentation/receiver/receiver_end_session_screen.dart"
+  ],
+  "next_action": "Run grep -rn 'Colors\\.' lib/presentation/sender/sender_screen.dart to see all remaining hardcodes, then do batch replacements. Run flutter analyze after each file. All 8 uncommitted files above need committing first.",
+  "context_notes": "flutter analyze passes clean (No issues found). SessionColors extension is in app_theme.dart — files using cs.sessionLocked need to import app_theme.dart. Standard cs.secondary/cs.tertiary/cs.error/cs.primary do NOT need that extra import. Pattern: find Colors.X, replace with cs.semanticEquivalent, remove const from SnackBar/Icon constructors as needed."
 }

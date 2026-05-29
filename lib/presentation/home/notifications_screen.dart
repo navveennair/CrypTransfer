@@ -113,8 +113,8 @@ class _NotificationTile extends StatelessWidget {
             : Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                    color: Colors.deepPurple, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: cs.primary, shape: BoxShape.circle),
               ),
         onTap: () async {
           if (!isRead) await NotificationService.markRead(uid, docId);

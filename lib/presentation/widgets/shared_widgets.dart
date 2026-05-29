@@ -137,9 +137,7 @@ class StepCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   title,
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: done ? cs.secondary : cs.onSurface),
                 ),
               ],
@@ -406,7 +404,7 @@ class _CrypButtonState extends State<CrypButton> {
     if (sessionActive) {
       switch (widget.sessionState!) {
         case SessionState.locked:
-          face = Colors.amber.shade700;
+          face = cs.sessionLocked;
           shadow = _shadowOf(face);
           fg = Colors.white;
         case SessionState.decrypting:

@@ -706,24 +706,24 @@ class _SearchResultTileState extends State<_SearchResultTile>
           padding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.greenAccent.withValues(alpha: 0.1),
+            color: cs.secondary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: Colors.greenAccent.withValues(alpha: 0.2)),
+                color: cs.secondary.withValues(alpha: 0.2)),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.check_circle_rounded,
-                  color: Colors.greenAccent, size: 16),
-              SizedBox(width: 4),
+                  color: cs.secondary, size: 16),
+              const SizedBox(width: 4),
               Text('Connected',
                   style: TextStyle(
-                      color: Colors.greenAccent,
+                      color: cs.secondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 12)),
               Icon(Icons.arrow_drop_down,
-                  color: Colors.greenAccent, size: 18),
+                  color: cs.secondary, size: 18),
             ],
           ),
         ),

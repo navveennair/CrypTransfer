@@ -26,9 +26,9 @@ class AppTheme {
 
   // Glass Effects
   static const double glassBlur = 24.0;
-  static Color get glassBgLight => Colors.white.withValues(alpha: 0.5);
+  static Color get glassBgLight => Colors.white.withValues(alpha: 0.20);
   static Color get glassBorderLight => Colors.white.withValues(alpha: 0.3);
-  static Color get glassBgDark => Colors.white.withValues(alpha: 0.05);
+  static Color get glassBgDark => Colors.white.withValues(alpha: 0.08);
   static Color get glassBorderDark => Colors.white.withValues(alpha: 0.2);
 
   static ThemeData get light {
@@ -45,12 +45,12 @@ class AppTheme {
       textTheme: GoogleFonts.poppinsTextTheme(
         base.textTheme.copyWith(
           bodyLarge: const TextStyle(color: lightTextMain),
-          bodyMedium: const TextStyle(color: lightTextMain),
-          titleLarge: GoogleFonts.poppins(
-            color: lightTextMain,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
+          bodyMedium: const TextStyle(color: lightTextMain, fontSize: 14, fontWeight: FontWeight.w500),
+          bodySmall: TextStyle(color: lightTextMain.withValues(alpha: 0.75), fontSize: 12),
+          titleLarge: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w600, fontSize: 20),
+          titleMedium: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w600, fontSize: 16),
+          titleSmall: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w700, fontSize: 15),
+          labelSmall: GoogleFonts.poppins(color: lightTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -80,12 +80,12 @@ class AppTheme {
       textTheme: GoogleFonts.poppinsTextTheme(
         base.textTheme.copyWith(
           bodyLarge: const TextStyle(color: darkTextMain),
-          bodyMedium: const TextStyle(color: darkTextMain),
-          titleLarge: GoogleFonts.poppins(
-            color: darkTextMain,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
+          bodyMedium: const TextStyle(color: darkTextMain, fontSize: 14, fontWeight: FontWeight.w500),
+          bodySmall: TextStyle(color: darkTextMain.withValues(alpha: 0.75), fontSize: 12),
+          titleLarge: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w600, fontSize: 20),
+          titleMedium: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w600, fontSize: 16),
+          titleSmall: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w700, fontSize: 15),
+          labelSmall: GoogleFonts.poppins(color: darkTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -100,4 +100,11 @@ class AppTheme {
       ),
     );
   }
+}
+
+// Session-state semantic colors — centralised so all widgets stay in sync.
+extension SessionColors on ColorScheme {
+  Color get sessionLocked => const Color(0xFFFFA000); // amber700
+  Color get sessionDecrypting => primary;
+  Color get sessionTerminated => error;
 }
