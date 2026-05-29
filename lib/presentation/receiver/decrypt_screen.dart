@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -49,7 +48,7 @@ class DecryptScreen extends StatefulWidget {
 
 class _DecryptScreenState extends State<DecryptScreen>
     with SecurityLifecycleMixin<DecryptScreen> {
-  static const _fileChannel = MethodChannel('cryptransfer/file');
+  static const _fileChannel = MethodChannel('com.example.cryptransfer/file');
 
   final _repo = TransferRepository();
   final _auth = AuthRepository();
@@ -370,7 +369,7 @@ class _DecryptScreenState extends State<DecryptScreen>
       child: Scaffold(
         appBar: AppBar(
           title: Text('Decrypt File',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              style: Theme.of(context).textTheme.titleMedium),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -409,8 +408,7 @@ class _DecryptScreenState extends State<DecryptScreen>
               const SizedBox(height: 12),
               Text(
                 _transfer.fileName,
-                style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600, fontSize: 15),
+                style: Theme.of(context).textTheme.titleSmall,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -482,8 +480,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         const SizedBox(height: 28),
         Text(
           'Decrypting…',
-          style:
-              GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 20),
+          style: Theme.of(context).textTheme.titleLarge,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -516,17 +513,15 @@ class _DecryptScreenState extends State<DecryptScreen>
         const SizedBox(height: 16),
         Text(
           'Decryption Complete',
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
-              fontSize: 20,
               color: cs.secondary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           _transfer.fileName,
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500, fontSize: 14),
+          style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -618,7 +613,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         const SizedBox(height: 16),
         Text(
           'Decryption Failed',
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700, fontSize: 18, color: cs.error),
           textAlign: TextAlign.center,
         ),

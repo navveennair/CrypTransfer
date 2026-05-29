@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../core/constants/firebase_constants.dart';
@@ -319,7 +318,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             const SizedBox(height: 16),
             Text(
               'Close Mailbox?',
-              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600),
+              style: Theme.of(ctx).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
             Text(
@@ -338,11 +337,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: CrypButton(
+                  child: GlassButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     label: const Text('Close Session'),
                     color: Theme.of(ctx).colorScheme.tertiary,
-                    height: 44,
                   ),
                 ),
               ],
@@ -457,6 +455,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
 
   Widget _step1Content() {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     if (_checkingStatus) return const LinearProgressIndicator();
     if (_step1Done) {
       return Column(
@@ -472,7 +471,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
                   children: [
                     Icon(Icons.verified_rounded, color: cs.secondary, size: 18),
                     const SizedBox(width: 8),
-                    Text('RSA-2048 Ready', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: cs.secondary)),
+                    Text('RSA-2048 Ready', style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: cs.secondary)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -500,8 +499,8 @@ Future<void> _onSenderSelected(UserModel sender) async {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.amber.withValues(alpha: 0.1),
-            border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+            color: cs.tertiary.withValues(alpha: 0.1),
+            border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
             borderRadius: BorderRadius.circular(12),
           ),
           child: GestureDetector(
@@ -509,14 +508,14 @@ Future<void> _onSenderSelected(UserModel sender) async {
               context,
               MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
             ).then((_) => _checkKeyStatus()),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.amber),
-                SizedBox(width: 10),
+                Icon(Icons.warning_amber_rounded, color: cs.tertiary),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'No RSA keys found — tap to generate',
-                    style: TextStyle(color: Colors.amber),
+                    style: TextStyle(color: cs.tertiary),
                   ),
                 ),
               ],
@@ -529,6 +528,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
 
   Widget _step2Content() {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     if (_loadingReadyState) return const LinearProgressIndicator();
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -538,7 +538,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           Expanded(
             child: Text(
               _isReadyToReceive ? 'Ready to receive' : 'Not receiving',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Switch(
@@ -642,41 +642,25 @@ Future<void> _onSenderSelected(UserModel sender) async {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return PopScope(
-      canPop: _isReadyToReceive ? false : (_handshakeDocId == null),
+      canPop: true,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          if (_sessionLocked) {
-            // D-03: blocked by active transfer — show info SnackBar, do NOT pop
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Cannot close session — transfer in progress.')),
-            );
-          } else if (_isReadyToReceive) {
-            // D-02: mailbox open — require confirmation before wipe
-            final navigator = Navigator.of(context);
-            _showCloseSessionDialog().then((confirmed) {
-              if (confirmed && mounted) {
-                navigator.pop();
-                _sessionManager.wipeSession(onBuffersWipe: wipeAll);
-              }
-            });
-          }
-        } else {
-          // D-04: didPop == true means canPop was true (mailbox closed).
-          // Clear transfer roles if a handshake doc exists.
-          if (_handshakeDocId != null) {
-            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!).catchError((_) {});
+        if (didPop) {
+          if (_isReadyToReceive) {
+            _sessionManager.wipeSession(onBuffersWipe: wipeAll);
+          } else if (_handshakeDocId != null) {
+            // Mailbox not yet open; just clear roles and return
+            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
           }
         }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Receive File', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          title: Text('Receive File', style: Theme.of(context).textTheme.titleMedium),
           centerTitle: true,
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_suggest_rounded),
-              onPressed: _isReadyToReceive ? null : _openKeyManager,
+              onPressed: _openKeyManager,
             ),
           ],
         ),
@@ -707,7 +691,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
                         children: [
                           Text(
                             'Secure Inbox',
-                            style: GoogleFonts.poppins(
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface,
                               fontSize: 18,
@@ -728,30 +712,18 @@ Future<void> _onSenderSelected(UserModel sender) async {
               ),
               const SizedBox(height: 32),
 
-              AnimatedOpacity(
-                opacity: _isReadyToReceive ? 0.4 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: IgnorePointer(
-                  ignoring: _isReadyToReceive,
-                  child: StepCard(
-                      step: 1,
-                      title: 'RSA Keypair',
-                      done: _step1Done,
-                      currentStep: !_step1Done,
-                      child: _step1Content()),
-                ),
-              ),
+              StepCard(step: 1, title: 'RSA Keypair', done: _step1Done, child: _step1Content()),
               const SizedBox(height: 16),
               AnimatedOpacity(
                 opacity: _step1Done ? 1.0 : 0.4,
                 duration: const Duration(milliseconds: 300),
-                child: StepCard(step: 2, title: 'Receive Mode', done: _step2Done, currentStep: _step1Done && !_step2Done, child: _step2Content()),
+                child: StepCard(step: 2, title: 'Receive Mode', done: _step2Done, child: _step2Content()),
               ),
               const SizedBox(height: 16),
               AnimatedOpacity(
                 opacity: _step2Done ? 1.0 : 0.4,
                 duration: const Duration(milliseconds: 300),
-                child: StepCard(step: 3, title: 'Sender Handshake', done: _step3Done, currentStep: _step2Done && !_step3Done, child: _step3Content()),
+                child: StepCard(step: 3, title: 'Sender Handshake', done: _step3Done, child: _step3Content()),
               ),
               const SizedBox(height: 24),
             ],
@@ -899,6 +871,7 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return GlassContainer(
       borderRadius: 24,
       padding: const EdgeInsets.only(top: 10),
@@ -911,9 +884,13 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
               controller: _searchCtrl,
               autofocus: true,
               onChanged: _onChanged,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search senders…',
-                prefixIcon: Icon(Icons.search_rounded),
+                prefixIcon: const Icon(Icons.search_rounded),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: cs.primary, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -922,7 +899,7 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 if (_results.isNotEmpty) ...[
-                  Text('Search Results', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                  Text('Search Results', style: tt.labelSmall?.copyWith(color: AppTheme.textSecondary)),
                   const SizedBox(height: 8),
                   ..._results.map((u) => Card(
                     child: ListTile(
@@ -968,17 +945,17 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                 ],
                 if (_connectedList.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  Text('Active Connections', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                  Text('Active Connections', style: tt.labelSmall?.copyWith(color: AppTheme.textSecondary)),
                   const SizedBox(height: 8),
                   ..._connectedList.map((f) => Card(
                     child: ListTile(
                       leading: UserAvatar(username: f.username),
                       title: Text(f.username),
-                      trailing: CrypButton(
+                      trailing: GlassButton(
                         label: const Text('Select', style: TextStyle(fontSize: 12)),
                         onPressed: () { Navigator.pop(context); widget.onSenderSelected(f); },
-                        color: Theme.of(context).colorScheme.primary,
-                        height: 36,
+                        color: cs.primary,
+                        borderRadius: 8,
                       ),
                     ),
                   )),
@@ -1016,6 +993,7 @@ class _KeyManagerSheetState extends State<_KeyManagerSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return GlassContainer(
       borderRadius: 24,
       child: Column(
@@ -1025,11 +1003,11 @@ class _KeyManagerSheetState extends State<_KeyManagerSheet> {
             child: _loading ? const Center(child: CircularProgressIndicator()) : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text('RSA Identity', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+                Text('RSA Identity', style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 _OwnKeyStatusCard(hasPrivateKey: widget.hasPrivateKey, hasPublicKey: widget.hasPublicKey),
                 const SizedBox(height: 24),
-                Text('Shared Keys', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+                Text('Shared Keys', style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                 ..._sentKeys.map((k) => ListTile(title: Text(k['toUsername'] ?? 'User'), subtitle: Text('Access Granted', style: TextStyle(color: cs.secondary)))),
               ],
             ),

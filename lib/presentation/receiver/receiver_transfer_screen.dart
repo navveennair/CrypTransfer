@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_manager.dart';
@@ -275,7 +274,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       child: Scaffold(
         appBar: AppBar(
           title: Text('Incoming File',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              style: Theme.of(context).textTheme.titleMedium),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -309,7 +308,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
 
               Text(
                 'Incoming File',
-                style: GoogleFonts.poppins(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700, fontSize: 22),
                 textAlign: TextAlign.center,
               ),

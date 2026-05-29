@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/cleanup_repository.dart';
@@ -286,7 +285,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         appBar: AppBar(
           title: Text(
             'Session Summary',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           centerTitle: true,
           automaticallyImplyLeading: _phase != _Phase.cleaning && _phase != _Phase.waitingForSender,
@@ -328,8 +327,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                   const SizedBox(width: 8),
                   Text(
                     'Transfer Summary',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600, fontSize: 15),
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ],
               ),
@@ -397,9 +395,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                   children: [
                     Text(
                       'Permanent Deletion Warning',
-                      style: GoogleFonts.poppins(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        fontSize: 13,
                         color: cs.error,
                       ),
                     ),
@@ -475,7 +472,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         const SizedBox(height: 24),
         Text(
           'Waiting for Sender…',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 22),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 22),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -497,7 +494,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         const SizedBox(height: 24),
         Text(
           'Ending Session…',
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700, fontSize: 22),
           textAlign: TextAlign.center,
         ),
@@ -551,7 +548,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
 
         Text(
           'Session Ended',
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
             fontSize: 24,
             color: cs.secondary,
@@ -737,19 +734,18 @@ class _DoneStepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: cs.secondary),
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.secondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
                 style: const TextStyle(fontSize: 13)),
           ),
           Icon(Icons.check_rounded,
-              size: 16, color: cs.secondary),
+              size: 16, color: Theme.of(context).colorScheme.secondary),
         ],
       ),
     );
