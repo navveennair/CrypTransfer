@@ -241,10 +241,11 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: GlassButton(
+                    child: CrypButton(
                       label: Text(confirmLabel),
                       onPressed: () => Navigator.pop(ctx, true),
                       color: confirmColor,
+                      height: 44,
                     ),
                   ),
                 ],

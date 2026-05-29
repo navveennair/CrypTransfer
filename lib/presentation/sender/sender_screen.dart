@@ -769,7 +769,7 @@ class _SenderScreenState extends State<SenderScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            GlassButton(
+                            CrypButton(
                               icon: const Icon(Icons.folder_open_rounded, size: 20),
                               label: Text(_file == null ? 'Browse Files' : 'Change File'),
                               onPressed: _receiverSelected ? _pickFile : null,
@@ -802,7 +802,7 @@ class _SenderScreenState extends State<SenderScreen>
                             : _encrypting
                                 ? _EncryptionProgressWidget(
                                     progress: _encryptionProgress)
-                                : GlassButton(
+                                : CrypButton(
                                     icon: const Icon(Icons.lock_rounded, size: 20),
                                     label: const Text('Encrypt with AES Key'),
                                     onPressed: _fileSelected ? _encryptFile : null,
@@ -822,7 +822,7 @@ class _SenderScreenState extends State<SenderScreen>
                         done: _readyToSend,
                         child: _readyToSend
                             ? _ReceiverBadge(username: _receiverUsername!)
-                            : GlassButton(
+                            : CrypButton(
                                 icon: _encryptingKey
                                     ? const SizedBox(
                                         width: 18,
@@ -847,7 +847,7 @@ class _SenderScreenState extends State<SenderScreen>
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 400),
                       child: _readyToSend
-                          ? GlassButton(
+                          ? CrypButton(
                               key: const ValueKey('send-btn'),
                               icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
                               label: const Text('Send Encrypted File', style: TextStyle(color: Colors.white)),
