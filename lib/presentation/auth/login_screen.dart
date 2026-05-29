@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../home/home_screen.dart';
@@ -182,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
                     Text(
                       'CrypTransfer',
-                      style: GoogleFonts.poppins(
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         letterSpacing: -0.5,
@@ -209,10 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Text(
                             'Sign In',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 28),
                           TextField(
@@ -227,6 +223,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: cs.primary, width: 2),
                               ),
                             ),
                           ),
@@ -245,6 +245,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: cs.primary, width: 2),
                               ),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword

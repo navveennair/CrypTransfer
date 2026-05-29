@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/transfer_repository.dart';
@@ -77,15 +76,13 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return PopScope(
       canPop: false, // only exit is "Back to Home"
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            'Session Ended',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
+          title: const Text('Session Ended'),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -115,8 +112,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
               const SizedBox(height: 16),
               Text(
                 'Session Ended',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
+                style: tt.titleLarge?.copyWith(
                   fontSize: 22,
                   color: cs.secondary,
                 ),
@@ -160,11 +156,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
               // ── Section 1: Receiver cleaned up ─────────────────────────
               Text(
                 'Receiver cleaned up:',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: cs.onSurfaceVariant,
-                ),
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
               if (widget.timeoutReason != null) ...[
@@ -219,19 +211,15 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
               // ── Section 2: Your device cleaned up ──────────────────────
               Text(
                 'Your device cleaned up:',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: cs.onSurfaceVariant,
-                ),
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.06),
+                  color: cs.secondary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: cs.secondary.withValues(alpha: 0.3)),
                 ),
                 child: _aesCleanDone
                     ? const _DoneStepRow(

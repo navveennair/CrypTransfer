@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/utils/theme_service.dart';
@@ -128,7 +127,7 @@ class _ThemePickerPage extends StatelessWidget {
         children: [
           Text(
             'Choose your vibe',
-            style: GoogleFonts.poppins(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: cs.onSurface,
@@ -198,9 +197,8 @@ class _ThemeCard extends StatelessWidget {
             const SizedBox(width: 16),
             Text(
               label,
-              style: GoogleFonts.poppins(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
                 color: isSelected ? cs.primary : cs.onSurface,
               ),
             ),
@@ -244,7 +242,7 @@ class _TutorialPage extends StatelessWidget {
           const SizedBox(height: 48),
           Text(
             title,
-            style: GoogleFonts.poppins(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: cs.onSurface,

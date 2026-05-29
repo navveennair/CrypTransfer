@@ -1,4 +1,3 @@
-// ignore_for_file: avoid_print
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -6,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/transfer_repository.dart';
@@ -104,56 +102,30 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
   // ─── Non-repudiation: real-time receiver status ───────────────────────────
 
   void _startTransferListener() {
-    print('[Sender] Starting transfer listener for ${widget.transferId}');
     _transferListener = _transferRepo
         .watchTransferStatus(widget.transferId)
-        .listen(
-      (snapshot) async {
-        print('[Sender] Transfer doc update: exists=${snapshot.exists}');
-
+        .listen((snapshot) async {
       // Turn 4: doc deleted by receiver — session closed; notify sender and return home.
       if (!snapshot.exists) {
-        print('[Sender] Turn 4: Doc deleted. _sessionEnded=$_sessionEnded, _done=$_done');
-        if (_sessionEnded) {
-          print('[Sender] Already ended, returning');
-          return;
-        }
-        if (!_done) {
-          print('[Sender] Upload not done yet, ignoring deletion');
-          return;
-        }
-        print('[Sender] Processing deletion - navigating home');
+        if (_sessionEnded) return;
+        if (!_done) return; // ignore spurious deletion before upload finishes
         _cleanupTimeoutTimer?.cancel();
         _sessionEnded = true;
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey (registered in initState)
-        print('[Sender] mounted=$mounted');
         if (mounted) {
-          try {
-            print('[Sender] Showing snackbar and scheduling navigation in 2 seconds...');
-            ScaffoldMessenger.of(context)
-              ..clearSnackBars()
-              ..showSnackBar(
-                SnackBar(
-                  content: const Text('✓ Session closed securely'),
-                  backgroundColor: Theme.of(context).colorScheme.secondary,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            // Navigate after 2 seconds — use pushReplacementNamed to bypass PopScope
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted && Navigator.canPop(context)) {
-                print('[Sender] Navigating to home after 2 second delay');
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (_) => false,
-                );
-              }
-            });
-          } catch (e) {
-            print('[Sender] Navigation FAILED: $e');
-          }
-        } else {
-          print('[Sender] Widget not mounted, skipping navigation');
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: const Text('✓ Receiver has securely closed the session'),
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (_) => false,
+          );
         }
         return;
       }
@@ -186,18 +158,14 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
       // Turn 2: receiver has initiated cleanup — wipe AES key from Firestore + RAM
       final cleanupInitiated = data['cleanup_initiated'] as bool? ?? false;
-      print('[Sender] cleanup_initiated=$cleanupInitiated, _done=$_done, _senderWipeSent=$_senderWipeSent, _sessionEnded=$_sessionEnded');
       if (cleanupInitiated && _done && !_senderWipeSent && !_sessionEnded) {
-        print('[Sender] Turn 2: Wiping AES key...');
         _cleanupTimeoutTimer?.cancel();
         _senderWipeSent = true;
         try {
           await _transferRepo.senderWipeAESKey(widget.transferId);
-          print('[Sender] AES key wiped successfully');
         } catch (e) {
           // Remote AES key erasure failed — local wipe still runs below.
           // Log so the failure is visible in security review (no key material logged).
-          print('[Sender] AES key wipe FAILED: $e');
           debugPrint('[Security] Turn 2 Firestore key erasure failed: $e');
         }
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
@@ -273,6 +241,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
   Future<void> _showAbortDialog() async {
     if (_aborting || _sessionEnded) return;
+    final errorColor = Theme.of(context).colorScheme.error;
     final abort = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -288,7 +257,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
             child: const Text('Stay'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            style: FilledButton.styleFrom(backgroundColor: errorColor),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Abort & Destroy'),
           ),
@@ -401,16 +370,11 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
     final cs = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: _sessionEnded,
-      onPopInvokedWithResult: (_, result) {
-        if (!_sessionEnded) _showAbortDialog();
-      },
+      canPop: false,
+      onPopInvokedWithResult: (_, _) => _showAbortDialog(),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            _done ? 'Transfer Complete' : 'Sending File',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
+          title: Text(_done ? 'Transfer Complete' : 'Sending File'),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -441,8 +405,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                     const SizedBox(height: 10),
                     Text(
                       widget.fileName,
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600, fontSize: 15),
+                      style: Theme.of(context).textTheme.titleSmall,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 2,
@@ -479,10 +442,8 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                 const SizedBox(height: 16),
                 Text(
                   'Upload Failed',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 18,
-                      color: cs.error),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 18, color: cs.error),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -515,9 +476,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       const SizedBox(height: 20),
                       Text(
                         'File Sent Successfully!',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: cs.secondary,
                         ),
                         textAlign: TextAlign.center,
@@ -605,8 +564,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
               ] else ...[
                 Text(
                   'Uploading encrypted file…',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500, fontSize: 15),
+                  style: Theme.of(context).textTheme.titleSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -622,8 +580,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                 const SizedBox(height: 14),
                 Text(
                   '${(_progress * 100).toStringAsFixed(0)}%',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontSize: 28,
                     color: cs.primary,
                   ),
