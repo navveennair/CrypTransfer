@@ -133,13 +133,13 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
 
     final confirmed = await _showConfirmDialog(
       icon: Icons.delete_forever_rounded,
-      iconColor: Colors.red,
+      iconColor: Theme.of(context).colorScheme.error,
       title: 'Delete RSA Keys?',
       message: 'This will permanently delete your private key from this device '
           'and clear your public key from Firestore.\n\n'
           'You will not be able to receive encrypted files until you generate new keys.',
       confirmLabel: 'Delete',
-      confirmColor: Colors.red,
+      confirmColor: Theme.of(context).colorScheme.error,
     );
     if (!confirmed || !mounted) return;
 
@@ -210,7 +210,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.24),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -323,6 +323,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   }
 
   Widget _buildVaultBody(UserModel? user, bool hasKey, String uid) {
+    final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -332,11 +333,11 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
           GlassContainer(
             padding: const EdgeInsets.all(16),
             color: hasKey
-                ? Colors.green.withValues(alpha: 0.08)
-                : Colors.orange.withValues(alpha: 0.08),
+                ? cs.secondary.withValues(alpha: 0.08)
+                : cs.tertiary.withValues(alpha: 0.08),
             borderColor: hasKey
-                ? Colors.green.withValues(alpha: 0.25)
-                : Colors.orange.withValues(alpha: 0.25),
+                ? cs.secondary.withValues(alpha: 0.25)
+                : cs.tertiary.withValues(alpha: 0.25),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -346,7 +347,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
                       hasKey
                           ? Icons.verified_rounded
                           : Icons.warning_amber_rounded,
-                      color: hasKey ? Colors.green : Colors.orange,
+                      color: hasKey ? cs.secondary : cs.tertiary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -354,7 +355,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
                       hasKey ? 'RSA-2048 Key Active' : 'No RSA Keys Found',
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
-                        color: hasKey ? Colors.green : Colors.orange,
+                        color: hasKey ? cs.secondary : cs.tertiary,
                       ),
                     ),
                   ],
@@ -397,7 +398,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
               icon: const Icon(Icons.delete_forever_rounded, size: 20),
               label: const Text('Delete Keys'),
               onPressed: _deleting ? null : _onDelete,
-              color: Colors.red,
+              color: cs.error,
             ),
           ],
           const SizedBox(height: 32),

@@ -125,7 +125,7 @@ class _SenderScreenState extends State<SenderScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Stream error: $error'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 5),
           ),
         );
@@ -158,9 +158,9 @@ class _SenderScreenState extends State<SenderScreen>
       _revertToWaiting();
       if (wasConnected) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Secure connection closed by receiver.'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: const Text('Secure connection closed by receiver.'),
+            backgroundColor: Theme.of(context).colorScheme.tertiary,
           ),
         );
       }
@@ -183,9 +183,9 @@ class _SenderScreenState extends State<SenderScreen>
         if (assignedSenderUid != currentUid) {
           _revertToWaiting();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Role conflict — partner also chose Sender. Go back and pick again.'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Role conflict — partner also chose Sender. Go back and pick again.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
           return;
@@ -226,9 +226,9 @@ class _SenderScreenState extends State<SenderScreen>
           _revertToWaiting();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Receiver closed their mailbox — waiting for confirmation.'),
-                backgroundColor: Colors.orange,
+              SnackBar(
+                content: const Text('Receiver closed their mailbox — waiting for confirmation.'),
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
               ),
             );
           }
@@ -481,7 +481,7 @@ class _SenderScreenState extends State<SenderScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Secure channel established. Receiver is ready.'),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
       ),
@@ -579,10 +579,10 @@ class _SenderScreenState extends State<SenderScreen>
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: Row(
-          children: const [
-            Icon(Icons.warning_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Key Changed!', style: TextStyle(color: Colors.red)),
+          children: [
+            Icon(Icons.warning_rounded, color: Theme.of(context).colorScheme.error),
+            const SizedBox(width: 8),
+            Text('Key Changed!', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
         ),
         content: Column(
@@ -614,7 +614,7 @@ class _SenderScreenState extends State<SenderScreen>
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () async {
               await TofuService.repin(uid, keyJson);
               if (!mounted) return;
@@ -827,11 +827,11 @@ class _SenderScreenState extends State<SenderScreen>
                             ? _ReceiverBadge(username: _receiverUsername!)
                             : CrypButton(
                                 icon: _encryptingKey
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: Colors.white),
+                                            strokeWidth: 2, color: cs.onSecondary),
                                       )
                                     : const Icon(Icons.security_rounded, size: 20),
                                 label: Text(_encryptingKey
@@ -1004,43 +1004,44 @@ class _ConnectedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      color: Colors.green.withValues(alpha: 0.1),
-      borderColor: Colors.green.withValues(alpha: 0.2),
+      color: cs.secondary.withValues(alpha: 0.1),
+      borderColor: cs.secondary.withValues(alpha: 0.2),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.2),
+              color: cs.secondary.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.verified_user_rounded,
-                color: Colors.green, size: 20),
+            child: Icon(Icons.verified_user_rounded,
+                color: cs.secondary, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Connection Verified',
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.green),
+                      color: cs.secondary),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Secure channel open with @$username',
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.green),
+                  style: TextStyle(
+                      fontSize: 12, color: cs.secondary),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.lock_rounded, color: Colors.green, size: 18),
+          Icon(Icons.lock_rounded, color: cs.secondary, size: 18),
         ],
       ),
     );
@@ -1197,27 +1198,28 @@ class _ReceiverBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      color: Colors.indigo.withValues(alpha: 0.1),
-      borderColor: Colors.indigo.withValues(alpha: 0.2),
+      color: cs.primary.withValues(alpha: 0.1),
+      borderColor: cs.primary.withValues(alpha: 0.2),
       child: Row(
         children: [
-          const Icon(Icons.person_pin_rounded,
-              color: Colors.indigoAccent, size: 20),
+          Icon(Icons.person_pin_rounded,
+              color: cs.primary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'Encrypted for ', style: TextStyle(fontSize: 13, color: Colors.white70)),
-                  TextSpan(text: '@$username', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                  TextSpan(text: 'Encrypted for ', style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.7))),
+                  TextSpan(text: '@$username', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
                 ],
               ),
             ),
           ),
-          const Icon(Icons.check_circle_rounded,
-              color: Colors.green, size: 20),
+          Icon(Icons.check_circle_rounded,
+              color: cs.secondary, size: 20),
         ],
       ),
     );
@@ -1355,18 +1357,19 @@ class _TofuStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (status == TofuStatus.verified) {
       return GlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        color: Colors.green.withValues(alpha: 0.08),
-        borderColor: Colors.green.withValues(alpha: 0.2),
+        color: cs.secondary.withValues(alpha: 0.08),
+        borderColor: cs.secondary.withValues(alpha: 0.2),
         child: Row(
-          children: const [
-            Icon(Icons.verified_rounded, color: Colors.green, size: 16),
-            SizedBox(width: 8),
+          children: [
+            Icon(Icons.verified_rounded, color: cs.secondary, size: 16),
+            const SizedBox(width: 8),
             Text(
               'Identity verified',
-              style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 12, color: cs.secondary, fontWeight: FontWeight.w600),
             ),
           ],
         ),

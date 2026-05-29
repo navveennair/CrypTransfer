@@ -133,10 +133,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
             ScaffoldMessenger.of(context)
               ..clearSnackBars()
               ..showSnackBar(
-                const SnackBar(
-                  content: Text('✓ Session closed securely'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: const Text('✓ Session closed securely'),
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  duration: const Duration(seconds: 2),
                 ),
               );
             // Navigate after 2 seconds — use pushReplacementNamed to bypass PopScope
@@ -170,10 +170,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
             ..showSnackBar(
-              const SnackBar(
-                content: Text('Transfer aborted — receiver terminated the tunnel'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 4),
+              SnackBar(
+                content: const Text('Transfer aborted — receiver terminated the tunnel'),
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                duration: const Duration(seconds: 4),
               ),
             );
           Navigator.of(context).pushAndRemoveUntil(
@@ -288,7 +288,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
             child: const Text('Stay'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Abort & Destroy'),
           ),
@@ -321,10 +321,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Transfer aborted — tunnel destroyed.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: const Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       Navigator.of(context).pushAndRemoveUntil(
@@ -436,7 +436,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                           ? Icons.lock_open_rounded
                           : Icons.lock_rounded,
                       size: 40,
-                      color: _done ? Colors.green.shade600 : cs.primary,
+                      color: _done ? cs.secondary : cs.primary,
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -507,10 +507,10 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                         height: 88,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.green.shade600,
+                          color: cs.secondary,
                         ),
-                        child: const Icon(Icons.check_rounded,
-                            color: Colors.white, size: 48),
+                        child: Icon(Icons.check_rounded,
+                            color: cs.onSecondary, size: 48),
                       ),
                       const SizedBox(height: 20),
                       Text(
@@ -518,7 +518,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
                           fontSize: 20,
-                          color: Colors.green.shade700,
+                          color: cs.secondary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -543,15 +543,12 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: (_canEndSession
-                                ? Colors.green
-                                : Colors.deepPurple)
+                        color: (_canEndSession ? cs.secondary : cs.tertiary)
                             .withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _canEndSession
-                              ? Colors.green.shade300
-                              : Colors.deepPurple.shade200,
+                          color: (_canEndSession ? cs.secondary : cs.tertiary)
+                              .withValues(alpha: 0.4),
                         ),
                       ),
                       child: Row(
@@ -561,9 +558,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                                 ? Icons.verified_rounded
                                 : Icons.lock_open_rounded,
                             size: 18,
-                            color: _canEndSession
-                                ? Colors.green.shade700
-                                : Colors.deepPurple.shade700,
+                            color: _canEndSession ? cs.secondary : cs.tertiary,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -572,9 +567,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: _canEndSession
-                                    ? Colors.green.shade800
-                                    : Colors.deepPurple.shade800,
+                                color: _canEndSession ? cs.secondary : cs.tertiary,
                               ),
                             ),
                           ),

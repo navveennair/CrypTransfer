@@ -103,11 +103,11 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.green.shade600,
+                    color: cs.secondary,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.shield_rounded,
-                    color: Colors.white,
+                    color: cs.onSecondary,
                     size: 44,
                   ),
                 ),
@@ -118,7 +118,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 22,
-                  color: Colors.green.shade700,
+                  color: cs.secondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -137,18 +137,18 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.12),
+                    color: cs.tertiary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.orange.shade300),
+                    border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.timer_off_rounded, size: 16, color: Colors.orange.shade700),
+                      Icon(Icons.timer_off_rounded, size: 16, color: cs.tertiary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           widget.timeoutReason!,
-                          style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                          style: TextStyle(fontSize: 12, color: cs.tertiary),
                         ),
                       ),
                     ],
@@ -173,9 +173,9 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.08),
+                    color: cs.tertiary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.orange.shade300),
+                    border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
                   ),
                   child: const Text(
                     'Receiver cleanup status is unknown — the session ended by timeout before cleanup completed.',
@@ -187,9 +187,9 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.06),
+                    color: cs.secondary.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: cs.secondary.withValues(alpha: 0.3)),
                   ),
                   child: const Column(
                     children: [
@@ -245,7 +245,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.green.shade600,
+                              color: cs.secondary,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -270,7 +270,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
                   MaterialPageRoute(builder: (_) => const HomeScreen()),
                   (_) => false,
                 ),
-                color: Colors.green.shade600,
+                color: cs.secondary,
               ),
             ],
           ),
@@ -291,16 +291,17 @@ class _DoneStepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Colors.green.shade600),
+          Icon(icon, size: 16, color: cs.secondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label, style: const TextStyle(fontSize: 13)),
           ),
-          Icon(Icons.check_rounded, size: 16, color: Colors.green.shade600),
+          Icon(Icons.check_rounded, size: 16, color: cs.secondary),
         ],
       ),
     );
