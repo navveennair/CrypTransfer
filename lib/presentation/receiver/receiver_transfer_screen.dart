@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_manager.dart';
@@ -120,10 +119,10 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(
-              content: Text('Transfer aborted — sender terminated the tunnel'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
+            SnackBar(
+              content: const Text('Transfer aborted — sender terminated the tunnel'),
+              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              duration: const Duration(seconds: 4),
             ),
           );
         Navigator.of(context).pushAndRemoveUntil(
@@ -153,7 +152,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
             child: const Text('Stay'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Abort & Destroy'),
           ),
@@ -179,10 +178,10 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Transfer aborted — tunnel destroyed.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: const Text('Transfer aborted — tunnel destroyed.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       Navigator.of(context).pushAndRemoveUntil(
@@ -275,7 +274,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       child: Scaffold(
         appBar: AppBar(
           title: Text('Incoming File',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+              style: Theme.of(context).textTheme.titleMedium),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -309,7 +308,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
 
               Text(
                 'Incoming File',
-                style: GoogleFonts.poppins(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700, fontSize: 22),
                 textAlign: TextAlign.center,
               ),
@@ -396,10 +395,10 @@ class _StepTile extends StatelessWidget {
     final Widget indicator;
 
     if (step.done) {
-      bg = Colors.green.withValues(alpha: 0.08);
-      fg = Colors.green.shade700;
+      bg = cs.secondary.withValues(alpha: 0.08);
+      fg = cs.secondary;
       indicator =
-          Icon(Icons.check_circle_rounded, color: Colors.green.shade600, size: 20);
+          Icon(Icons.check_circle_rounded, color: cs.secondary, size: 20);
     } else if (step.active) {
       bg = cs.primaryContainer.withValues(alpha: 0.5);
       fg = cs.primary;
@@ -424,7 +423,7 @@ class _StepTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: step.done
-              ? Colors.green.shade300
+              ? cs.secondary.withValues(alpha: 0.4)
               : step.active
                   ? cs.primary.withValues(alpha: 0.4)
                   : cs.outlineVariant,
