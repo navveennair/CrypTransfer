@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cryptransfer/core/utils/session_manager.dart';
-import 'package:cryptransfer/core/utils/session_state.dart';
 
 // Phase 09 — Navigation Safety stubs
 // GAP1-01, GAP1-02, GAP1-03: implement before shipping.
@@ -18,6 +17,7 @@ void main() {
         bool isReadyToReceive = true;
         String? handshakeDocId = 'doc_123';
 
+        // ignore: dead_code, unnecessary_null_comparison
         final canPop = isReadyToReceive ? false : (handshakeDocId == null);
         expect(canPop, false,
             reason: 'canPop must be false when mailbox is open (_isReadyToReceive=true)');
@@ -25,6 +25,7 @@ void main() {
         // Also when handshakeDocId is null
         isReadyToReceive = true;
         handshakeDocId = null;
+        // ignore: dead_code
         final canPop2 = isReadyToReceive ? false : (handshakeDocId == null);
         expect(canPop2, false,
             reason: 'canPop must be false when mailbox is open, even with null handshakeDocId');

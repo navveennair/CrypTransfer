@@ -25,8 +25,10 @@ void main() {
         selectedReceiverPublicKeyJson = newPublicKey; // setState equivalent
 
         // Stale check
+        // ignore: unnecessary_null_comparison
         final shouldWipe = capturedBefore != null &&
             newPublicKey != capturedBefore &&
+            // ignore: unnecessary_null_comparison
             encryptedAESKey != null;
 
         expect(shouldWipe, true,
@@ -57,6 +59,7 @@ void main() {
         bool encryptingKey = false;
 
         // The guard check — must return early
+        // ignore: dead_code
         final guardBlocks = encrypting || encryptingKey;
         expect(guardBlocks, true,
             reason: 'Mid-flight guard must block stale-key check when _encrypting=true');
@@ -100,14 +103,15 @@ void main() {
         Uint8List? iv = Uint8List(16);
 
         // Verify pre-condition
+        // ignore: unnecessary_null_comparison
         bool fileEncrypted = encryptedBytes != null;
         expect(fileEncrypted, true,
             reason: '_fileEncrypted getter must be true before wipe');
 
         // Simulate _wipeSensitiveData()
-        aesKey?.fillRange(0, aesKey.length, 0);
-        iv?.fillRange(0, iv.length, 0);
-        encryptedBytes?.fillRange(0, encryptedBytes.length, 0);
+        aesKey.fillRange(0, aesKey.length, 0);
+        iv.fillRange(0, iv.length, 0);
+        encryptedBytes.fillRange(0, encryptedBytes.length, 0);
         aesKey = null;
         iv = null;
         encryptedBytes = null;
