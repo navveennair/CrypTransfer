@@ -156,3 +156,21 @@ Plans:
 
 Plans:
 - [ ] 08-01-PLAN.md — Single plan, 3 waves: (W1) Firebase Console + google-services.json regeneration (manual, autonomous: false); (W2) Gradle rename + Kotlin physical move + MethodChannel decoupling + firebase_options + delete com/example/ + flutter clean (7 autonomous tasks); (W3) D-06 acceptance gates — analyze + test + debug APK build + on-device smoke (5a/5b/5c/5d/5e) + atomic commit
+
+### Phase 09: Navigation Safety & Session Integrity Hardening
+
+**Goal:** Fix three code-verified gaps in navigation safety and session integrity: (1) ReceiverScreen back-nav shows no confirmation dialog and `canPop` is unconditionally `true` even during active transfers (`_sessionLocked`); (2) SenderScreen holds a stale `_encryptedAESKey` if the receiver's RSA keypair changes mid-session without triggering `_revertToWaiting` — the stream update refreshes `_selectedReceiverPublicKeyJson` but does not invalidate the already-computed encrypted key; (3) SenderScreen Step 1 "Browse Files" button remains active after Step 2 encryption completes — re-picking silently wipes encrypted state with no UX indication that prior work is discarded.
+
+**Depends on:** Phase 08
+
+**Scope:**
+1. **Back-nav confirmation (ReceiverScreen)** — Change `canPop` to `false` when `_isReadyToReceive` is true; intercept pop in `onPopInvokedWithResult` to show a confirmation `BottomSheet` (matching existing `_showCloseSessionDialog` style) before triggering `_sessionManager.wipeSession`. Also block pop when `_sessionLocked` is true (active transfer in progress) with a SnackBar explaining why.
+2. **Stale key invalidation (SenderScreen)** — In `_onHandshakeUpdate`, when an incoming handshake doc carries a `publicKey` that differs from the current `_selectedReceiverPublicKeyJson` and `_encryptedAESKey` is already set, call `_wipeSensitiveData()` and revert `_fileEncrypted` / `_readyToSend` state, snackbar-notifying "Receiver key changed — re-encrypt required."
+3. **Step 1 re-pick UX lock (SenderScreen)** — Disable the "Browse Files" `CrypButton` after `_fileEncrypted` is true (replace with a "Change File" secondary action that explicitly confirms intent and triggers `_wipeSensitiveData()`); re-enable automatically when `_fileEncrypted` is reset.
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Wave 1: Nyquist test stubs — navigation_guard_test.dart (GAP1-01..03) + stale_key_test.dart (GAP2-01, GAP2-02, GAP3-02)
+- [ ] 09-02-PLAN.md — Wave 2: ReceiverScreen hardening — Gap 1 PopScope canPop guard + onPopInvokedWithResult confirmation; Gap 4 Step 1 AnimatedOpacity+IgnorePointer lockout + AppBar disable
+- [ ] 09-03-PLAN.md — Wave 2 (parallel): SenderScreen hardening — Gap 2 stale-key invalidation in _onHandshakeUpdate; Gap 3 Browse Files disable + Change File TextButton + AlertDialog
