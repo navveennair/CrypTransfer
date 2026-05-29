@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'package:local_auth/local_auth.dart';
 
 /// Centralised biometric / device-credential authentication helper.

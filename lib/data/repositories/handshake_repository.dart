@@ -330,12 +330,12 @@ class HandshakeRepository {
   ) {
     if (outSnap != null && inSnap != null) {
       // Both snaps fetched — resolve
-      if (outSnap!.exists) {
-        final status = outSnap!.data()?['status'] as String? ?? 'unknown';
-        ctrl.add((status: status, docId: outSnap!.id));
-      } else if (inSnap!.exists) {
-        final status = inSnap!.data()?['status'] as String? ?? 'unknown';
-        ctrl.add((status: status, docId: inSnap!.id));
+      if (outSnap.exists) {
+        final status = outSnap.data()?['status'] as String? ?? 'unknown';
+        ctrl.add((status: status, docId: outSnap.id));
+      } else if (inSnap.exists) {
+        final status = inSnap.data()?['status'] as String? ?? 'unknown';
+        ctrl.add((status: status, docId: inSnap.id));
       } else {
         ctrl.add(null);
       }

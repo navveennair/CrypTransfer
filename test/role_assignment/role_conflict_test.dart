@@ -9,8 +9,8 @@ void main() {
         const exception = RoleConflictException(
           'Role conflict detected. One user must be sender, another must be receiver.',
         );
-        expect(exception is RoleConflictException, true);
-        expect(exception is AppException, true);
+        expect(exception, isA<RoleConflictException>());
+        expect(exception, isA<AppException>());
       },
     );
 
@@ -42,10 +42,10 @@ void main() {
         const roleConflict = RoleConflictException('Both users tried to be receiver');
         const authError = AuthException('Auth failed');
 
-        expect(roleConflict is RoleConflictException, true);
-        expect(roleConflict is AuthException, false);
-        expect(authError is AuthException, true);
-        expect(authError is RoleConflictException, false);
+        expect(roleConflict, isA<RoleConflictException>());
+        expect(roleConflict, isNot(isA<AuthException>()));
+        expect(authError, isA<AuthException>());
+        expect(authError, isNot(isA<RoleConflictException>()));
       },
     );
 

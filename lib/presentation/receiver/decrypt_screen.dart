@@ -49,7 +49,7 @@ class DecryptScreen extends StatefulWidget {
 
 class _DecryptScreenState extends State<DecryptScreen>
     with SecurityLifecycleMixin<DecryptScreen> {
-  static const _fileChannel = MethodChannel('com.example.cryptransfer/file');
+  static const _fileChannel = MethodChannel('cryptransfer/file');
 
   final _repo = TransferRepository();
   final _auth = AuthRepository();

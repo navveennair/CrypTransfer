@@ -19,7 +19,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cryptransfer"
+    namespace = "com.navveennair.cryptransfer"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -40,7 +40,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.cryptransfer"
+        applicationId = "com.navveennair.cryptransfer"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -646,9 +646,15 @@ class KeyRepository {
             'Partner has already selected a different sender.',
           );
         }
-        // Conflict: If partner is also trying to be sender (both have selectedSenderUid unset and
-        // we're in a race), we detect this by checking if partner has a simultaneous intent marker.
-        // For now, we allow the transaction to proceed — the first one wins.
+        // Clear any stale selectedSenderUid left from a previous receiver session.
+        // Without this, the partner's receiver check sees our stale field and
+        // wrongly fires a conflict (partnerSelectedSender == partnerUid).
+        if (mySelectedSender != null) {
+          txn.update(
+            _db.collection(FirebaseConstants.users).doc(_uid),
+            {'selectedSenderUid': FieldValue.delete()},
+          );
+        }
       } else {
         // I want to be receiver (selecting partner as my sender).
         // Conflict: If partner also has selectedSenderUid set to me, they're also receiver.

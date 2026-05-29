@@ -1,4 +1,4 @@
-package com.example.cryptransfer
+package com.navveennair.cryptransfer
 
 import android.content.ContentValues
 import android.os.Build
@@ -17,12 +17,12 @@ import java.io.FileOutputStream
  *
  * Native–Dart security bridge
  * ─────────────────────────────────────────────────────────────────────────────
- * Channel 1 — "com.example.cryptransfer/security"
+ * Channel 1 — "cryptransfer/security"
  *   isFlagSecureActive  → returns (flags & FLAG_SECURE) != 0
  *   clearSession        → System.gc() hint (no key bytes held natively)
  *   Consumed by: SecurityLifecycleMixin  (lib/core/utils/security_lifecycle_mixin.dart)
  *
- * Channel 2 — "com.example.cryptransfer/file"
+ * Channel 2 — "cryptransfer/file"
  *   saveToDownloads(fileName, bytes) → saves to public Downloads folder
  *     Android 10+ : MediaStore.Downloads (no WRITE_EXTERNAL_STORAGE needed)
  *     Android <10 : direct FileOutputStream (needs WRITE_EXTERNAL_STORAGE)
@@ -30,8 +30,8 @@ import java.io.FileOutputStream
  */
 class MainActivity : FlutterFragmentActivity() {
 
-    private val securityChannel = "com.example.cryptransfer/security"
-    private val fileChannel     = "com.example.cryptransfer/file"
+    private val securityChannel = "cryptransfer/security"
+    private val fileChannel     = "cryptransfer/file"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

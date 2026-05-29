@@ -21,7 +21,7 @@ mixin SecurityLifecycleMixin<T extends StatefulWidget> on State<T> {
   // ─── Kotlin sync: FLAG_SECURE pre-flight check ────────────────────────────
 
   static final _securityChannel =
-      const MethodChannel('com.example.cryptransfer/security');
+      const MethodChannel('cryptransfer/security');
 
   /// Sends a best-effort `clearSession` call to the Kotlin layer, triggering
   /// a GC pressure hint after a receiver session ends.

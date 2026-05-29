@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '881677813575',
     projectId: 'cryptransfer-96e9f',
     storageBucket: 'cryptransfer-96e9f.firebasestorage.app',
-    iosBundleId: 'com.example.cryptransfer',
+    iosBundleId: 'com.navveennair.cryptransfer',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '881677813575',
     projectId: 'cryptransfer-96e9f',
     storageBucket: 'cryptransfer-96e9f.firebasestorage.app',
-    iosBundleId: 'com.example.cryptransfer',
+    iosBundleId: 'com.navveennair.cryptransfer',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

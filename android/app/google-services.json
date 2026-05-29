@@ -48,6 +48,42 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881677813575:android:0b340ca3b0a22b1ca8ae62",
+        "android_client_info": {
+          "package_name": "com.navveennair.cryptransfer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "881677813575-de8cqucd3qd71cbfk3rrb8l65osff7vc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdCTzslx5ugbCG7Yd7_Bjz_B_mX42FMkQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "881677813575-de8cqucd3qd71cbfk3rrb8l65osff7vc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "881677813575-6s7jceim8carmdn161psc7daabil79li.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cryptransfer"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"
