@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/errors/app_exceptions.dart';
 import '../../core/utils/notification_service.dart';
@@ -341,6 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
+        final tt = Theme.of(ctx).textTheme;
         return GlassContainer(
           borderRadius: 24,
           padding: const EdgeInsets.all(24),
@@ -351,13 +351,13 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               Text(
                 'Cancel connection request?',
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
                 "Cancel request to @$partnerUsername? They won't be notified.",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 12, color: cs.onSurfaceVariant),
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 24),
               CrypButton(
@@ -373,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Keep Waiting', style: GoogleFonts.poppins(fontSize: 14)),
+                child: Text('Keep Waiting', style: tt.bodyMedium),
               ),
               const SizedBox(height: 8),
             ],
@@ -409,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('CrypTransfer', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text('CrypTransfer', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         centerTitle: true,
         actions: [_NotifBellButton(authRepo: _authRepo), const SizedBox(width: 8)],
       ),
@@ -442,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Hello, $username!',
-                          style: GoogleFonts.poppins(
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: cs.onSurface,
                             fontSize: 18,
@@ -450,9 +450,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         Text(
                           'Welcome back to secure transfers.',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
-                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -470,9 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 10),
                 Text(
                   'Active Connections',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: cs.onSurface,
                   ),
                 ),
@@ -482,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: Icon(Icons.add_rounded, size: 18, color: cs.primary),
                   label: Text(
                     'Add New',
-                    style: GoogleFonts.poppins(fontSize: 13, color: cs.primary, fontWeight: FontWeight.w600),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -516,8 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 10),
                 Text(
                   'Recent Transfers',
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w700, fontSize: 15),
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const Spacer(),
                 Text(
@@ -568,6 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: 8),
                   itemBuilder: (context, i) {
+                    final cs = Theme.of(context).colorScheme;
                     final data =
                         docs[i].data() as Map<String, dynamic>;
                     final isSender = data['senderId'] == uid;
@@ -753,7 +750,6 @@ class _NotifBannerState extends State<_NotifBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Positioned(
       top: MediaQuery.of(context).padding.top + 8,
       left: 16,
@@ -764,32 +760,32 @@ class _NotifBannerState extends State<_NotifBanner> {
           onTap: widget.onTap,
           child: GlassContainer(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: cs.tertiary.withValues(alpha: 0.2),
-            borderColor: cs.tertiary.withValues(alpha: 0.3),
+            color: Colors.indigo.withValues(alpha: 0.2),
+            borderColor: Colors.indigo.withValues(alpha: 0.3),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: cs.tertiary.withValues(alpha: 0.2),
+                    color: Colors.indigo.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.notifications_active_rounded,
-                      color: cs.onSurface, size: 18),
+                  child: const Icon(Icons.notifications_active_rounded,
+                      color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     widget.message,
-                    style: TextStyle(
-                        color: cs.onSurface,
+                    style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w500),
                   ),
                 ),
                 const SizedBox(width: 6),
                 IconButton(
-                  icon: Icon(Icons.close, color: cs.onSurfaceVariant, size: 20),
+                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
                   onPressed: widget.onDismiss,
                 ),
               ],
@@ -876,7 +872,7 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                   Expanded(
                     child: Text(
                       widget.message,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: cs.onSurface,
                       ),
@@ -886,6 +882,8 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                     icon: Icon(Icons.close_rounded,
                         size: 18, color: cs.onSurfaceVariant),
                     onPressed: widget.onDismiss,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     tooltip: 'Dismiss',
                   ),
                 ],
@@ -990,8 +988,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
                     child: Center(
                       child: Text(
                         'Could not load connections. Check your connection.',
-                        style: GoogleFonts.poppins(
-                            fontSize: 12, color: cs.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -1120,8 +1117,7 @@ class _ActiveConnectionRow extends StatelessWidget {
               children: [
                 Text(
                   '@$username',
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -1191,9 +1187,8 @@ class _PendingRequestsSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Pending Requests',
-                  style: GoogleFonts.poppins(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
                     color: cs.onSurfaceVariant,
                   ),
                 ),
@@ -1267,7 +1262,7 @@ class _PendingRequestRowState extends State<_PendingRequestRow> {
               Expanded(
                 child: Text(
                   '@${widget.proposerUsername} wants to connect',
-                  style: GoogleFonts.poppins(fontSize: 14),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
             ],
@@ -1342,15 +1337,13 @@ class _EmptyConnectionsPrompt extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'No connections yet',
-              style: GoogleFonts.poppins(
-                  fontSize: 14, fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               'Send a connection request to a contact to start a secure transfer.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  fontSize: 12, color: cs.onSurfaceVariant),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             CrypButton(
@@ -1432,8 +1425,7 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
               children: [
                 Text(
                   'Start a session with @${widget.partnerUsername}',
-                  style: GoogleFonts.poppins(
-                      fontSize: 14, fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
                 // Send File tile
@@ -1466,15 +1458,11 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
                             children: [
                               Text(
                                 'Send File',
-                                style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600),
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
                               Text(
                                 'You encrypt and transmit',
-                                style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: cs.onSurfaceVariant),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                               ),
                             ],
                           ),
@@ -1516,15 +1504,11 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
                             children: [
                               Text(
                                 'Receive File',
-                                style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600),
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
                               Text(
                                 'You decrypt and save',
-                                style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: cs.onSurfaceVariant),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                               ),
                             ],
                           ),

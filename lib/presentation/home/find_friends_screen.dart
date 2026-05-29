@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/models/user_model.dart';
 import '../../data/repositories/handshake_repository.dart';
@@ -201,8 +200,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       appBar: AppBar(
         title: Text(
           'Connections',
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600, color: cs.onSurface),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: cs.onSurface),
         ),
         centerTitle: true,
         iconTheme: IconThemeData(color: cs.onSurface),
@@ -237,11 +235,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         children: [
                           Text(
                             'Your Network',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface,
-                              fontSize: 16,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: cs.onSurface),
                           ),
                           Text(
                             'Manage connections for secure transfers.',
@@ -265,7 +259,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: TextField(
                 controller: _searchController,
-                style: GoogleFonts.inter(color: cs.onSurface),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search by username...',
                   prefixIcon: Icon(Icons.search, color: cs.primary),
@@ -313,11 +307,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'My Connections',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: cs.primary,
-                        letterSpacing: 0.5,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -347,7 +340,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         ),
                         title: Text(
                           '@$username',
-                          style: GoogleFonts.inter(
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: cs.onSurface),
                         ),
@@ -378,11 +371,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'Incoming Requests',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: cs.secondary,
-                        letterSpacing: 0.5,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -413,7 +405,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         ),
                         title: Text(
                           '@$proposerUsername',
-                          style: GoogleFonts.inter(
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface),
                         ),
@@ -443,11 +435,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Text(
                   'Search Results',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
-                    letterSpacing: 0.5,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -481,8 +472,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'No users found',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: cs.onSurfaceVariant,
                       ),
@@ -504,7 +494,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'Connect with Friends',
-                      style: GoogleFonts.poppins(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -783,7 +773,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
           ),
           title: Text(
             '@${widget.user.username}',
-            style: GoogleFonts.inter(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600, color: cs.onSurface),
           ),
           subtitle: Text(

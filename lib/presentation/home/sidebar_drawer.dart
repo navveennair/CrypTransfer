@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../data/models/user_model.dart';
@@ -52,7 +51,7 @@ class SidebarDrawer extends StatelessWidget {
                       backgroundColor: cs.primary.withValues(alpha: 0.2),
                       child: Text(
                         username.isNotEmpty ? username[0].toUpperCase() : '?',
-                        style: GoogleFonts.poppins(
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: cs.primary,
@@ -67,8 +66,8 @@ class SidebarDrawer extends StatelessWidget {
                       children: [
                         Text(
                           username,
-                          style: GoogleFonts.poppins(
-                            color: AppTheme.darkTextMain,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: cs.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -76,9 +75,8 @@ class SidebarDrawer extends StatelessWidget {
                         ),
                         Text(
                           email,
-                          style: TextStyle(
-                            color: AppTheme.darkTextSecondary,
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -129,7 +127,7 @@ class SidebarDrawer extends StatelessWidget {
                     icon: Icons.admin_panel_settings_outlined,
                     label: 'Admin Dashboard',
                     subtitle: 'System analytics & security',
-                    color: AppTheme.accentPurple,
+                    color: Theme.of(context).colorScheme.tertiary,
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(context, '/admin-dashboard');
@@ -177,7 +175,7 @@ class SidebarDrawer extends StatelessWidget {
                           const SizedBox(height: 16),
                           Text(
                             'Logout',
-                            style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -277,18 +275,16 @@ class _DrawerItem extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.darkTextMain,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: cs.onSurface,
                       ),
                     ),
                     if (subtitle != null)
                       Text(
                         subtitle!,
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 11,
-                          color: AppTheme.darkTextSecondary,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                   ],
