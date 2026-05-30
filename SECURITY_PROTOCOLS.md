@@ -96,6 +96,9 @@ This constraint is the primary access-control gate for the entire transfer pipel
 
 **Residual Risk**: A receiver who completes a handshake but never receives a file will retain a `selectedSenderUid` authorization on their Firestore user document until the session ends. This is mitigated by Step 5 of the Zero Remanence Purge (see below).
 
+**Mitigation Details**: The `EndSessionScreen._endSession()` process explicitly clears the `selectedSenderUid` field (Step 5), ensuring any stale authorization is removed even if earlier steps fail. Additionally, a periodic cleanup routine runs on app startup to scan for lingering `selectedSenderUid` entries and purge them, preventing denial‑of‑service scenarios where a receiver remains perpetually authorized without an active session. The purge action is recorded in the immutable `audit_logs` collection for accountability.
+
+
 ---
 
 ## Audit-Purge Lifecycle

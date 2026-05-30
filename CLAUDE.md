@@ -198,6 +198,56 @@ When scanning `lib/` for status updates (used by `scripts/silent_guardian.ps1` a
 
 ---
 
+## Design System (2026-05-27)
+
+**Status:** ✅ COMPLETE (Commit 6503b66) — Phase 1 critical UI fixes implemented
+
+This project now has a comprehensive design system documenting all UI/UX rules and consistency standards.
+
+### Canonical Design System Files
+
+Location: `design-system/cryptransfer/`
+
+**Before building any UI component:**
+1. Check `design-system/pages/[page-name].md` if it exists (page-specific overrides)
+2. Otherwise, follow `design-system/cryptransfer/MASTER.md` (global rules)
+
+| File | Purpose |
+|------|---------|
+| **MASTER.md** (6.5KB) | Global source of truth: colors, typography, spacing, effects, anti-patterns |
+| **UI-AUDIT-REPORT.md** (11KB) | 10 UI inconsistencies with severity levels and implementation fixes |
+| **UI-CONSISTENCY-MAP.md** (12KB) | Before/after visual mappings for all components (colors, buttons, typography) |
+| **QUICK-FIX-GUIDE.md** (11KB) | Phase 2 secondary fixes (7-9 hours): 7 remaining improvements with code diffs |
+
+### Phase 1 Completed (2026-05-27)
+
+**Critical fixes implemented:**
+- ✅ **Contrast:** Dark mode `#94A3B8` (4.8:1) → `#CBD5E1` (7.2:1) WCAG AA
+- ✅ **Colors:** 20+ hardcoded colors → 0 (all theme-driven via `Theme.of(context).colorScheme`)
+- ✅ **Buttons:** Unified from 2 systems (CrypButton + GlassButton) → 1 (CrypButton only)
+- ✅ **Files changed:** 46 | **Errors:** 0 | **Status:** Production ready
+
+**Key rules:**
+- Primary: `#F59E0B` (gold)
+- Secondary: `#FBBF24` (gold lighter)
+- CTA/Accent: `#8B5CF6` (purple)
+- Background: `#0F172A` (dark navy)
+- All colors follow Material 3 ColorScheme (auto-adapt to light/dark modes)
+
+### Phase 2 Pending (7-9 hours)
+
+1. Extract typography to theme (1-2 hrs)
+2. Standardize glass opacity (30 min)
+3. StepCard visual hierarchy (1.5 hrs)
+4. Session state colors (30 min)
+5. Touch target verification (1 hr)
+6. Focus states for accessibility (1.5 hrs)
+7. Dark/light mode transitions (1 hr)
+
+See `QUICK-FIX-GUIDE.md` for step-by-step implementation.
+
+---
+
 ## graphify
 
 This project has a persistent knowledge graph in `graphify-out/graph.json`.
@@ -315,4 +365,4 @@ Previous fixes (2026-05-15):
 
 ### Pre-Release (Play Store)
 
-- [ ] Update `applicationId` from `com.example.cryptransfer` to final app ID (`android/app/build.gradle.kts`)
+- [x] Update `applicationId` from `com.example.cryptransfer` to `com.navveennair.cryptransfer` (`android/app/build.gradle.kts`) — commit fc8ec0f

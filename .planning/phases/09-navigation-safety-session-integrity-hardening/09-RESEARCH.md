@@ -614,7 +614,7 @@ All dependencies are local Flutter widgets. No external tools required.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`_showCloseSessionDialog()` context parameter**
    - What we know: The existing `_showCloseSessionDialog()` at line 306 uses `context` from `Theme.of(context)` inside the builder. Since `onPopInvokedWithResult` is called synchronously in the same frame as the pop gesture, `context` is still valid.
