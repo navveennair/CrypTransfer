@@ -1,10 +1,12 @@
 ---
 phase: 10
 slug: ui-polish-phase-2-stale-key-security-fix
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-31
+revised: 2026-05-31
+reviewed_at: 2026-05-31
 ---
 
 # Phase 10 — UI Design Contract
@@ -35,35 +37,53 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Icon-label gaps, inline padding (e.g. `SizedBox(width: 4)`) |
-| sm | 8px | Compact element spacing, `SizedBox(width: 8)` between icon and label in CrypButton |
+| sm | 8px | Compact element spacing, `SizedBox(width: 8)` between icon and label in CrypButton, gap between Cancel and Confirm buttons inside dialog Row (`SizedBox(width: 8)`) |
 | md | 16px | Default element spacing — dialog icon-to-title gap (`SizedBox(height: 16)`) |
 | lg | 24px | Dialog container padding (`EdgeInsets.all(24)`), dialog inset padding (`EdgeInsets.all(24)`) |
-| xl | 28px | Dialog body-to-buttons gap (`SizedBox(height: 28)`) — exception, see below |
-| 2xl | 48px | Dialog icon size (not spacing — see Icon section) |
-| btn-gap | 12px | Gap between Cancel and Confirm buttons inside dialog Row (`SizedBox(width: 12)`) |
+| xl | 32px | Dialog body-to-buttons gap (`SizedBox(height: 32)`) |
 
-Exceptions:
-- 28px (xl) used for the gap between dialog body text and button row — established in reference implementations (`find_friends_screen.dart`, `sender_screen.dart`). Do not change.
-- 12px used between dialog buttons — consistent across all 5 dialog instances in working tree.
-- GlassContainer `borderRadius: 28` for dialogs — established pattern, not a spacing token.
+Note: GlassContainer `borderRadius: 28` for dialogs is a border-radius value, not a spacing token.
 
-Source: Measured from `find_friends_screen.dart` lines 197–228, `sender_screen.dart` lines 668–713, `decrypt_screen.dart` lines 128–174, `receiver_transfer_screen.dart` lines 143–190, `transfer_progress_screen.dart` lines 247–293.
+**Icon sizes** are not spacing tokens. The 48px dialog icon size is documented in the Icon Contract section below.
+
+Source: Measured from `find_friends_screen.dart` lines 197–228, `sender_screen.dart` lines 668–713, `decrypt_screen.dart` lines 128–174, `receiver_transfer_screen.dart` lines 143–190, `transfer_progress_screen.dart` lines 247–293. Updated to conform to 4/8/16/24/32 standard set.
+
+---
+
+## Icon Contract
+
+| Usage | Size | Token |
+|-------|------|-------|
+| Dialog context icon (above title) | 48px | n/a — not a spacing token |
+
+All dialog instances use `Icon({context_icon}, size: 48, color: {semantic_color})` placed above the dialog title.
 
 ---
 
 ## Typography
 
+### Primary Typeface: Poppins
+
+**Exactly 2 weights.** All non-admin UI uses Poppins via `Theme.of(context).textTheme.*`.
+
 | Role | Size | Weight | Line Height | Token / Usage |
 |------|------|--------|-------------|---------------|
-| Body (default) | 14px | 500 (medium) | 1.5 | `textTheme.bodyMedium` — dialog body copy, snackbar messages |
-| Label (small caps) | 12px | 600 (semibold) | 1.4 | `textTheme.labelSmall` — security badges, status chips |
-| Heading (dialog title) | 20px | 600 (semibold) | 1.2 | `textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)` — dialog title |
-| Title (step / section) | 15px | 700 (bold) | 1.3 | `textTheme.titleSmall` — StepCard titles, section headers |
-| AppBar title | 18px | 600 (semibold) | 1.2 | `AppBarTheme.titleTextStyle` — screen titles |
-| Admin title | 20px | 700 (bold) | 1.2 | `GoogleFonts.orbitron` — Admin dashboard AppBar title only |
-| Admin body | 14px | 400 (regular) | 1.5 | `GoogleFonts.exo2` — Admin tile labels only |
+| Label (small caps) | 12px | w600 (semibold) | 1.4 | `textTheme.labelSmall` — security badges, status chips |
+| Body (default) + Section titles | 14px | w500 (medium) body / w600 (semibold) titles | 1.5 | `textTheme.bodyMedium` (w500) for dialog body copy, snackbar messages; `textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)` for StepCard titles and section headers — weight differentiates from body, not size |
+| AppBar title + headings | 18px | w600 (semibold) | 1.2 | `AppBarTheme.titleTextStyle` — screen titles |
+| Dialog display title | 20px | w600 (semibold) | 1.2 | `textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)` — dialog titles |
 
-All non-admin text: Poppins via `Theme.of(context).textTheme.*`.
+Poppins weight constraint: **w500 (medium) for body and running text; w600 (semibold) for all headings, labels, and titles.** No other weights permitted in the Poppins scale.
+
+### Admin Typeface System (scoped — separate from Poppins)
+
+> Admin dashboard uses a separate typeface system (Orbitron/Exo2) not subject to the Poppins weight constraints. These fonts appear only in `lib/presentation/admin/` screens and their direct sub-widgets.
+
+| Role | Font | Weight | Usage |
+|------|------|--------|-------|
+| Admin title | Orbitron | w700 (bold) | `GoogleFonts.orbitron` — Admin dashboard AppBar title only |
+| Admin body | Exo2 | w400 (regular) | `GoogleFonts.exo2` — Admin tile labels only |
+
 Source: `lib/app_theme.dart` textTheme definitions, `260531-a1k-SUMMARY.md` Task 4.
 
 ---
@@ -116,14 +136,14 @@ AlertDialog(
       children: [
         Icon({context_icon}, size: 48, color: {semantic_color}),
         SizedBox(height: 16),               ← md spacing token
-        Text({title}, style: titleLarge + bold),
-        SizedBox(height: 12),               ← sm+4 gap
+        Text({title}, style: titleLarge w600),
+        SizedBox(height: 8),                ← sm spacing token
         Text({body}, textAlign: center, style: onSurfaceVariant),
-        SizedBox(height: 28),               ← xl spacing exception
+        SizedBox(height: 32),               ← xl spacing token
         Row(
           children: [
             Expanded(child: TextButton('Cancel', pop(false))),
-            SizedBox(width: 12),            ← btn-gap
+            SizedBox(width: 8),             ← sm spacing token
             Expanded(child: CrypButton({label}, color: {semantic_color})),
           ],
         ),
@@ -184,7 +204,7 @@ Source: D-07 from CONTEXT.md, confirmed complete per `260531-a1k-SUMMARY.md`.
 | Element | Copy |
 |---------|------|
 | Primary CTA (destructive) | 'Abort & Destroy' — abort dialogs in decrypt_screen, receiver_transfer_screen, transfer_progress_screen |
-| Primary CTA (disconnect) | 'Disconnect' — find_friends_screen disconnect dialog |
+| Primary CTA (disconnect) | 'Disconnect' — find_friends_screen disconnect dialog. Alternative 'Remove Connection' is acceptable for clarity but current value is locked. |
 | Primary CTA (nav-back) | 'Clear & Go Back' — sender_screen go-back dialog |
 | Stale-key snackbar | 'Receiver key changed — re-encrypt required.' |
 | Abort dialog title | 'Abort Transfer?' |
@@ -249,6 +269,8 @@ Before marking implementation complete:
 - [ ] All cancel actions use `TextButton`, never `CrypButton` or `FilledButton`
 - [ ] All dialog icons are 48px — never smaller
 - [ ] `barrierDismissible: false` on all abort dialogs; absence (default true) on disconnect/nav-back
+- [ ] Dialog body-to-buttons gap is `SizedBox(height: 32)` in all 7 instances — not 28
+- [ ] Dialog button gap is `SizedBox(width: 8)` in all 7 instances — not 12
 - [ ] Stale-key snackbar message matches copywriting contract exactly
 - [ ] Admin AppBar title is `'CrypTransferAdmin'` — not `'COMMAND CENTER'` or any other value
 - [ ] GlassContainer in `_SecurityLogTile` and `_NodeTile` — plain Container removed
@@ -286,3 +308,4 @@ Before marking implementation complete:
 | `lib/presentation/home/home_screen.dart` | Role conflict dialog already glassmorphic (confirmed) |
 | `260531-a1k-SUMMARY.md` | Admin dashboard changes confirmed complete |
 | User input | 0 — all decisions pre-populated from upstream artifacts |
+| Checker revision | 4 blocking fixes applied (Typography A/B, Spacing A/B) + 2 recommendations applied |
