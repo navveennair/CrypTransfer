@@ -1,5 +1,21 @@
 # CrypTransfer — Project Roadmap
 
+## Backlog
+
+### Phase 999.1: Follow-up — Phase 02.1 unpanned scope (BACKLOG)
+
+**Goal:** Implement Identity & Networking professional standards that were discussed but never planned
+**Source phase:** 02.1
+**Deferred at:** 2026-05-31 during /gsd-next advancement past Phase 09
+**Scope:**
+- [ ] Google Sign-In integration (`google_sign_in` package, "Continue with Google" button)
+- [ ] Friendships collection (`friendships/{docId}` with participants array, pending/accepted/blocked status)
+- [ ] My Connections Screen (accepted friends list with per-user Disconnect)
+- [ ] First-Login Theme Onboarding (dark/light choice saved to Firestore + shared_preferences)
+- [ ] Login/Register form validation (email format, password strength, obscure-text toggles)
+
+---
+
 ## Milestone v1.0: milestone
 
 ### Phase 02: ReceiverTransferScreen Hardening & Memory Safety
@@ -152,10 +168,11 @@ Plans:
 **Goal:** Rename Android `applicationId` from `com.example.cryptransfer` to `com.navveennair.cryptransfer` across all coupled touchpoints (Gradle namespace/applicationId, Kotlin package + physical directory, MethodChannel namespaces decoupled per D-04 to package-independent `cryptransfer/{security,file}`, multi-app `google-services.json`, `firebase_options.dart` iosBundleId, delete old `com/example/` tree) so the app can be published to Google Play. Must remain regression-free: `flutter analyze` clean, 107/108 test baseline preserved, FLAG_SECURE pre-flight functional, kill-switch reactive binding (`SessionManager.stateStream → EncryptionService.bindSession`) intact.
 **Requirements**: D-01..D-07 (no formal REQ-IDs; CONTEXT.md locked decisions are the requirement anchors)
 **Depends on:** Phase 7
+**Status:** Complete
 **Plans:** 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — Single plan, 3 waves: (W1) Firebase Console + google-services.json regeneration (manual, autonomous: false); (W2) Gradle rename + Kotlin physical move + MethodChannel decoupling + firebase_options + delete com/example/ + flutter clean (7 autonomous tasks); (W3) D-06 acceptance gates — analyze + test + debug APK build + on-device smoke (5a/5b/5c/5d/5e) + atomic commit
+- [x] 08-01-PLAN.md — Single plan, 3 waves: (W1) Firebase Console + google-services.json regeneration (manual, autonomous: false); (W2) Gradle rename + Kotlin physical move + MethodChannel decoupling + firebase_options + delete com/example/ + flutter clean (7 autonomous tasks); (W3) D-06 acceptance gates — analyze + test + debug APK build + on-device smoke (5a/5b/5c/5d/5e) + atomic commit
 
 ### Phase 09: Navigation Safety & Session Integrity Hardening
 
@@ -174,3 +191,21 @@ Plans:
 - [ ] 09-01-PLAN.md — Wave 1: Nyquist test stubs — navigation_guard_test.dart (GAP1-01..03) + stale_key_test.dart (GAP2-01, GAP2-02, GAP3-02)
 - [ ] 09-02-PLAN.md — Wave 2: ReceiverScreen hardening — Gap 1 PopScope canPop guard + onPopInvokedWithResult confirmation; Gap 4 Step 1 AnimatedOpacity+IgnorePointer lockout + AppBar disable
 - [ ] 09-03-PLAN.md — Wave 2 (parallel): SenderScreen hardening — Gap 2 stale-key invalidation in _onHandshakeUpdate; Gap 3 Browse Files disable + Change File TextButton + AlertDialog
+
+### Phase 10: UI Polish Phase 2 + Stale-Key Security Fix
+
+**Goal:** (1) Restore the stale-key invalidation guard in `SenderScreen._onHandshakeUpdate` that was dropped in WIP commit `580616d` — a security regression from Phase 09's verified work. (2) Commit and finalize the glassmorphic dialog styling already implemented in the working tree across 6 presentation screens and the admin dashboard, plus the uncommitted admin dashboard visual identity quick task (260531-a1k).
+
+**Depends on:** Phase 09
+
+**Scope:**
+1. **Stale-key guard restore (SenderScreen)** — In `_onHandshakeUpdate`, insert the `previousPublicKey` capture before `setState` and the D-05/D-06 guard block after: if `previousPublicKey != null && publicKey != previousPublicKey && _encryptedAESKey != null`, call `_wipeSensitiveData()` + SnackBar. Reference: `git show 793e226:lib/presentation/sender/sender_screen.dart` lines 207–227.
+2. **Glassmorphic dialog styling** — The working tree already has glassmorphic `AlertDialog` rewrites (transparent background, `GlassContainer` content, `CrypButton` confirm actions) across: `find_friends_screen.dart`, `sender_screen.dart`, `decrypt_screen.dart`, `receiver_transfer_screen.dart`, `home_screen.dart`, `transfer_progress_screen.dart`. Finalize, verify `flutter analyze`, and commit.
+3. **Admin dashboard visual identity commit** — Commit the completed 260531-a1k quick task: AppBar title rename (`COMMAND CENTER` → `CrypTransferAdmin`), `GlassContainer` in `_SecurityLogTile` and `_NodeTile`, `AdminDashboardScreen` dark theme + Orbitron/Exo2 fonts.
+4. **Pending ROADMAP/STATE housekeeping** — Commit the Phase 999.1 backlog deferral in `ROADMAP.md` and the Phase 08 completion status update.
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Wave 1: Stale-key guard restore in SenderScreen + regression test update
+- [ ] 10-02-PLAN.md — Wave 1 (parallel): Glassmorphic dialog finalization across 6 screens + admin dashboard commit + housekeeping
