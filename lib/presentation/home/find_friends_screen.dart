@@ -73,7 +73,13 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           };
         }));
       merge();
-    }, onError: (_) {});
+    }, onError: (_) {
+      _proposerSub?.cancel();
+      _proposerSub = null;
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _subscribeConnections();
+      });
+    });
 
     _partnerSub = _hsRepo.streamActiveConnectionsAsPartner().listen((snap) {
       fromPartner
@@ -88,7 +94,13 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           };
         }));
       merge();
-    }, onError: (_) {});
+    }, onError: (_) {
+      _partnerSub?.cancel();
+      _partnerSub = null;
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _subscribeConnections();
+      });
+    });
   }
 
   void _subscribePending() {
@@ -102,7 +114,13 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
         };
       }).toList();
       if (mounted) setState(() => _pendingRequests = requests);
-    }, onError: (_) {});
+    }, onError: (_) {
+      _pendingSub?.cancel();
+      _pendingSub = null;
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) _subscribePending();
+      });
+    });
   }
 
   Future<void> _performSearch(String query) async {
@@ -130,6 +148,19 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       await _hsRepo.acceptProposal(
           req['docId'] as String, req['proposerId'] as String);
       if (mounted) {
+        setState(() {
+          _pendingRequests.removeWhere((r) => r['docId'] == req['docId']);
+          final alreadyConnected = _connectedUsers
+              .any((u) => u['uid'] == req['proposerId']);
+          if (!alreadyConnected) {
+            _connectedUsers.add({
+              'uid': req['proposerId'],
+              'username': req['proposerUsername'] ?? '',
+              'email': '',
+              'docId': req['docId'],
+            });
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Connection established!'),

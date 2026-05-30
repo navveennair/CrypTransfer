@@ -78,6 +78,7 @@ class StepCard extends StatelessWidget {
   final int step;
   final String title;
   final bool done;
+  final bool currentStep;
   final Widget child;
 
   const StepCard({
@@ -85,6 +86,7 @@ class StepCard extends StatelessWidget {
     required this.step,
     required this.title,
     required this.done,
+    this.currentStep = false,
     required this.child,
   });
 
@@ -93,14 +95,32 @@ class StepCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final Color? bgColor = done
+        ? cs.secondary.withValues(alpha: isDark ? 0.08 : 0.04)
+        : currentStep
+            ? cs.primary.withValues(alpha: isDark ? 0.08 : 0.04)
+            : null;
+
+    final Color? borderColor = done
+        ? cs.secondary.withValues(alpha: 0.3)
+        : currentStep
+            ? cs.primary.withValues(alpha: 0.2)
+            : null;
+
+    final Color circleColor = done
+        ? cs.secondary
+        : currentStep
+            ? cs.primary
+            : cs.outline;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 16),
       child: GlassContainer(
         borderRadius: 24,
         padding: const EdgeInsets.all(20),
-        borderColor: done ? cs.secondary.withValues(alpha: 0.3) : null,
-        color: done ? cs.secondary.withValues(alpha: isDark ? 0.08 : 0.04) : null,
+        borderColor: borderColor,
+        color: bgColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -112,13 +132,14 @@ class StepCard extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: done ? cs.secondary : cs.primary,
+                    color: circleColor,
                     boxShadow: [
-                      BoxShadow(
-                        color: (done ? cs.secondary : cs.primary).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
+                      if (done || currentStep)
+                        BoxShadow(
+                          color: circleColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
                     ],
                   ),
                   child: Center(
@@ -126,8 +147,10 @@ class StepCard extends StatelessWidget {
                         ? const Icon(Icons.check, color: Colors.white, size: 18)
                         : Text(
                             '$step',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: done || currentStep
+                                  ? Colors.white
+                                  : cs.onSurface.withValues(alpha: 0.6),
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
                             ),
@@ -138,7 +161,11 @@ class StepCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: done ? cs.secondary : cs.onSurface),
+                      color: done
+                          ? cs.secondary
+                          : currentStep
+                              ? cs.onSurface
+                              : cs.onSurface.withValues(alpha: 0.5)),
                 ),
               ],
             ),

@@ -848,10 +848,21 @@ class _ProposalBannerState extends State<_ProposalBanner> {
       right: 16,
       child: Material(
         color: Colors.transparent,
-        child: GlassContainer(
-          color: cs.tertiary.withValues(alpha: 0.2),
-          borderColor: cs.tertiary.withValues(alpha: 0.4),
-          borderRadius: 16,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: cs.tertiary.withValues(alpha: 0.4),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.2),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
