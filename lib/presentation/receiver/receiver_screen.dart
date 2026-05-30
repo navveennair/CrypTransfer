@@ -65,6 +65,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   Stream<QuerySnapshot<Map<String, dynamic>>>? _transferStream;
   String? _handshakeDocId;
 
+  // Survives the close/reopen cycle so receiver can auto-reconnect to the
+  // same sender without manual re-selection.
+  UserModel? _lastConnectedSender;
+
   bool get _step1Done => _hasPrivateKey && _hasPublicKey;
   bool get _step2Done => _isReadyToReceive;
   bool get _step3Done =>
@@ -266,6 +270,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           if (pending != null) {
             _pendingPrefilledSender = null;
             _onSenderSelected(pending);
+          } else if (_lastConnectedSender != null) {
+            // Auto-reconnect: receiver re-opened after a previous session with a
+            // known sender. New RSA key pair is in Firestore — re-run handshake
+            // so sender gets the updated public key without manual re-selection.
+            _onSenderSelected(_lastConnectedSender!);
           }
         }
       } else {
@@ -292,6 +301,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             _handshakeDone = false;
             _connectedFriends.clear();
             _transferStream = null;
+            _handshakeDocId = null;
           });
         }
       }
@@ -390,6 +400,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
       }
 
       if (mounted) {
+        _lastConnectedSender = sender;
         setState(() {
           _handshakeDone = true;
           _handshaking = false;

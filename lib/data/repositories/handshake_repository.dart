@@ -320,7 +320,15 @@ class HandshakeRepository {
     return ctrl.stream;
   }
 
-  /// Helper: Resolve and emit the first non-null status from either doc direction.
+  /// Helper: Resolve and emit a direction-aware status from either doc direction.
+  ///
+  /// outSnap = doc I created (${myUid}_${partnerUid}) → I am the proposer.
+  /// inSnap  = doc they created (${partnerUid}_${myUid}) → they are the proposer.
+  ///
+  /// Emitted statuses:
+  ///   'pending'   (outSnap) → 'pending_sent'
+  ///   'pending'   (inSnap)  → 'pending_received'
+  ///   'connected' (either)  → 'accepted'
   void _emitIfResolved(
     StreamController<({String status, String docId})?> ctrl,
     DocumentSnapshot<Map<String, dynamic>>? outSnap,
@@ -328,17 +336,22 @@ class HandshakeRepository {
     String myUid,
     String partnerUid,
   ) {
-    if (outSnap != null && inSnap != null) {
-      // Both snaps fetched — resolve
-      if (outSnap.exists) {
-        final status = outSnap.data()?['status'] as String? ?? 'unknown';
-        ctrl.add((status: status, docId: outSnap.id));
-      } else if (inSnap.exists) {
-        final status = inSnap.data()?['status'] as String? ?? 'unknown';
-        ctrl.add((status: status, docId: inSnap.id));
-      } else {
-        ctrl.add(null);
-      }
+    if (outSnap == null || inSnap == null) return;
+
+    String mapStatus(String raw, bool isSent) {
+      if (raw == 'connected') return 'accepted';
+      if (raw == 'pending') return isSent ? 'pending_sent' : 'pending_received';
+      return raw;
+    }
+
+    if (outSnap.exists) {
+      final raw = outSnap.data()?['status'] as String? ?? 'unknown';
+      ctrl.add((status: mapStatus(raw, true), docId: outSnap.id));
+    } else if (inSnap.exists) {
+      final raw = inSnap.data()?['status'] as String? ?? 'unknown';
+      ctrl.add((status: mapStatus(raw, false), docId: inSnap.id));
+    } else {
+      ctrl.add(null);
     }
   }
 }

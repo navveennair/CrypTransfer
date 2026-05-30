@@ -80,6 +80,7 @@ class _SenderScreenState extends State<SenderScreen>
   Timer? _readinessTimer;
   int _secondsRemaining = 60;
   bool _streamSettled = false;   // CR-01: suppress cold-start empty-snapshot eject
+  bool _everConnected = false;   // true after first successful handshake; used to detect reconnects
 
   TofuStatus? _tofuStatus;
   String? _receiverFingerprint;
@@ -200,13 +201,25 @@ class _SenderScreenState extends State<SenderScreen>
         if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
           _handshakeDocId = docId;
         }
+        final isReconnect = _everConnected && _selectedReceiverPublicKeyJson == null;
         setState(() {
           _receiverId = receiverId;
           _receiverUsername = receiverUsername;
           _selectedReceiverPublicKeyJson = publicKey;
         });
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
+        _everConnected = true;
         _checkTofuStatus(receiverId, publicKey);
+
+        if (isReconnect && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Connection re-established with @$receiverUsername — new RSA key received.'),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
         final receiverReady = doc['receiverReady'] as bool? ?? false;
@@ -760,26 +773,29 @@ class _SenderScreenState extends State<SenderScreen>
                   children: [
                     // ── Step 1: Select File ───────────────────────────────
                     AnimatedOpacity(
-                      opacity: _receiverSelected ? 1.0 : 0.4,
+                      opacity: (_receiverSelected && !_fileEncrypted) ? 1.0 : 0.4,
                       duration: const Duration(milliseconds: 300),
-                      child: StepCard(
-                        step: 1,
-                        title: 'Select File',
-                        done: _fileSelected,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            CrypButton(
-                              icon: const Icon(Icons.folder_open_rounded, size: 20),
-                              label: Text(_file == null ? 'Browse Files' : 'Change File'),
-                              onPressed: _receiverSelected ? _pickFile : null,
-                              color: cs.primary,
-                            ),
-                            if (_file != null) ...[
-                              const SizedBox(height: 16),
-                              _FileCard(file: _file!),
+                      child: IgnorePointer(
+                        ignoring: _fileEncrypted,
+                        child: StepCard(
+                          step: 1,
+                          title: 'Select File',
+                          done: _fileSelected,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              CrypButton(
+                                icon: const Icon(Icons.folder_open_rounded, size: 20),
+                                label: Text(_file == null ? 'Browse Files' : 'Change File'),
+                                onPressed: _receiverSelected ? _pickFile : null,
+                                color: cs.primary,
+                              ),
+                              if (_file != null) ...[
+                                const SizedBox(height: 16),
+                                _FileCard(file: _file!),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
