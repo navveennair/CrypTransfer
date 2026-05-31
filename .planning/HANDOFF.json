@@ -1,87 +1,44 @@
 {
   "version": "1.0",
   "timestamp": "2026-05-31T00:00:00Z",
-  "phase": "09",
-  "phase_name": "navigation-safety-session-integrity-hardening",
-  "phase_dir": ".planning/phases/09-navigation-safety-session-integrity-hardening",
-  "plan": 3,
-  "task": 1,
-  "total_tasks": 1,
-  "status": "paused",
+  "phase": "10",
+  "phase_name": "ui-polish-phase-2-stale-key-security-fix",
+  "phase_dir": ".planning/phases/10-ui-polish-phase-2-stale-key-security-fix",
+  "plan": 2,
+  "task": "human-uat",
+  "total_tasks": "done",
+  "status": "human_needed",
   "completed_tasks": [
-    {"id": 1, "name": "09-01 Nyquist test stubs", "status": "done", "commit": "e5f985e"},
-    {"id": 2, "name": "09-02 ReceiverScreen PopScope guard + Step 1 lockout", "status": "done", "commit": "94ab5e5"},
-    {"id": 3, "name": "09-03 SenderScreen stale-key wipe + Change File guard", "status": "done", "commit": "793e226"},
-    {"id": 4, "name": "Code review fixes WR-01/02/03", "status": "done", "commit": "0f092d3"},
-    {"id": 5, "name": "Re-verification 18/18 automated checks", "status": "done", "commit": "a0543e6"},
-    {"id": 6, "name": "Restore PopScope/Step1 lost to UI merge", "status": "done", "commit": "ed11b1d"},
-    {"id": 7, "name": "Phase-09 UAT 7 tests — 4 pass, 2 skip, 1 issue (Step 1 lockout)", "status": "done", "commit": "2360131"},
-    {"id": 8, "name": "Fix: Step 1 lockout after encryption (sender_screen.dart)", "status": "done", "commit": "pending"},
-    {"id": 9, "name": "Fix: _handshakeDocId not cleared on mailbox close — back-nav blocked", "status": "done", "commit": "pending"},
-    {"id": 10, "name": "Feat: auto-reconnect when receiver re-opens mailbox", "status": "done", "commit": "pending"},
-    {"id": 11, "name": "Fix: _emitIfResolved status mapping (pending_sent/pending_received/accepted)", "status": "done", "commit": "pending"},
-    {"id": 12, "name": "Diagnose FindFriendsScreen white-screen after accept/decline", "status": "done", "commit": "n/a — diagnosis only"}
+    {"id": "10-01-T1", "name": "Restore stale-key guard in _onHandshakeUpdate (D-01/D-02/D-03)", "status": "done", "commit": "f1bf0a7"},
+    {"id": "10-01-T2", "name": "Full suite verification and commit", "status": "done", "commit": "f1bf0a7"},
+    {"id": "10-02-A", "name": "Correct spacing in 7 dialog instances across 6 files (D-04/D-05/D-06)", "status": "done", "commit": "8f56c2d"},
+    {"id": "10-02-B", "name": "Verify admin dashboard analyze-clean (D-07)", "status": "done", "commit": "8f56c2d"},
+    {"id": "10-02-C", "name": "Full quality gate and commit (D-07/D-08)", "status": "done", "commit": "8f56c2d"}
   ],
   "remaining_tasks": [
+    {"id": "uat-1", "name": "Stale-key guard live trigger", "status": "pending_human"},
+    {"id": "uat-2", "name": "Dialog spacing visual inspection on device", "status": "pending_human"},
+    {"id": "uat-3", "name": "Admin dashboard rendering verification", "status": "pending_human"}
+  ],
+  "blockers": [
     {
-      "id": 13,
-      "name": "Fix FindFriendsScreen white-screen after accept/decline (3-part fix)",
-      "status": "not_started",
-      "detail": "Part 1: In home_screen.dart _ProposalBanner, replace GlassContainer with a plain container (no BackdropFilter) — BackdropFilter in Overlay above FindFriendsScreen causes Impeller compositing artifact that freezes/washes screen after entry.remove(). Part 2: Add optimistic UI in FindFriendsScreen._acceptRequest — immediately remove from _pendingRequests and add to _connectedUsers after accept, before stream fires, to prevent empty-state flash. Part 3: Replace onError: (_) {} in _subscribeConnections and _subscribePending with a handler that logs and re-subscribes (dead stream is the 'doesnt recover' symptom)."
-    },
-    {
-      "id": 14,
-      "name": "Device re-test UAT Test 5 — Step 1 locked after encryption",
-      "status": "not_started",
-      "detail": "flutter run → select receiver → pick file → encrypt → try tapping Step 1 card → expect greyed (opacity 0.4) and non-interactive (IgnorePointer). Fix is already in sender_screen.dart."
-    },
-    {
-      "id": 15,
-      "name": "Commit all pending fixes + mark Phase 09 complete in STATE.md + ROADMAP.md",
-      "status": "not_started",
-      "detail": "Files to commit: lib/presentation/receiver/receiver_screen.dart, lib/presentation/sender/sender_screen.dart, lib/data/repositories/handshake_repository.dart, lib/presentation/home/home_screen.dart (after white-screen fix). Then update STATE.md phase status and ROADMAP.md."
+      "description": "3 human UAT items require physical device testing",
+      "type": "human_action",
+      "workaround": "none — must test on device"
     }
   ],
-  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Device test: flutter run → receiver select → file pick → encrypt → tap Step 1 → expect greyed+non-interactive",
-      "context": "UAT Test 5. Fix already applied to sender_screen.dart AnimatedOpacity + IgnorePointer gates.",
-      "blocking": false
+      "action": "Perform 3 UAT items in 10-HUMAN-UAT.md on a physical device",
+      "context": "Stale-key guard, dialog spacing, admin dashboard — all require live rendering or live Firestore session",
+      "blocking": true
     }
   ],
   "decisions": [
-    {
-      "decision": "_handshakeDocId = null added to _onToggleReady(false) setState",
-      "rationale": "Field was never cleared on mailbox close. canPop = _isReadyToReceive ? false : (_handshakeDocId == null) stayed false because _handshakeDocId persisted. Back-nav permanently blocked after any connection.",
-      "phase": "09"
-    },
-    {
-      "decision": "_lastConnectedSender field in ReceiverScreen survives close/reopen cycle",
-      "rationale": "Not included in close setState wipe. Set after handshake completes. On reopen, if no pre-fill, fires _onSenderSelected automatically — new RSA key already in Firestore at that point.",
-      "phase": "09"
-    },
-    {
-      "decision": "_everConnected flag in SenderScreen to detect reconnect vs first connect",
-      "rationale": "_everConnected=true AND _selectedReceiverPublicKeyJson==null when new doc arrives = reconnect. Shows green snackbar 'Connection re-established with new RSA key'.",
-      "phase": "09"
-    },
-    {
-      "decision": "_emitIfResolved enriches raw Firestore status with direction",
-      "rationale": "outSnap exists = I sent it → pending_sent. inSnap exists = they sent it → pending_received. Either connected → accepted. _buildTrailing was checking for these strings but emitIfResolved was passing raw 'pending'/'connected', so all tiles showed Connect button regardless of actual state.",
-      "phase": "09"
-    },
-    {
-      "decision": "FindFriendsScreen white-screen root cause: BackdropFilter in OverlayEntry + silent stream errors",
-      "rationale": "GlassContainer.blur=24 in _ProposalBanner OverlayEntry. Impeller backend may not clean up compositor on entry.remove(), leaving screen frozen. Secondary: onError:(_){} in _subscribeConnections kills the stream silently — _connectedUsers never updates after accept, page stuck in empty state permanently.",
-      "phase": "09"
-    }
+    {"decision": "_wipeSensitiveData() used in D-03 stale-key block (not _revertToWaiting())", "rationale": "Wipes only crypto buffers without clearing receiver selection or triggering full session reset", "phase": "10"},
+    {"decision": "home_screen.dart width NOT changed in role conflict dialog", "rationale": "Single full-width CrypButton — no Row, no Cancel/CrypButton pair needing gap adjustment", "phase": "10"}
   ],
-  "uncommitted_files": [
-    "lib/presentation/receiver/receiver_screen.dart",
-    "lib/presentation/sender/sender_screen.dart",
-    "lib/data/repositories/handshake_repository.dart"
-  ],
-  "next_action": "Fix FindFriendsScreen white-screen (home_screen.dart _ProposalBanner + FindFriendsScreen._acceptRequest optimistic update + _subscribeConnections error handler). Then device-test UAT Test 5. Then commit everything and mark Phase 09 complete.",
-  "context_notes": "Phase 09 implementation is complete and UAT-verified except Test 5 (device retest pending). Three uncommitted Dart files are clean (flutter analyze passes). The FindFriendsScreen white-screen is a post-UAT discovered bug outside Phase 09 scope — fix it first as it is user-visible, then close Phase 09."
+  "uncommitted_files": [],
+  "next_action": "Perform 3 UAT items on device, then report 'approved' or describe issues for gap closure",
+  "context_notes": "Phase 10 execution complete. Both plans ran inline (no subagents). Verifier: 8/8 must-haves verified, status human_needed. Git HEAD: 5c89788. Analyze clean, 113/114 tests passing."
 }
