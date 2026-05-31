@@ -306,7 +306,10 @@ class _DecryptScreenState extends State<DecryptScreen>
       final result = await OpenFile.open(_tempFilePath!);
       if (result.type == ResultType.noAppToOpen && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No app found to open this file type')),
+          SnackBar(
+            content: const Text('No app found to open this file type'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } finally {

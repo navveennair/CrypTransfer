@@ -238,7 +238,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   Future<void> _onToggleReady(bool value) async {
     if (_sessionLocked && !value) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot close session — transfer in progress.')),
+        SnackBar(
+          content: const Text('Cannot close session — transfer in progress.'),
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
+        ),
       );
       return;
     }
@@ -658,13 +661,14 @@ Future<void> _onSenderSelected(UserModel sender) async {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           if (_sessionLocked) {
-            // D-03: active transfer in progress — inform user, do NOT pop
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Cannot close session — transfer in progress.')),
+              SnackBar(
+                content: const Text('Cannot close session — transfer in progress.'),
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+              ),
             );
           } else if (_isReadyToReceive) {
-            // D-02: mailbox open — require confirmation before wipe
+            // Mailbox open — require confirmation before wipe.
             final navigator = Navigator.of(context);
             _showCloseSessionDialog().then((confirmed) {
               if (confirmed && mounted) {

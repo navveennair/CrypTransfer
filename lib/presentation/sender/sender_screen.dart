@@ -210,7 +210,9 @@ class _SenderScreenState extends State<SenderScreen>
         });
         _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
         _everConnected = true;
-        _checkTofuStatus(receiverId, publicKey);
+        if (publicKey != previousPublicKey || _tofuStatus == null) {
+          _checkTofuStatus(receiverId, publicKey);
+        }
 
         if (isReconnect && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -222,19 +224,24 @@ class _SenderScreenState extends State<SenderScreen>
           );
         }
 
-        // D-02: mid-flight guard — skip stale check if encryption is in flight
+        // Skip stale-key check if encryption is already in flight.
         if (_encrypting || _encryptingKey) return;
 
-        // D-03: stale AES key invalidation — key changed while encrypted AES key exists
+        // Receiver's public key rotated after we already encrypted — wipe stale AES key.
         if (previousPublicKey != null &&
             publicKey != previousPublicKey &&
             _encryptedAESKey != null) {
           _wipeSensitiveData();
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Receiver key changed — re-encrypt required.')),
-            );
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(
+                SnackBar(
+                  content: const Text('Receiver key changed — re-encrypt required.'),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
           }
         }
 
@@ -298,8 +305,9 @@ class _SenderScreenState extends State<SenderScreen>
       if (!kIsWeb && file.path == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("This file type isn't supported — try saving it locally first."),
+            SnackBar(
+              content: const Text("This file type isn't supported — try saving it locally first."),
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }

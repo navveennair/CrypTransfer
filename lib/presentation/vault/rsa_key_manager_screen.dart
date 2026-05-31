@@ -100,7 +100,10 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('RSA keys regenerated successfully.')),
+          SnackBar(
+            content: const Text('RSA keys regenerated successfully.'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+          ),
         );
 
         // Give the snackbar time to display before closing
@@ -167,7 +170,10 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('RSA keys deleted.')),
+          SnackBar(
+            content: const Text('RSA keys deleted.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
 
         // Give the snackbar time to display before closing

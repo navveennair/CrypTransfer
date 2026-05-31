@@ -226,9 +226,15 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     if (widget.sessionManager.state == SessionState.terminated && mounted) {
       _cancelled = true;
       wipeAll();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transfer cancelled — session wiped')),
-      );
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Transfer cancelled — session wiped'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }

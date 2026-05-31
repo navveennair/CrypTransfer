@@ -8,6 +8,58 @@ import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../widgets/shared_widgets.dart';
 
+Future<bool?> _showDisconnectDialog(BuildContext context, String username) {
+  final cs = Theme.of(context).colorScheme;
+  return showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(24),
+      content: GlassContainer(
+        padding: const EdgeInsets.all(24),
+        borderRadius: 28,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.link_off_rounded, size: 48, color: cs.error),
+            const SizedBox(height: 16),
+            Text(
+              'Disconnect?',
+              style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Remove @$username from your connections?',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CrypButton(
+                    label: const Text('Disconnect'),
+                    color: cs.error,
+                    onPressed: () => Navigator.pop(ctx, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class FindFriendsScreen extends StatefulWidget {
   const FindFriendsScreen({super.key});
 
@@ -135,7 +187,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search error: $e')),
+          SnackBar(
+            content: Text('Search error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } finally {
@@ -162,74 +217,29 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connection established!'),
-            behavior: SnackBarBehavior.floating,
+          SnackBar(
+            content: const Text('Connection established!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to accept: $e')),
+          SnackBar(
+            content: Text('Failed to accept: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
   }
 
   Future<void> _disconnect(Map<String, dynamic> conn) async {
-    final cs = Theme.of(context).colorScheme;
     final username = conn['username'] as String;
     final uid = conn['uid'] as String;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.all(24),
-        content: GlassContainer(
-          padding: const EdgeInsets.all(24),
-          borderRadius: 28,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.link_off_rounded, size: 48, color: cs.error),
-              const SizedBox(height: 16),
-              Text(
-                'Disconnect?',
-                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Remove @$username from your connections?',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CrypButton(
-                      label: const Text('Disconnect'),
-                      color: cs.error,
-                      onPressed: () => Navigator.pop(ctx, true),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final confirmed = await _showDisconnectDialog(context, username);
     if (confirmed != true) return;
 
     try {
@@ -238,7 +248,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Disconnected from @$username'),
-            backgroundColor: cs.surfaceContainerHigh,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -653,7 +663,10 @@ class _SearchResultTileState extends State<_SearchResultTile>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send: $e')),
+          SnackBar(
+            content: Text('Failed to send: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } finally {
@@ -666,71 +679,26 @@ class _SearchResultTileState extends State<_SearchResultTile>
       await widget.hsRepo.acceptProposal(docId, widget.user.uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connection established!'),
-            behavior: SnackBarBehavior.floating,
+          SnackBar(
+            content: const Text('Connection established!'),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to accept: $e')),
+          SnackBar(
+            content: Text('Failed to accept: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
   }
 
   Future<void> _disconnect(String docId) async {
-    final cs = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.all(24),
-        content: GlassContainer(
-          padding: const EdgeInsets.all(24),
-          borderRadius: 28,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.link_off_rounded, size: 48, color: cs.error),
-              const SizedBox(height: 16),
-              Text(
-                'Disconnect?',
-                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Remove @${widget.user.username} from your connections?',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CrypButton(
-                      label: const Text('Disconnect'),
-                      color: cs.error,
-                      onPressed: () => Navigator.pop(ctx, true),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final confirmed = await _showDisconnectDialog(context, widget.user.username);
     if (confirmed != true) return;
     try {
       await widget.hsRepo.disconnectFromUser(widget.user.uid);
@@ -739,7 +707,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
           SnackBar(
             content:
                 Text('Disconnected from @${widget.user.username}'),
-            backgroundColor: cs.surfaceContainerHigh,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
         );

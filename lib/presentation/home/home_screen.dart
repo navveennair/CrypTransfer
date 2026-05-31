@@ -1430,7 +1430,10 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     } finally {
       if (mounted) {
