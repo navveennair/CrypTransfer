@@ -201,6 +201,7 @@ class _SenderScreenState extends State<SenderScreen>
         if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
           _handshakeDocId = docId;
         }
+        final previousPublicKey = _selectedReceiverPublicKeyJson;
         final isReconnect = _everConnected && _selectedReceiverPublicKeyJson == null;
         setState(() {
           _receiverId = receiverId;
@@ -219,6 +220,22 @@ class _SenderScreenState extends State<SenderScreen>
               duration: const Duration(seconds: 4),
             ),
           );
+        }
+
+        // D-02: mid-flight guard — skip stale check if encryption is in flight
+        if (_encrypting || _encryptingKey) return;
+
+        // D-03: stale AES key invalidation — key changed while encrypted AES key exists
+        if (previousPublicKey != null &&
+            publicKey != previousPublicKey &&
+            _encryptedAESKey != null) {
+          _wipeSensitiveData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Receiver key changed — re-encrypt required.')),
+            );
+          }
         }
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
@@ -661,26 +678,55 @@ class _SenderScreenState extends State<SenderScreen>
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: Text('Go Back?',
-                  style: Theme.of(context).textTheme.titleMedium),
-              content: const Text(
-                  'Going back will clear your role assignment. The connection will remain.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              insetPadding: const EdgeInsets.all(24),
+              content: GlassContainer(
+                padding: const EdgeInsets.all(24),
+                borderRadius: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back_rounded, size: 48, color: Theme.of(ctx).colorScheme.primary),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Go Back?',
+                      style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Going back will clear your role assignment. The connection will remain.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 28),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CrypButton(
+                            label: const Text('Clear & Go Back'),
+                            color: Theme.of(ctx).colorScheme.primary,
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              final nav = Navigator.of(context);
+                              await _connService.clearTransferRoles(
+                                  handshakeDocId: _handshakeDocId!);
+                              if (mounted) nav.pop();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    final nav = Navigator.of(context);
-                    await _connService.clearTransferRoles(
-                        handshakeDocId: _handshakeDocId!);
-                    if (mounted) nav.pop();
-                  },
-                  child: const Text('Clear & Go Back'),
-                ),
-              ],
+              ),
             ),
           );
         }
@@ -717,8 +763,9 @@ class _SenderScreenState extends State<SenderScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'File Transfer',
+                          'Secure Inbox',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                             fontSize: 18,
                             color: cs.onSurface,
                           ),
