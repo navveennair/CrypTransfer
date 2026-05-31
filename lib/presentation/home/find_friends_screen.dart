@@ -185,19 +185,49 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Disconnect?'),
-        content: Text(
-            'Are you sure you want to remove @$username from your connections?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: cs.error),
-            child: const Text('Disconnect'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.link_off_rounded, size: 48, color: cs.error),
+              const SizedBox(height: 16),
+              Text(
+                'Disconnect?',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Remove @$username from your connections?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CrypButton(
+                      label: const Text('Disconnect'),
+                      color: cs.error,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
     if (confirmed != true) return;
@@ -656,20 +686,49 @@ class _SearchResultTileState extends State<_SearchResultTile>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Disconnect?'),
-        content:
-            Text('Remove @${widget.user.username} from your connections?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.link_off_rounded, size: 48, color: cs.error),
+              const SizedBox(height: 16),
+              Text(
+                'Disconnect?',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Remove @${widget.user.username} from your connections?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CrypButton(
+                      label: const Text('Disconnect'),
+                      color: cs.error,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: cs.error),
-            child: const Text('Disconnect'),
-          ),
-        ],
+        ),
       ),
     );
     if (confirmed != true) return;

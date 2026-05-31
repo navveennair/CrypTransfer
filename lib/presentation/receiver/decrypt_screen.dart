@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../widgets/shared_widgets.dart';
 import '../../data/models/transfer_model.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -125,22 +126,50 @@ class _DecryptScreenState extends State<DecryptScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Abort Transfer?'),
-        content: const Text(
-          'This will destroy all cryptographic material and collapse the secure '
-          'tunnel. The sender will be notified that the transfer failed.',
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_rounded, size: 48, color: Theme.of(ctx).colorScheme.error),
+              const SizedBox(height: 16),
+              Text(
+                'Abort Transfer?',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This will destroy all cryptographic material and collapse the secure '
+                'tunnel. The sender will be notified that the transfer failed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CrypButton(
+                      label: const Text('Abort & Destroy'),
+                      color: Theme.of(ctx).colorScheme.error,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abort & Destroy'),
-          ),
-        ],
       ),
     );
     if (abort == true && mounted) {
@@ -595,7 +624,7 @@ class _DecryptScreenState extends State<DecryptScreen>
                       strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.save_alt_rounded),
-          label: Text(_saving ? 'Saving…' : 'Save & Continue'),
+          label: Text(_saving ? 'Saving…' : 'Save to Downloads'),
           onPressed: _saving ? null : _saveAndWipe,
           style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52)),

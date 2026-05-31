@@ -241,27 +241,54 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
 
   Future<void> _showAbortDialog() async {
     if (_aborting || _sessionEnded) return;
-    final errorColor = Theme.of(context).colorScheme.error;
     final abort = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Abort Transfer?'),
-        content: const Text(
-          'This will destroy all cryptographic material and collapse the secure '
-          'tunnel. The receiver will be notified that the transfer failed.',
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_rounded, size: 48, color: Theme.of(ctx).colorScheme.error),
+              const SizedBox(height: 16),
+              Text(
+                'Abort Transfer?',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This will destroy all cryptographic material and collapse the secure '
+                'tunnel. The receiver will be notified that the transfer failed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CrypButton(
+                      label: const Text('Abort & Destroy'),
+                      color: Theme.of(ctx).colorScheme.error,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: errorColor),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abort & Destroy'),
-          ),
-        ],
       ),
     );
     if (abort == true && mounted) {

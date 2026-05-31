@@ -699,7 +699,7 @@ class _SenderScreenState extends State<SenderScreen>
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 32),
                     Row(
                       children: [
                         Expanded(
@@ -708,7 +708,7 @@ class _SenderScreenState extends State<SenderScreen>
                             child: const Text('Cancel'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: CrypButton(
                             label: const Text('Clear & Go Back'),

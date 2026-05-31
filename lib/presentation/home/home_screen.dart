@@ -97,17 +97,40 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Role Assignment Conflict'),
-        content: Text(
-          'One user must be sender, another must be receiver. Please try again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.swap_horiz_rounded, size: 48, color: Theme.of(ctx).colorScheme.error),
+              const SizedBox(height: 16),
+              Text(
+                'Role Conflict',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'One user must be sender, another must be receiver. Please try again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: CrypButton(
+                  label: const Text('OK'),
+                  color: Theme.of(ctx).colorScheme.primary,
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

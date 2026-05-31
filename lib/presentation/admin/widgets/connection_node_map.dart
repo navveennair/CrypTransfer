@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../data/repositories/admin_repository.dart';
 import '../../../data/repositories/user_repository.dart';
+import '../../widgets/shared_widgets.dart';
 
 class ConnectionNodeMap extends StatelessWidget {
   final _adminRepo = AdminRepository();
@@ -64,12 +65,9 @@ class _NodeTile extends StatelessWidget {
     final isActive = connectionCount > 0;
     final color = isActive ? cs.primary : cs.onSurface.withValues(alpha: 0.1);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isActive ? cs.primary.withValues(alpha: 0.5) : cs.outline),
-      ),
+    return GlassContainer(
+      borderRadius: 20,
+      borderColor: isActive ? cs.primary.withValues(alpha: 0.5) : cs.outline,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

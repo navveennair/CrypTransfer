@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../data/repositories/admin_repository.dart';
+import '../../widgets/shared_widgets.dart';
 
 class SecurityPulseFeed extends StatelessWidget {
   final _adminRepo = AdminRepository();
@@ -62,14 +63,11 @@ class _SecurityLogTile extends StatelessWidget {
     final isCritical = event.contains('ERROR') || event.contains('FAILURE') || event.contains('WIPE');
     final color = isCritical ? cs.error : cs.primary;
 
-    return Container(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isCritical ? cs.error.withValues(alpha: 0.5) : cs.outline),
-      ),
+      borderRadius: 16,
+      borderColor: isCritical ? cs.error.withValues(alpha: 0.5) : cs.outline,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

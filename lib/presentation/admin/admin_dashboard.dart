@@ -47,7 +47,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              'COMMAND CENTER',
+              'CrypTransferAdmin',
               style: GoogleFonts.orbitron(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,

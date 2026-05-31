@@ -8,6 +8,7 @@ import '../../core/utils/session_manager.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../home/home_screen.dart';
+import '../widgets/shared_widgets.dart';
 import 'decrypt_screen.dart';
 
 // ─── ReceiverTransferScreen ───────────────────────────────────────────────────
@@ -70,9 +71,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   StreamSubscription<DocumentSnapshot>? _failedStatusSub;
 
   late final List<_StatusStep> _steps = [
-    _StatusStep('📡  Establishing secure connection…'),
-    _StatusStep('🔐  Verifying encryption parameters…'),
-    _StatusStep('✅  Ready to decrypt'),
+    _StatusStep('Establishing secure connection…'),
+    _StatusStep('Verifying encryption parameters…'),
+    _StatusStep('Secure channel ready'),
   ];
 
   @override
@@ -141,22 +142,50 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Abort Transfer?'),
-        content: const Text(
-          'This will destroy all cryptographic material and collapse the secure '
-          'tunnel. The sender will be notified that the transfer failed.',
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(24),
+        content: GlassContainer(
+          padding: const EdgeInsets.all(24),
+          borderRadius: 28,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning_rounded, size: 48, color: Theme.of(ctx).colorScheme.error),
+              const SizedBox(height: 16),
+              Text(
+                'Abort Transfer?',
+                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This will destroy all cryptographic material and collapse the secure '
+                'tunnel. The sender will be notified that the transfer failed.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CrypButton(
+                      label: const Text('Abort & Destroy'),
+                      color: Theme.of(ctx).colorScheme.error,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abort & Destroy'),
-          ),
-        ],
       ),
     );
     if (abort == true && mounted) {
@@ -365,8 +394,8 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
                 opacity: _allStepsDone ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 400),
                 child: FilledButton.icon(
-                  icon: const Icon(Icons.lock_open_rounded),
-                  label: const Text('Proceed to Decrypt'),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Open Secure File'),
                   onPressed: _allStepsDone ? _proceed : null,
                   style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52)),
