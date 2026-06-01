@@ -615,15 +615,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: (isSender ? cs.primary : cs.tertiary).withValues(alpha: 0.1),
+                              color: (data['status'] == 'aborted'
+                                      ? cs.error
+                                      : isSender
+                                          ? cs.primary
+                                          : cs.tertiary)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              isSender
-                                  ? Icons.upload_rounded
-                                  : Icons.download_rounded,
+                              data['status'] == 'aborted'
+                                  ? Icons.cancel_outlined
+                                  : isSender
+                                      ? Icons.upload_rounded
+                                      : Icons.download_rounded,
                               size: 20,
-                              color: isSender ? cs.primary : cs.tertiary,
+                              color: data['status'] == 'aborted'
+                                  ? cs.error
+                                  : isSender
+                                      ? cs.primary
+                                      : cs.tertiary,
                             ),
                           ),
                           const SizedBox(width: 14),
