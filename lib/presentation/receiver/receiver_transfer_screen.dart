@@ -71,6 +71,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   bool _aborting = false; // true while our own abort is in flight
   StreamSubscription<DocumentSnapshot>? _failedStatusSub;
 
+  static const _kWatchdogSeconds = 120;
+  Timer? _watchdogTimer;
+
   late final List<_StatusStep> _steps = [
     _StatusStep('Establishing secure connection…'),
     _StatusStep('Verifying encryption parameters…'),
@@ -96,11 +99,13 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     _watchTransferStatus();
     _loadMetadata();
     _runSteps();
+    _resetWatchdog();
   }
 
   @override
   void dispose() {
     _disposed = true;
+    _watchdogTimer?.cancel();
     _failedStatusSub?.cancel();
     widget.sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     _bounceCtrl.dispose();
@@ -114,6 +119,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
         .watchTransferStatus(widget.transferId)
         .listen((snap) async {
       if (!snap.exists) return;
+      _resetWatchdog();
       final status = snap.data()?['status'] as String?;
       if (status == 'failed' && !_aborting && !_cancelled && mounted) {
         _cancelled = true;
@@ -226,6 +232,43 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
         (_) => false,
       );
     }
+  }
+
+  // ─── Sender-silence watchdog ─────────────────────────────────────────────
+
+  void _resetWatchdog() {
+    if (_cancelled || _aborting) return;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer(
+      const Duration(seconds: _kWatchdogSeconds),
+      _onWatchdogFired,
+    );
+  }
+
+  void _onWatchdogFired() => _abortDueToWatchdog();
+
+  Future<void> _abortDueToWatchdog() async {
+    if (_aborting || _cancelled || !mounted) return;
+    _cancelled = true;
+    wipeAll();
+    final uid = _auth.currentUid;
+    if (uid != null) {
+      try {
+        await EncryptionService.closeReceiverSession(uid);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: const Text('Transfer stalled — sender connection lost'),
+        backgroundColor: Theme.of(context).colorScheme.tertiary,
+        duration: const Duration(seconds: 4),
+      ));
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
+    );
   }
 
   // ─── Kill-switch handler ─────────────────────────────────────────────────

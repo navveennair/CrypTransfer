@@ -68,6 +68,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
   bool _aborting = false; // true while our own abort is in flight — prevents double-fire from stream
   UploadTask? _uploadTask; // held so abort can cancel the in-flight Storage task
 
+  static const _kWatchdogSeconds = 120;
+  Timer? _watchdogTimer;
+
   late AnimationController _successCtrl;
   late Animation<double> _scaleAnim;
 
@@ -93,6 +96,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
     _cleanupTimeoutTimer?.cancel();
     _transferListener?.cancel();
     _successCtrl.dispose();
@@ -130,6 +134,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         return;
       }
 
+      _resetWatchdog();
       final data = snapshot.data()!;
       final status = data['status'] as String?;
 
@@ -189,6 +194,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
       }
 
       if (receiverStatus == 'saved' && mounted) {
+        _watchdogTimer?.cancel(); // cleanup timeout takes over from here
         setState(() {
           _statusMessage = '✅ Receiver saved the file securely';
           _canEndSession = true;
@@ -199,6 +205,47 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         }
       }
     });
+  }
+
+  // ─── Receiver-silence watchdog ───────────────────────────────────────────
+
+  void _resetWatchdog() {
+    if (_aborting || _sessionEnded) return;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer(
+      const Duration(seconds: _kWatchdogSeconds),
+      _onWatchdogFired,
+    );
+  }
+
+  void _onWatchdogFired() => _abortDueToWatchdog();
+
+  Future<void> _abortDueToWatchdog() async {
+    if (_aborting || _sessionEnded || !mounted) return;
+    _aborting = true;
+    _sessionEnded = true;
+    _watchdogTimer?.cancel();
+    _cleanupTimeoutTimer?.cancel();
+    _uploadTask?.cancel();
+    try {
+      await _transferRepo.updateTransferStatus(widget.transferId, 'failed');
+      await _transferRepo.updateTransferField(
+          widget.transferId, 'encryptedAESKey', FieldValue.delete());
+    } catch (_) {}
+    wipeAll();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: const Text('Transfer stalled — receiver connection lost'),
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
+          duration: const Duration(seconds: 4),
+        ));
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (_) => false,
+      );
+    }
   }
 
   Future<void> _clearSenderLocalMetadata() async {

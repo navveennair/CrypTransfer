@@ -71,15 +71,20 @@ class _DecryptScreenState extends State<DecryptScreen>
   bool _aborting = false;
   StreamSubscription<DocumentSnapshot>? _failedStatusSub;
 
+  static const _kWatchdogSeconds = 120;
+  Timer? _watchdogTimer;
+
   @override
   void initState() {
     super.initState();
     _watchTransferStatus();
     _loadTransfer();
+    _resetWatchdog();
   }
 
   @override
   void dispose() {
+    _watchdogTimer?.cancel();
     _failedStatusSub?.cancel();
     super.dispose();
   }
@@ -97,6 +102,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         .watchTransferStatus(widget.transferId)
         .listen((snap) async {
       if (!snap.exists) return;
+      _resetWatchdog();
       final status = snap.data()?['status'] as String?;
       if (status == 'failed' && !_aborting && _phase != _Phase.error && mounted) {
         _aborting = true;
@@ -221,6 +227,44 @@ class _DecryptScreenState extends State<DecryptScreen>
     }
   }
 
+  // ─── Sender-silence watchdog ─────────────────────────────────────────────
+
+  void _resetWatchdog() {
+    if (_aborting) return;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer(
+      const Duration(seconds: _kWatchdogSeconds),
+      _onWatchdogFired,
+    );
+  }
+
+  void _onWatchdogFired() => _abortDueToWatchdog();
+
+  Future<void> _abortDueToWatchdog() async {
+    if (_aborting || !mounted) return;
+    if (_phase == _Phase.decrypting || _phase == _Phase.done || _phase == _Phase.error) return;
+    _aborting = true;
+    wipeAll();
+    final uid = _auth.currentUid;
+    if (uid != null) {
+      try {
+        await EncryptionService.closeReceiverSession(uid);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: const Text('Transfer stalled — sender connection lost'),
+        backgroundColor: Theme.of(context).colorScheme.tertiary,
+        duration: const Duration(seconds: 4),
+      ));
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (_) => false,
+    );
+  }
+
   // ─── Step: load transfer metadata ────────────────────────────────────────
 
   Future<void> _loadTransfer() async {
@@ -253,6 +297,7 @@ class _DecryptScreenState extends State<DecryptScreen>
   // ─── Step: decrypt ────────────────────────────────────────────────────────
 
   Future<void> _decrypt() async {
+    _watchdogTimer?.cancel();
     setState(() => _phase = _Phase.decrypting);
 
     try {
