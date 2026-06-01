@@ -15,7 +15,7 @@ import '../../data/services/encryption_service.dart';
 import '../../data/services/transfer_service.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
-import 'transfer_progress_screen.dart';
+import 'sender_transfer_screen.dart';
 
 // ─── Isolate-safe RSA-OAEP encrypt ───────────────────────────────────────────
 
@@ -484,7 +484,7 @@ class _SenderScreenState extends State<SenderScreen>
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, anim, _) => TransferProgressScreen(
+        pageBuilder: (_, anim, _) => SenderTransferScreen(
           transferId: transferId,
           encryptedBytes: encryptedBytesCopy,
           fileName: file.name,

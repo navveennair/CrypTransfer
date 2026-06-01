@@ -21,7 +21,7 @@ import '../widgets/shared_widgets.dart';
 /// cannot navigate away until local cleanup is confirmed.
 ///
 /// NO aesKey constructor arg — the AES key was zeroed by wipeAll() in
-/// [TransferProgressScreen] before navigation (D-07).
+/// [SenderTransferScreen] before navigation (D-07).
 class SenderSessionEndScreen extends StatefulWidget {
   final String transferId; // D-10 edge-case check
   final String fileName;
@@ -54,7 +54,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
   @override
   void initState() {
     super.initState();
-    // No buffers to register — AES already zeroed upstream in TransferProgressScreen.
+    // No buffers to register — AES already zeroed upstream in SenderTransferScreen.
     _checkAndMarkDone();
   }
 
@@ -69,7 +69,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
       }
     } catch (_) {
       // D-10 edge-case cleanup failed — doc may already be gone or network
-      // is unavailable. AES key was already zeroed upstream in TransferProgressScreen.
+      // is unavailable. AES key was already zeroed upstream in SenderTransferScreen.
     } finally {
       if (mounted) setState(() => _aesCleanDone = true);
     }

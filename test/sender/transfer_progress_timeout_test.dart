@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 // Run: flutter test test/sender/transfer_progress_timeout_test.dart
 
 void main() {
-  group('TransferProgressScreen — pulsing waiting indicator', () {
+  group('SenderTransferScreen — pulsing waiting indicator', () {
     test('V07-01: CircularProgressIndicator visible when _canEndSession=true and _senderWipeSent=false', () {
-      // TODO: pump TransferProgressScreen with _done=true, _canEndSession=true, _senderWipeSent=false
+      // TODO: pump SenderTransferScreen with _done=true, _canEndSession=true, _senderWipeSent=false
       // expect: find.byType(CircularProgressIndicator) in done-branch context
     });
 
@@ -22,7 +22,7 @@ void main() {
     });
   });
 
-  group('TransferProgressScreen — safety timeout', () {
+  group('SenderTransferScreen — safety timeout', () {
     test('V07-04: _startCleanupTimeout() creates a 300-second Timer', () {
       // TODO: use fake async; verify Timer duration == 300 seconds
     });

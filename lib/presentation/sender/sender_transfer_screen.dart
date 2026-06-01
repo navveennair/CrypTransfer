@@ -12,7 +12,7 @@ import 'sender_session_end_screen.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 
-class TransferProgressScreen extends StatefulWidget {
+class SenderTransferScreen extends StatefulWidget {
   final String transferId;
   final Uint8List encryptedBytes;
   final String fileName;
@@ -26,7 +26,7 @@ class TransferProgressScreen extends StatefulWidget {
   /// Raw AES key bytes — registered in initState and zeroed by wipeAll() on session end (D-07).
   final Uint8List? aesKey;
 
-  const TransferProgressScreen({
+  const SenderTransferScreen({
     super.key,
     required this.transferId,
     required this.encryptedBytes,
@@ -41,13 +41,13 @@ class TransferProgressScreen extends StatefulWidget {
   });
 
   @override
-  State<TransferProgressScreen> createState() =>
-      _TransferProgressScreenState();
+  State<SenderTransferScreen> createState() =>
+      _SenderTransferScreenState();
 }
 
-class _TransferProgressScreenState extends State<TransferProgressScreen>
+class _SenderTransferScreenState extends State<SenderTransferScreen>
     with SingleTickerProviderStateMixin,
-        SecurityLifecycleMixin<TransferProgressScreen> {
+        SecurityLifecycleMixin<SenderTransferScreen> {
   final _transferRepo = TransferRepository();
 
   double _progress = 0.0;
