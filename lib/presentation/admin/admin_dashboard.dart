@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../app_theme.dart';
@@ -35,11 +34,11 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    // FORCE DARK THEME for Admin Dashboard
     return Theme(
       data: AppTheme.dark,
       child: Builder(builder: (context) {
         final cs = Theme.of(context).colorScheme;
+        final tt = Theme.of(context).textTheme;
 
         return Scaffold(
           backgroundColor: cs.surface,
@@ -48,8 +47,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             elevation: 0,
             title: Text(
               'CrypTransferAdmin',
-              style: GoogleFonts.orbitron(
-                fontSize: 18,
+              style: tt.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 letterSpacing: 2,
                 color: cs.primary,
@@ -60,17 +58,13 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
               controller: _tabController,
               indicatorColor: cs.primary,
               indicatorWeight: 3,
-              labelStyle: GoogleFonts.orbitron(
-                fontWeight: FontWeight.w800, 
-                fontSize: 10,
+              labelStyle: tt.labelSmall?.copyWith(
+                fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
-                color: cs.primary,
               ),
-              unselectedLabelStyle: GoogleFonts.orbitron(
-                fontWeight: FontWeight.w600, 
-                fontSize: 10,
+              unselectedLabelStyle: tt.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
                 letterSpacing: 1.2,
-                color: cs.onSurface.withValues(alpha: 0.5),
               ),
               labelColor: cs.primary,
               unselectedLabelColor: cs.onSurface.withValues(alpha: 0.5),
@@ -85,7 +79,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           body: TabBarView(
             controller: _tabController,
             children: [
-              _buildAnalyticsTab(cs),
+              _buildAnalyticsTab(cs, tt),
               ConnectionNodeMap(),
               SecurityPulseFeed(),
               const UserManagementList(),
@@ -96,7 +90,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     );
   }
 
-  Widget _buildAnalyticsTab(ColorScheme cs) {
+  Widget _buildAnalyticsTab(ColorScheme cs, TextTheme tt) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
@@ -104,14 +98,13 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         children: [
           _buildSummaryCards(cs),
           const SizedBox(height: 24),
-          
+
           Text(
             'NETWORK VOLUME',
-            style: GoogleFonts.orbitron(
+            style: tt.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: cs.onSurface.withValues(alpha: 0.7),
               letterSpacing: 1.5,
+              color: cs.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 12),
@@ -119,19 +112,18 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             padding: const EdgeInsets.all(20),
             child: TransferVolumeChart(),
           ),
-          
+
           const SizedBox(height: 32),
           Text(
             'ACTIVE HANDSHAKES',
-            style: GoogleFonts.orbitron(
+            style: tt.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: cs.onSurface.withValues(alpha: 0.7),
               letterSpacing: 1.5,
+              color: cs.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 12),
-          _buildActiveSessionsList(cs),
+          _buildActiveSessionsList(cs, tt),
         ],
       ),
     );
@@ -141,6 +133,24 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     return StreamBuilder<int>(
       stream: _adminRepo.streamTotalTransfers(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Row(
+            children: [
+              _SummaryCard(label: 'TRANSFERS', value: '–', icon: Icons.swap_horiz_rounded, color: cs.primary),
+              const SizedBox(width: 16),
+              _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.secondary),
+            ],
+          );
+        }
+        if (snapshot.hasError) {
+          return Row(
+            children: [
+              _SummaryCard(label: 'TRANSFERS', value: '–', icon: Icons.swap_horiz_rounded, color: cs.error),
+              const SizedBox(width: 16),
+              _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.error),
+            ],
+          );
+        }
         final totalTransfers = snapshot.data ?? 0;
 
         return Row(
@@ -155,6 +165,12 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             StreamBuilder<int>(
               stream: _adminRepo.streamTotalUsers(),
               builder: (context, userSnap) {
+                if (userSnap.connectionState == ConnectionState.waiting) {
+                  return _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.secondary);
+                }
+                if (userSnap.hasError) {
+                  return _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.error);
+                }
                 final totalUsers = userSnap.data ?? 0;
                 return _SummaryCard(
                   label: 'TOTAL NODES',
@@ -166,17 +182,31 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             ),
           ],
         );
-      }
+      },
     );
   }
 
-  Widget _buildActiveSessionsList(ColorScheme cs) {
+  Widget _buildActiveSessionsList(ColorScheme cs, TextTheme tt) {
     return StreamBuilder<QuerySnapshot>(
       stream: _adminRepo.streamActiveHandshakesDetail(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'Error loading data',
+                style: TextStyle(color: cs.error),
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final sessions = snapshot.data!.docs;
-        
+
         if (sessions.isEmpty) {
           return GlassContainer(
             padding: const EdgeInsets.all(24),
@@ -208,19 +238,16 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       children: [
                         Text(
                           '@${data['fromUsername'] ?? '...'} → @${data['toUsername'] ?? '...'}',
-                          style: GoogleFonts.orbitron(
-                            color: cs.onSurface, 
+                          style: tt.bodyMedium?.copyWith(
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
                             letterSpacing: 0.5,
+                            color: cs.onSurface,
                           ),
                         ),
                         Text(
                           'Handshake established',
-                          style: GoogleFonts.exo2(
-                            color: cs.onSurface.withValues(alpha: 0.5), 
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -253,6 +280,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Expanded(
       child: GlassContainer(
         padding: const EdgeInsets.all(20),
@@ -263,8 +291,7 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               value,
-              style: GoogleFonts.orbitron(
-                fontSize: 28,
+              style: tt.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: cs.onSurface,
               ),
@@ -272,8 +299,7 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.orbitron(
-                fontSize: 9,
+              style: tt.labelSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
                 color: cs.onSurface.withValues(alpha: 0.6),

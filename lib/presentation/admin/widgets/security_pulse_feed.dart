@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../data/repositories/admin_repository.dart';
 import '../../widgets/shared_widgets.dart';
@@ -16,10 +15,21 @@ class SecurityPulseFeed extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: _adminRepo.streamSecurityAuditLog(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading data',
+              style: TextStyle(color: cs.error),
+            ),
+          );
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
+
         final logs = snapshot.data!.docs;
-        
+
         if (logs.isEmpty) {
           return Center(
             child: Text('No security events detected', style: TextStyle(color: cs.onSurfaceVariant)),
@@ -33,7 +43,7 @@ class SecurityPulseFeed extends StatelessWidget {
             final data = logs[i].data() as Map<String, dynamic>;
             final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
             final event = data['event'] as String? ?? 'UNKNOWN_EVENT';
-            
+
             return _SecurityLogTile(
               event: event,
               details: data['details'] as String? ?? '',
@@ -60,6 +70,7 @@ class _SecurityLogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     final isCritical = event.contains('ERROR') || event.contains('FAILURE') || event.contains('WIPE');
     final color = isCritical ? cs.error : cs.primary;
 
@@ -93,11 +104,10 @@ class _SecurityLogTile extends StatelessWidget {
                   children: [
                     Text(
                       event.toUpperCase(),
-                      style: GoogleFonts.orbitron(
-                        fontSize: 12,
+                      style: tt.labelMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: color,
                         letterSpacing: 1,
+                        color: color,
                       ),
                     ),
                     Text(
@@ -109,10 +119,7 @@ class _SecurityLogTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   details,
-                  style: GoogleFonts.inter(
-                    color: cs.onSurface,
-                    fontSize: 13,
-                  ),
+                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
                 ),
               ],
             ),

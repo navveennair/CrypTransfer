@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/repositories/admin_repository.dart';
 import '../../widgets/shared_widgets.dart';
@@ -11,16 +10,27 @@ class UserManagementList extends StatelessWidget {
   Widget build(BuildContext context) {
     final adminRepo = AdminRepository();
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return StreamBuilder<List<UserModel>>(
       stream: adminRepo.streamAllUsers(),
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading data',
+              style: TextStyle(color: cs.error),
+            ),
+          );
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
-        // Data Validation: Skip malformed or empty user documents
-        final users = snapshot.data!.where((u) => 
-          u.username.isNotEmpty && 
-          u.email.isNotEmpty && 
+
+        final users = snapshot.data!.where((u) =>
+          u.username.isNotEmpty &&
+          u.email.isNotEmpty &&
           u.username != '@'
         ).toList();
 
@@ -28,7 +38,7 @@ class UserManagementList extends StatelessWidget {
           return Center(
             child: Text(
               'No valid users found',
-              style: GoogleFonts.orbitron(color: cs.onSurface.withValues(alpha: 0.5)),
+              style: tt.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.5)),
             ),
           );
         }
@@ -48,7 +58,6 @@ class UserManagementList extends StatelessWidget {
                   : cs.error.withValues(alpha: 0.3),
               child: Row(
                 children: [
-                  // Unified Iconography
                   Container(
                     width: 48,
                     height: 48,
@@ -66,38 +75,32 @@ class UserManagementList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  
-                  // Global Font Inheritance
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           '@${user.username}',
-                          style: GoogleFonts.orbitron(
-                            color: cs.onSurface,
+                          style: tt.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            letterSpacing: 1,
+                            letterSpacing: 0.5,
+                            color: cs.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           user.email,
-                          style: GoogleFonts.exo2(
+                          style: tt.bodySmall?.copyWith(
                             color: cs.onSurface.withValues(alpha: 0.6),
-                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  
-                  // Standardized Toggle Logic
                   _RevokeButton(
-                    user: user, 
-                    onToggle: (val) => adminRepo.setUserActiveStatus(user.uid, val)
+                    user: user,
+                    onToggle: (val) => adminRepo.setUserActiveStatus(user.uid, val),
                   ),
                 ],
               ),
@@ -117,25 +120,24 @@ class _RevokeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     if (user.isAdmin) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+          color: cs.tertiary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           'ADMIN',
-          style: GoogleFonts.orbitron(
-            fontSize: 8,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.tertiary,
+            color: cs.tertiary,
           ),
         ),
       );
     }
 
-    final cs = Theme.of(context).colorScheme;
     return Switch(
       value: user.isActive,
       activeThumbColor: cs.secondary,
