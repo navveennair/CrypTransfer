@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/firebase_constants.dart';
 import '../models/user_model.dart';
 
@@ -14,12 +15,6 @@ class AdminRepository {
   Stream<int> streamTotalTransfers() =>
       _db.collection(FirebaseConstants.transferLogs).snapshots().map((s) => s.size);
 
-  Stream<int> streamActiveHandshakes() => _db
-      .collection(FirebaseConstants.handshakes)
-      .where('status', isEqualTo: 'handshake_complete')
-      .snapshots()
-      .map((s) => s.size);
-
   Stream<int> streamTotalUsers() =>
       _db.collection(FirebaseConstants.users).snapshots().map((s) => s.size);
 
@@ -27,6 +22,7 @@ class AdminRepository {
 
   Stream<List<UserModel>> streamAllUsers() => _db
       .collection(FirebaseConstants.users)
+      .limit(200)
       .snapshots()
       .map((s) => s.docs.map((d) => UserModel.fromDoc(d)).toList());
 
@@ -34,26 +30,16 @@ class AdminRepository {
     await _db.collection(FirebaseConstants.users).doc(uid).update({
       'isActive': isActive,
     });
-    
+
+    final adminUid = FirebaseAuth.instance.currentUser?.uid;
     // Log the administrative action
     await _db.collection(FirebaseConstants.securityAuditLog).add({
       'event': isActive ? 'ADMIN_USER_RESTORE' : 'ADMIN_USER_REVOKE',
       'details': 'User $uid access status changed to $isActive',
+      'adminUid': adminUid ?? 'unknown',
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
-
-  // ─── Logs ────────────────────────────────────────────────────────────────
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> streamTransferLogs() => _db
-      .collection(FirebaseConstants.transferLogs)
-      .orderBy('loggedAt', descending: true)
-      .snapshots();
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> streamSecurityLogs() => _db
-      .collection(FirebaseConstants.securityAuditLog)
-      .orderBy('timestamp', descending: true)
-      .snapshots();
 
   // ─── Additional admin dashboard streams ───────────────────────────────────
 
@@ -75,6 +61,7 @@ class AdminRepository {
     return _db
         .collection(FirebaseConstants.securityAuditLog)
         .orderBy('timestamp', descending: true)
+        .limit(100)
         .snapshots();
   }
 
@@ -83,6 +70,36 @@ class AdminRepository {
     return _db
         .collection(FirebaseConstants.transferLogs)
         .orderBy('loggedAt', descending: true)
+        .limit(100)
         .snapshots();
+  }
+
+  // ─── Connection Node Map ─────────────────────────────────────────────────
+
+  /// Fetches users with their accepted friendship counts for the connection node map.
+  /// Capped at 50 users (D-09). Runs once per tab open via FutureBuilder.
+  Future<List<Map<String, dynamic>>> fetchUserConnections() async {
+    final usersSnap = await _db
+        .collection(FirebaseConstants.users)
+        .limit(50)
+        .get();
+
+    final futures = usersSnap.docs.map((userDoc) async {
+      final uid = userDoc.id;
+      final data = userDoc.data();
+      final friendships = await _db
+          .collection(FirebaseConstants.users)
+          .doc(uid)
+          .collection(FirebaseConstants.friendships)
+          .where('status', isEqualTo: 'accepted')
+          .get();
+      return {
+        'uid': uid,
+        'username': data['username'] as String? ?? '',
+        'connectionCount': friendships.size,
+      };
+    }).toList();
+
+    return Future.wait(futures);
   }
 }
