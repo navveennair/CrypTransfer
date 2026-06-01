@@ -558,6 +558,27 @@ class KeyRepository {
         .snapshots();
   }
 
+  /// One-shot read of the public key in the handshake doc where the current user
+  /// is the sender and [receiverUid] is the receiver.  Returns null if no doc
+  /// exists (receiver has closed their session).  Used by SenderScreen as a
+  /// pre-emptive freshness check before RSA encryption to close the ~1-2 s
+  /// reactive-stream latency window.
+  Future<String?> fetchHandshakePublicKey(String receiverUid) async {
+    try {
+      final result = await _db
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: _uid)
+          .where('receiverId', isEqualTo: receiverUid)
+          .limit(1)
+          .get();
+      if (result.docs.isEmpty) return null;
+      return result.docs.first.data()['publicKey'] as String?;
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not verify receiver key: ${e.message ?? e.code}');
+    }
+  }
+
   /// Streams incoming handshakes where this user is the receiver and sender has assigned a role.
   /// Used for automatic sender detection when receiver opens mailbox.
   Stream<QuerySnapshot<Map<String, dynamic>>> streamIncomingHandshakes(

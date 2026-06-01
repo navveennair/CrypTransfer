@@ -388,12 +388,43 @@ class _SenderScreenState extends State<SenderScreen>
     if (_encryptingKey) return;
     final aesKey = _aesKey;
     final publicKeyJson = _selectedReceiverPublicKeyJson;
+    final receiverId = _receiverId;
     if (aesKey == null) {
       _showError('Encrypt the file first (Step 2).');
       return;
     }
-    if (publicKeyJson == null) {
+    if (publicKeyJson == null || receiverId == null) {
       _showError('Select a receiver first (Step 0).');
+      return;
+    }
+
+    // Pre-emptive freshness check: confirm the cached public key is still live
+    // in Firestore before showing the biometric prompt.  The reactive stream has
+    // ~1-2 s latency; without this gate the sender can encrypt with a stale key
+    // in the window between the receiver closing their mailbox and the stream
+    // delivering the null snapshot.
+    try {
+      final liveKey = await _connService.fetchHandshakePublicKey(receiverId);
+      if (!mounted) return;
+      if (liveKey == null) {
+        _wipeSensitiveData();
+        _showError('Receiver closed their session — cannot encrypt.');
+        return;
+      }
+      if (liveKey != publicKeyJson) {
+        _wipeSensitiveData();
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(
+            content: const Text('Receiver key changed — re-encrypt required.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ));
+        return;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _showError('Could not verify receiver key. Please try again.');
       return;
     }
 

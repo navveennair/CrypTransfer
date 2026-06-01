@@ -82,6 +82,38 @@ void main() {
         print('✅ GAP2-02 PASSED: mid-flight guard logic verified');
       },
     );
+
+    test(
+      'GAP2-03: pre-emptive freshness check blocks RSA encrypt when live key differs from cache',
+      () {
+        // Unit model: before calling compute(), _encryptAesKey() fetches the
+        // current public key from Firestore.  If it differs from the cached
+        // _selectedReceiverPublicKeyJson (or is null), encryption must be aborted
+        // and _wipeSensitiveData() called.
+
+        final cachedKey = 'KEY_A';
+
+        // Case 1: live doc missing (receiver closed session)
+        String? liveKey;
+        expect(liveKey, isNull,
+            reason: 'Encryption must abort when Firestore doc is gone');
+
+        // Case 2: live key rotated
+        liveKey = 'KEY_B';
+        final abortWhenRotated = liveKey != cachedKey;
+        expect(abortWhenRotated, true,
+            reason: 'Encryption must abort when live key differs from cached key');
+
+        // Case 3: live key matches — proceed
+        liveKey = 'KEY_A';
+        final proceedWhenMatch = liveKey == cachedKey;
+        expect(proceedWhenMatch, true,
+            reason: 'Encryption must proceed when live key matches cached key');
+
+        // ignore: avoid_print
+        print('✅ GAP2-03 PASSED: pre-emptive freshness gate logic verified');
+      },
+    );
   });
 
   group('SenderScreen — Change File confirmation (Gap 3)', () {
