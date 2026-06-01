@@ -228,9 +228,15 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     _cleanupTimeoutTimer?.cancel();
     _uploadTask?.cancel();
     try {
-      await _transferRepo.updateTransferStatus(widget.transferId, 'failed');
-      await _transferRepo.updateTransferField(
-          widget.transferId, 'encryptedAESKey', FieldValue.delete());
+      await _transferRepo.markTransferInterrupted(widget.transferId, wipeAesKey: true);
+      await _transferRepo.deleteStorageFile(widget.transferId);
+      await _transferRepo.writeConnectionLostAuditLog(
+        senderId: widget.senderId,
+        receiverId: widget.receiverId,
+        receiverUsername: widget.receiverUsername,
+        fileName: widget.fileName,
+        fileSize: widget.fileSize,
+      );
     } catch (_) {}
     wipeAll();
     if (mounted) {

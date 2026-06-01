@@ -246,6 +246,18 @@ class _DecryptScreenState extends State<DecryptScreen>
     _aborting = true;
     wipeAll();
     final uid = _auth.currentUid;
+    if (uid != null && _phase != _Phase.loading) {
+      try {
+        await _repo.markTransferInterrupted(widget.transferId);
+        await _repo.writeConnectionLostAuditLog(
+          senderId: _transfer.senderId,
+          receiverId: _transfer.receiverId,
+          senderUsername: _senderUsername,
+          fileName: _transfer.fileName,
+          fileSize: _transfer.fileSize,
+        );
+      } catch (_) {}
+    }
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);

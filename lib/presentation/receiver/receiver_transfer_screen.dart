@@ -53,6 +53,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   late AnimationController _bounceCtrl;
   late Animation<double> _bounceAnim;
 
+  String _senderId = '';
   String _senderUsername = '';
   int _fileSize = 0;
   bool _metadataLoaded = false;
@@ -252,6 +253,18 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     _cancelled = true;
     wipeAll();
     final uid = _auth.currentUid;
+    if (uid != null && _senderId.isNotEmpty) {
+      try {
+        await _repo.markTransferInterrupted(widget.transferId);
+        await _repo.writeConnectionLostAuditLog(
+          senderId: _senderId,
+          receiverId: uid,
+          senderUsername: _senderUsername,
+          fileName: widget.fileName,
+          fileSize: _fileSize,
+        );
+      } catch (_) {}
+    }
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
@@ -298,6 +311,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       final profile = await _auth.getUserProfile(transfer.senderId);
       if (mounted) {
         setState(() {
+          _senderId = transfer.senderId;
           _senderUsername = profile?.username ?? 'Unknown';
           _fileSize = transfer.fileSize;
           _metadataLoaded = true;
