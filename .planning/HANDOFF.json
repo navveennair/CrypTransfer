@@ -1,44 +1,50 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-31T00:00:00Z",
+  "timestamp": "2026-06-01T00:00:00Z",
   "phase": "10",
   "phase_name": "ui-polish-phase-2-stale-key-security-fix",
   "phase_dir": ".planning/phases/10-ui-polish-phase-2-stale-key-security-fix",
   "plan": 2,
-  "task": "human-uat",
-  "total_tasks": "done",
-  "status": "human_needed",
+  "task": "post-uat-gap-closure",
+  "total_tasks": "ongoing",
+  "status": "paused",
   "completed_tasks": [
-    {"id": "10-01-T1", "name": "Restore stale-key guard in _onHandshakeUpdate (D-01/D-02/D-03)", "status": "done", "commit": "f1bf0a7"},
-    {"id": "10-01-T2", "name": "Full suite verification and commit", "status": "done", "commit": "f1bf0a7"},
-    {"id": "10-02-A", "name": "Correct spacing in 7 dialog instances across 6 files (D-04/D-05/D-06)", "status": "done", "commit": "8f56c2d"},
-    {"id": "10-02-B", "name": "Verify admin dashboard analyze-clean (D-07)", "status": "done", "commit": "8f56c2d"},
-    {"id": "10-02-C", "name": "Full quality gate and commit (D-07/D-08)", "status": "done", "commit": "8f56c2d"}
+    {"id": "10-01-T1", "name": "Restore stale-key guard in _onHandshakeUpdate", "status": "done", "commit": "f1bf0a7"},
+    {"id": "10-02-A-C", "name": "Dialog spacing + admin dashboard + housekeeping", "status": "done", "commit": "8f56c2d"},
+    {"id": "uat-2", "name": "Dialog spacing visual inspection", "status": "pass"},
+    {"id": "uat-3", "name": "Admin dashboard rendering (code evidence)", "status": "pass-code"},
+    {"id": "gap-1a", "name": "Pre-emptive stale-key freshness check in _encryptAesKey()", "status": "done", "commit": "2f486a0"},
+    {"id": "gap-1b", "name": "Abort audit log + sender navigates home on stale-key abort", "status": "done", "commit": "7b8f207"},
+    {"id": "gap-1c", "name": "HomeScreen left icon red on aborted entries", "status": "done", "commit": "7362f1f"}
   ],
   "remaining_tasks": [
-    {"id": "uat-1", "name": "Stale-key guard live trigger", "status": "pending_human"},
-    {"id": "uat-2", "name": "Dialog spacing visual inspection on device", "status": "pending_human"},
-    {"id": "uat-3", "name": "Admin dashboard rendering verification", "status": "pending_human"}
-  ],
-  "blockers": [
     {
-      "description": "3 human UAT items require physical device testing",
-      "type": "human_action",
-      "workaround": "none — must test on device"
+      "id": "gap-2",
+      "name": "closeReceiverSession() missing from all 3 abort navigation paths",
+      "status": "not_started",
+      "detail": "receiver_transfer_screen.dart:129 (sender-abort), decrypt_screen.dart:113 (sender-abort), decrypt_screen.dart:204 (receiver manual abort) all call pushAndRemoveUntil(HomeScreen) WITHOUT calling closeReceiverSession(). Leaves isReadyToReceive=true, publicKey published, sessionActive=true in Firestore. ReceiverScreen._loadReadyToReceiveState() reads this on next open and shows toggle ON."
+    },
+    {
+      "id": "uat-1-retest",
+      "name": "Re-test stale-key guard on device after pre-emptive fix",
+      "status": "not_started",
+      "detail": "AES-encrypt file, stop before Encrypt Key tap, receiver closes mailbox, tap Encrypt Key. Expected: error snackbar before biometric prompt, sender -> HomeScreen, both show Failed badge."
     }
   ],
+  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Perform 3 UAT items in 10-HUMAN-UAT.md on a physical device",
-      "context": "Stale-key guard, dialog spacing, admin dashboard — all require live rendering or live Firestore session",
-      "blocking": true
+      "action": "Re-test UAT-1 (stale-key) on device after pre-emptive fix in commit 2f486a0",
+      "context": "Original reactive guard was insufficient. Pre-emptive Firestore get() fix applied. Needs live device verification.",
+      "blocking": false
     }
   ],
   "decisions": [
-    {"decision": "_wipeSensitiveData() used in D-03 stale-key block (not _revertToWaiting())", "rationale": "Wipes only crypto buffers without clearing receiver selection or triggering full session reset", "phase": "10"},
-    {"decision": "home_screen.dart width NOT changed in role conflict dialog", "rationale": "Single full-width CrypButton — no Row, no Cancel/CrypButton pair needing gap adjustment", "phase": "10"}
+    {"decision": "Pre-emptive freshness check via fetchHandshakePublicKey() before biometric prompt", "rationale": "Stream latency ~1-2s makes reactive guard insufficient — fail fast before biometric UX starts", "phase": "10"},
+    {"decision": "writeAbortAuditLog() batch-writes status=aborted to BOTH users auditLogs", "rationale": "Symmetric audit trail; HomeScreen renders red Failed badge for status==aborted", "phase": "10"},
+    {"decision": "closeReceiverSession() fix applied at abort call sites, NOT in ReceiverScreen.dispose()", "rationale": "dispose() runs in normal navigation too; fix must be surgical to the 3 abort paths only", "phase": "10"}
   ],
   "uncommitted_files": [],
-  "next_action": "Perform 3 UAT items on device, then report 'approved' or describe issues for gap closure",
-  "context_notes": "Phase 10 execution complete. Both plans ran inline (no subagents). Verifier: 8/8 must-haves verified, status human_needed. Git HEAD: 5c89788. Analyze clean, 113/114 tests passing."
+  "next_action": "Fix 3 abort paths: add uid + await EncryptionService.closeReceiverSession(uid) before pushAndRemoveUntil(HomeScreen) in receiver_transfer_screen.dart:129, decrypt_screen.dart:113, decrypt_screen.dart:204. Then retest UAT-1.",
+  "context_notes": "Phase 10 UAT-1 found reactive guard insufficient. Fixed with pre-emptive Firestore check (3 commits). Session surfaced structural gap: abort paths bypass closeReceiverSession(), leaving Firestore dirty. Security concern: RSA public key stays live after session ends via abort. Context at 79% - pausing cleanly, no uncommitted changes."
 }
