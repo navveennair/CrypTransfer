@@ -145,6 +145,15 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         try {
           await _transferRepo.deleteStorageFile(widget.transferId);
         } catch (_) {}
+        try {
+          await _transferRepo.writeConnectionLostAuditLog(
+            senderId: widget.senderId,
+            receiverId: widget.receiverId,
+            receiverUsername: widget.receiverUsername,
+            fileName: widget.fileName,
+            fileSize: widget.fileSize,
+          );
+        } catch (_) {}
         wipeAll();
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -232,7 +241,11 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     _uploadTask?.cancel();
     try {
       await _transferRepo.markTransferInterrupted(widget.transferId, wipeAesKey: true);
+    } catch (_) {}
+    try {
       await _transferRepo.deleteStorageFile(widget.transferId);
+    } catch (_) {}
+    try {
       await _transferRepo.writeConnectionLostAuditLog(
         senderId: widget.senderId,
         receiverId: widget.receiverId,
@@ -365,6 +378,15 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     }
     try {
       await _transferRepo.deleteStorageFile(widget.transferId);
+    } catch (_) {}
+    try {
+      await _transferRepo.writeConnectionLostAuditLog(
+        senderId: widget.senderId,
+        receiverId: widget.receiverId,
+        receiverUsername: widget.receiverUsername,
+        fileName: widget.fileName,
+        fileSize: widget.fileSize,
+      );
     } catch (_) {}
     wipeAll();
     if (mounted) {

@@ -256,6 +256,8 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     if (uid != null && _senderId.isNotEmpty) {
       try {
         await _repo.markTransferInterrupted(widget.transferId);
+      } catch (_) {}
+      try {
         await _repo.writeConnectionLostAuditLog(
           senderId: _senderId,
           receiverId: uid,

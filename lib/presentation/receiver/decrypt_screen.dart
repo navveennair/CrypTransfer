@@ -249,6 +249,8 @@ class _DecryptScreenState extends State<DecryptScreen>
     if (uid != null && _phase != _Phase.loading) {
       try {
         await _repo.markTransferInterrupted(widget.transferId);
+      } catch (_) {}
+      try {
         await _repo.writeConnectionLostAuditLog(
           senderId: _transfer.senderId,
           receiverId: _transfer.receiverId,
