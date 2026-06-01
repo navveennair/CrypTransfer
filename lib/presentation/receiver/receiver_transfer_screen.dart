@@ -213,9 +213,19 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     _aborting = true;
     _cancelled = true;
     try {
-      await _repo.updateTransferStatus(widget.transferId, 'failed');
-    } catch (_) {
-      // Wipe proceeds regardless.
+      await _repo.markTransferInterrupted(widget.transferId);
+    } catch (_) {}
+    final uid = _auth.currentUid;
+    if (uid != null && _senderId.isNotEmpty) {
+      try {
+        await _repo.writeConnectionLostAuditLog(
+          senderId: _senderId,
+          receiverId: uid,
+          senderUsername: _senderUsername,
+          fileName: widget.fileName,
+          fileSize: _fileSize,
+        );
+      } catch (_) {}
     }
     wipeAll();
     if (mounted) {

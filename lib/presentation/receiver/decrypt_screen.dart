@@ -194,17 +194,21 @@ class _DecryptScreenState extends State<DecryptScreen>
     if (_aborting) return;
     _aborting = true;
     try {
-      await _repo.updateTransferStatus(widget.transferId, 'failed');
-      await _repo.updateTransferField(
-        widget.transferId,
-        'encryptedAESKey',
-        FieldValue.delete(),
-      );
-    } catch (_) {
-      // Wipe proceeds regardless.
+      await _repo.markTransferInterrupted(widget.transferId);
+    } catch (_) {}
+    final uid = _auth.currentUid;
+    if (uid != null && _phase != _Phase.loading) {
+      try {
+        await _repo.writeConnectionLostAuditLog(
+          senderId: _transfer.senderId,
+          receiverId: _transfer.receiverId,
+          senderUsername: _senderUsername,
+          fileName: _transfer.fileName,
+          fileSize: _transfer.fileSize,
+        );
+      } catch (_) {}
     }
     wipeAll();
-    final uid = _auth.currentUid;
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
