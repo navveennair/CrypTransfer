@@ -1,49 +1,93 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../data/repositories/admin_repository.dart';
-import '../../../data/repositories/user_repository.dart';
 import '../../widgets/shared_widgets.dart';
 
-class ConnectionNodeMap extends StatelessWidget {
-  final _adminRepo = AdminRepository();
-  final _userRepo = UserRepository();
+class ConnectionNodeMap extends StatefulWidget {
+  const ConnectionNodeMap({super.key});
 
-  ConnectionNodeMap({super.key});
+  @override
+  State<ConnectionNodeMap> createState() => _ConnectionNodeMapState();
+}
+
+class _ConnectionNodeMapState extends State<ConnectionNodeMap> {
+  final _adminRepo = AdminRepository();
+  late Future<List<Map<String, dynamic>>> _futureConnections;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureConnections = _adminRepo.fetchUserConnections();
+  }
+
+  void _refresh() {
+    setState(() {
+      _futureConnections = _adminRepo.fetchUserConnections();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _adminRepo.streamUserConnections(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
-        final users = snapshot.data!.docs;
-        
-        return GridView.builder(
-          padding: const EdgeInsets.all(20),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.8,
-          ),
-          itemCount: users.length,
-          itemBuilder: (context, i) {
-            final data = users[i].data() as Map<String, dynamic>;
-            final username = data['username'] as String? ?? '...';
-            final uid = users[i].id;
+    final cs = Theme.of(context).colorScheme;
 
-            return StreamBuilder<Map<String, dynamic>?>(
-              stream: _userRepo.streamUserWithFriendships(uid),
-              builder: (context, connSnap) {
-                final connCount = (connSnap.data?['friendships'] as List?)?.length ?? 0;
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _futureConnections,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading data',
+              style: TextStyle(color: cs.error),
+            ),
+          );
+        }
+        final users = snapshot.data ?? [];
+        if (users.isEmpty) {
+          return Center(
+            child: Text(
+              'No network nodes found',
+              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)),
+            ),
+          );
+        }
+
+        return Stack(
+          children: [
+            GridView.builder(
+              padding: const EdgeInsets.all(20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: users.length,
+              itemBuilder: (context, i) {
+                final record = users[i];
                 return _NodeTile(
-                  username: username,
-                  connectionCount: connCount,
+                  username: record['username'] as String? ?? '',
+                  connectionCount: record['connectionCount'] as int? ?? 0,
                 );
               },
-            );
-          },
+            ),
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                  tooltip: 'Refresh network map',
+                  onPressed: _refresh,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

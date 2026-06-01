@@ -51,11 +51,6 @@ class AdminRepository {
         .snapshots();
   }
 
-  /// Stream user connections for connection node map
-  Stream<QuerySnapshot<Map<String, dynamic>>> streamUserConnections() {
-    return _db.collection(FirebaseConstants.users).snapshots();
-  }
-
   /// Stream security audit log for security pulse feed
   Stream<QuerySnapshot<Map<String, dynamic>>> streamSecurityAuditLog() {
     return _db
