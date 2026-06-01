@@ -17,9 +17,12 @@ import '../widgets/shared_widgets.dart';
 /// exists (receiver cleanup was interrupted), we delete it here before marking
 /// the AES cleanup done. In the normal flow, the doc is already absent.
 ///
+/// "Back to Home" is intentionally gated behind [_aesCleanDone] — the sender
+/// cannot navigate away until local cleanup is confirmed.
+///
 /// NO aesKey constructor arg — the AES key was zeroed by wipeAll() in
 /// [TransferProgressScreen] before navigation (D-07).
-class SenderSessionEndedScreen extends StatefulWidget {
+class SenderSessionEndScreen extends StatefulWidget {
   final String transferId; // D-10 edge-case check
   final String fileName;
   final int fileSize;
@@ -28,7 +31,7 @@ class SenderSessionEndedScreen extends StatefulWidget {
   final String receiverId;
   final String? timeoutReason; // null = normal cleanup; non-null = timeout message
 
-  const SenderSessionEndedScreen({
+  const SenderSessionEndScreen({
     super.key,
     required this.transferId,
     required this.fileName,
@@ -40,12 +43,11 @@ class SenderSessionEndedScreen extends StatefulWidget {
   });
 
   @override
-  State<SenderSessionEndedScreen> createState() =>
-      _SenderSessionEndedScreenState();
+  State<SenderSessionEndScreen> createState() => _SenderSessionEndScreenState();
 }
 
-class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
-    with SecurityLifecycleMixin<SenderSessionEndedScreen> {
+class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
+    with SecurityLifecycleMixin<SenderSessionEndScreen> {
   final _transferRepo = TransferRepository();
   bool _aesCleanDone = false;
 
@@ -79,7 +81,7 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
     final tt = Theme.of(context).textTheme;
 
     return PopScope(
-      canPop: false, // only exit is "Back to Home"
+      canPop: false, // only exit is "Back to Home" after cleanup confirmed
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Session Ended'),
@@ -250,15 +252,37 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
 
               const SizedBox(height: 32),
 
-              // ── Back to Home ───────────────────────────────────────────
-              CrypButton(
-                icon: const Icon(Icons.home_rounded),
-                label: const Text('Back to Home'),
-                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (_) => false,
-                ),
-                color: cs.secondary,
+              // ── Back to Home — gated behind cleanup confirmation ───────
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _aesCleanDone
+                    ? CrypButton(
+                        key: const ValueKey('home-btn'),
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text('Back to Home'),
+                        onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          (_) => false,
+                        ),
+                        color: cs.secondary,
+                      )
+                    : Padding(
+                        key: const ValueKey('waiting'),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.hourglass_top_rounded,
+                                size: 16, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Waiting for cleanup to complete…',
+                              style: TextStyle(
+                                  fontSize: 13, color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -269,7 +293,6 @@ class _SenderSessionEndedScreenState extends State<SenderSessionEndedScreen>
 }
 
 // ─── Done step row ─────────────────────────────────────────────────────────────
-// Copied verbatim from end_session_screen.dart lines 679–703.
 
 class _DoneStepRow extends StatelessWidget {
   final IconData icon;

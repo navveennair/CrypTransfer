@@ -27,11 +27,11 @@ void main() {
       // TODO: use fake async; verify Timer duration == 300 seconds
     });
 
-    test('V07-05: Timer expiry calls wipeAll() and navigates to SenderSessionEndedScreen', () {
-      // TODO: use fake async; elapse 300s; verify pushReplacement called with SenderSessionEndedScreen
+    test('V07-05: Timer expiry calls wipeAll() and navigates to SenderSessionEndScreen', () {
+      // TODO: use fake async; elapse 300s; verify pushReplacement called with SenderSessionEndScreen
     });
 
-    test('V07-06: SenderSessionEndedScreen receives timeoutReason != null on timeout path', () {
+    test('V07-06: SenderSessionEndScreen receives timeoutReason != null on timeout path', () {
       // TODO: verify Navigator call passes timeoutReason: non-null string
     });
 
@@ -44,14 +44,14 @@ void main() {
     });
   });
 
-  group('SenderSessionEndedScreen — timeout banner', () {
+  group('SenderSessionEndScreen — timeout banner', () {
     test('V07-09: Orange banner visible when timeoutReason != null', () {
-      // TODO: pump SenderSessionEndedScreen with timeoutReason: 'test reason'
+      // TODO: pump SenderSessionEndScreen with timeoutReason: 'test reason'
       // expect: find.byWidgetPredicate(orange Container banner) present
     });
 
     test('V07-10: Normal subtitle shown when timeoutReason == null', () {
-      // TODO: pump SenderSessionEndedScreen with timeoutReason: null
+      // TODO: pump SenderSessionEndScreen with timeoutReason: null
       // expect: find.text('The receiver has completed secure cleanup.') present
     });
   });

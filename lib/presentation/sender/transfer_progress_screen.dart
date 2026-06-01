@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../data/repositories/transfer_repository.dart';
-import 'sender_session_ended_screen.dart';
+import 'sender_session_end_screen.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -222,7 +222,7 @@ class _TransferProgressScreenState extends State<TransferProgressScreen>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => SenderSessionEndedScreen(
+            builder: (_) => SenderSessionEndScreen(
               transferId: widget.transferId,
               fileName: widget.fileName,
               fileSize: widget.fileSize,

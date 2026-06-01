@@ -212,7 +212,7 @@ void main() {
       () async {
         // STUB — verifies the Pitfall 1 guard from RESEARCH.md.
         // Security: V3 Session Management — sender must not navigate to
-        //   SenderSessionEndedScreen before upload completes.
+        //   SenderSessionEndScreen before upload completes.
         // Pattern: if (!snapshot.exists) { if (!_done || _sessionEnded) return; ... }
 
         bool navigationTriggered = false;
@@ -252,9 +252,9 @@ void main() {
     // TC-TERM-008
     test(
       'TC-TERM-008: D-10 edge case — sender deletes transfer doc if it '
-      'still exists on SenderSessionEndedScreen arrival',
+      'still exists on SenderSessionEndScreen arrival',
       () async {
-        // STUB — will be exercised against SenderSessionEndedScreen._checkAndMarkDone()
+        // STUB — will be exercised against SenderSessionEndScreen._checkAndMarkDone()
         // in Wave 2 (Plan 03).
         // Security: V6 Cryptography — edge case where receiver cleanup was interrupted;
         //   transfer doc (containing encryptedAESKey) must not persist on sender side.
