@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'presentation/auth/splash_screen.dart';
 import 'services/firestore_migration.dart';
 import 'presentation/admin/admin_dashboard.dart';
+import 'presentation/admin/admin_guard.dart';
 import 'package:provider/provider.dart';
 import 'core/utils/theme_service.dart';
 
@@ -37,7 +38,7 @@ class CrypTransferApp extends StatelessWidget {
       themeMode: themeService.themeMode,
       home: const SplashScreen(),
       routes: {
-        '/admin-dashboard': (context) => const AdminDashboard(),
+        '/admin-dashboard': (context) => AdminGuard(child: const AdminDashboard()),
       },
     );
   }
