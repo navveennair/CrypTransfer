@@ -240,6 +240,48 @@ class TransferRepository {
     await batch.commit();
   }
 
+  /// Write an aborted-session entry to both users' auditLogs sub-collections.
+  /// Called when the sender detects a stale RSA key before encryption begins —
+  /// no transfer doc exists at this point so there is nothing else to clean up.
+  Future<void> writeAbortAuditLog({
+    required String senderId,
+    required String receiverId,
+    required String senderUsername,
+    required String receiverUsername,
+    required String fileName,
+    required int fileSize,
+  }) async {
+    final payload = <String, dynamic>{
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'senderUsername': senderUsername,
+      'receiverUsername': receiverUsername,
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'status': 'aborted',
+      'timestamp': FieldValue.serverTimestamp(),
+      'loggedAt': FieldValue.serverTimestamp(),
+    };
+    final batch = _db.batch();
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(senderId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    await batch.commit();
+  }
+
   // ─── Delete transfer document ──────────────────────────────────────────────
 
   Future<void> deleteTransfer(String transferId) async {

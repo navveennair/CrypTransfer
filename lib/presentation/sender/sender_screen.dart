@@ -406,20 +406,16 @@ class _SenderScreenState extends State<SenderScreen>
     try {
       final liveKey = await _connService.fetchHandshakePublicKey(receiverId);
       if (!mounted) return;
-      if (liveKey == null) {
+      if (liveKey == null || liveKey != publicKeyJson) {
         _wipeSensitiveData();
-        _showError('Receiver closed their session — cannot encrypt.');
-        return;
-      }
-      if (liveKey != publicKeyJson) {
-        _wipeSensitiveData();
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(
-            content: const Text('Receiver key changed — re-encrypt required.'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 4),
-          ));
+        final msg = liveKey == null
+            ? 'Session ended — receiver closed their mailbox.'
+            : 'Receiver key changed — re-encrypt required.';
+        await _writeAbortAndNavigateHome(
+          receiverId: receiverId,
+          receiverUsername: _receiverUsername ?? 'Unknown',
+          msg: msg,
+        );
         return;
       }
     } catch (_) {
@@ -565,6 +561,49 @@ class _SenderScreenState extends State<SenderScreen>
         behavior: SnackBarBehavior.floating,
       ),
     );
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => HomeScreen()),
+      (_) => false,
+    );
+  }
+
+  /// Writes an aborted audit log to both users, shows an error snackbar, then
+  /// navigates the sender back to HomeScreen.  Called from the pre-emptive
+  /// stale-key gate in _encryptAesKey() — no transfer doc exists at this point.
+  Future<void> _writeAbortAndNavigateHome({
+    required String receiverId,
+    required String receiverUsername,
+    required String msg,
+  }) async {
+    final senderId = FirebaseAuth.instance.currentUser?.uid;
+    final senderUsername =
+        FirebaseAuth.instance.currentUser?.displayName ?? '';
+    final fileName = _file?.name ?? '';
+    final fileSize = _file?.size ?? 0;
+    if (senderId != null && fileName.isNotEmpty) {
+      try {
+        await _transferRepo.writeAbortAuditLog(
+          senderId: senderId,
+          receiverId: receiverId,
+          senderUsername: senderUsername,
+          receiverUsername: receiverUsername,
+          fileName: fileName,
+          fileSize: fileSize,
+        );
+      } catch (_) {
+        // Best-effort — don't block navigation on a log write failure.
+      }
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+      ));
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => HomeScreen()),

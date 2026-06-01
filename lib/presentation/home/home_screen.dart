@@ -659,7 +659,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          SecurityBadge(label: isSender ? 'Sent' : 'Received'),
+                          _transferStatusBadge(
+                              context,
+                              data['status'] as String? ?? '',
+                              isSender),
                         ],
                       ),
                     );
@@ -672,6 +675,38 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+// ─── Transfer status badge ───────────────────────────────────────────────────
+
+Widget _transferStatusBadge(BuildContext context, String status, bool isSender) {
+  final cs = Theme.of(context).colorScheme;
+  if (status == 'aborted') {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cancel_outlined, size: 13, color: cs.error),
+          const SizedBox(width: 4),
+          Text(
+            'Failed',
+            style: TextStyle(
+              fontSize: 11,
+              color: cs.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  return SecurityBadge(label: isSender ? 'Sent' : 'Received');
 }
 
 // ─── Notification bell button (AppBar action) ─────────────────────────────────
