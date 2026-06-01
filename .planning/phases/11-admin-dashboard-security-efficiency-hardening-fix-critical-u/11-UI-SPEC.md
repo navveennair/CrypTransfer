@@ -1,7 +1,8 @@
 ---
 phase: 11
 slug: admin-dashboard-security-efficiency-hardening
-status: draft
+status: approved
+reviewed_at: 2026-06-02
 shadcn_initialized: false
 preset: none
 created: 2026-06-02
@@ -50,9 +51,13 @@ Declared values (must be multiples of 4):
 | 3xl | 64px | — (not used in admin layer) |
 
 Exceptions:
-- `ConnectionNodeMap` grid: `crossAxisSpacing: 16`, `mainAxisSpacing: 16` (matches existing `childAspectRatio: 0.8` contract — preserve as-is)
-- `AdminGuard` loading scaffold body: centered with no padding (full-screen `CircularProgressIndicator` is the only content)
-- `TransferVolumeChart` container: `EdgeInsets.fromLTRB(16, 24, 24, 16)` — existing non-uniform padding, preserve to avoid chart clipping
+
+| Value | Justification |
+|-------|---------------|
+| `ConnectionNodeMap` grid: `crossAxisSpacing: 16`, `mainAxisSpacing: 16` | Matches existing `childAspectRatio: 0.8` contract — preserve as-is |
+| `AdminGuard` loading scaffold body: centered with no padding | Full-screen `CircularProgressIndicator` is the only content |
+| `TransferVolumeChart` container: `EdgeInsets.fromLTRB(16, 24, 24, 16)` | Existing non-uniform padding, preserve to avoid chart clipping |
+| `EdgeInsets.all(20)` — ConnectionNodeMap GridView grid padding (State D) | Existing ConnectionNodeMap GridView grid padding — preserved to avoid grid cell sizing regression; changing to 16 or 24 would alter the `childAspectRatio: 0.8` visual output |
 
 ---
 
@@ -60,12 +65,14 @@ Exceptions:
 
 All sizes drawn from `AppTheme.dark` text theme (Poppins via `google_fonts`). No new sizes introduced.
 
+Exactly 2 font weights are used across this phase: **w500** (body and regular labels) and **w700** (titles, headings, and admin-context labels).
+
 | Role | Style Token | Size | Weight | Line Height | Usage |
 |------|-------------|------|--------|-------------|-------|
 | Body | `tt.bodyMedium` | 14px | w500 | 1.4 (Material default) | Error messages in hasError branches, detail text |
-| Label | `tt.labelSmall` | 12px | w600 (w700 in admin) | 1.2 | Section headings (ANALYTICS, NETWORK VOLUME), tab labels, stat card sub-labels |
-| Title | `tt.titleSmall` | 15px | w700 | 1.2 | User row primary text (`@username`) |
-| Headline | `tt.headlineMedium` | Material M3 default | bold | 1.1 | Stat card numeric value |
+| Label | `tt.labelSmall` | 12px | w500 (non-admin) / w700 (admin section headings) | 1.2 | Non-admin: tab labels, stat card sub-labels. Admin: section headings (ANALYTICS, NETWORK VOLUME) |
+| Title | `tt.titleSmall` | 16px | w700 | 1.2 | User row primary text (`@username`) |
+| Headline | `tt.headlineMedium` | Material M3 default | w700 (bold) | 1.1 | Stat card numeric value |
 
 **Error text:** `tt.bodyMedium` at weight w500, color `cs.error` — matching the existing pattern in `AdminDashboardScreen` (lines 44–48).
 
