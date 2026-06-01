@@ -142,6 +142,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
       if (status == 'failed' && !_aborting && !_sessionEnded) {
         _cleanupTimeoutTimer?.cancel();
         _sessionEnded = true;
+        try {
+          await _transferRepo.deleteStorageFile(widget.transferId);
+        } catch (_) {}
         wipeAll();
         if (mounted) {
           ScaffoldMessenger.of(context)
