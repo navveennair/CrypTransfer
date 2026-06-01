@@ -7,6 +7,7 @@ import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/session_manager.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
+import '../../data/services/encryption_service.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
 import 'decrypt_screen.dart';
@@ -111,12 +112,19 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
   void _watchTransferStatus() {
     _failedStatusSub = _repo
         .watchTransferStatus(widget.transferId)
-        .listen((snap) {
+        .listen((snap) async {
       if (!snap.exists) return;
       final status = snap.data()?['status'] as String?;
       if (status == 'failed' && !_aborting && !_cancelled && mounted) {
         _cancelled = true;
         wipeAll();
+        final uid = _auth.currentUid;
+        if (uid != null) {
+          try {
+            await EncryptionService.closeReceiverSession(uid);
+          } catch (_) {}
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
