@@ -359,15 +359,13 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     _cleanupTimeoutTimer?.cancel();
     _uploadTask?.cancel();
     try {
-      await _transferRepo.updateTransferStatus(widget.transferId, 'failed');
-      await _transferRepo.updateTransferField(
-        widget.transferId,
-        'encryptedAESKey',
-        FieldValue.delete(),
-      );
+      await _transferRepo.markTransferInterrupted(widget.transferId, wipeAesKey: true);
     } catch (_) {
       // Doc may not exist yet if upload hadn't started — wipe proceeds regardless.
     }
+    try {
+      await _transferRepo.deleteStorageFile(widget.transferId);
+    } catch (_) {}
     wipeAll();
     if (mounted) {
       ScaffoldMessenger.of(context)
