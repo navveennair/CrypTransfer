@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/models/user_model.dart';
@@ -27,14 +28,12 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   }
 
   Future<void> _authenticate() async {
-    // TODO: Re-enable biometric authentication after debugging
-    // final ok = await BiometricHelper.authenticate('Unlock RSA Key Vault');
-    // if (!mounted) return;
-    // if (!ok) {
-    //   Navigator.pop(context);
-    //   return;
-    // }
+    final ok = await BiometricHelper.authenticate('Unlock RSA Key Vault');
     if (!mounted) return;
+    if (!ok) {
+      Navigator.pop(context);
+      return;
+    }
     setState(() => _gateChecked = true);
     _updateLastVaultAccess();
   }
@@ -58,9 +57,8 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final uid = _authRepo.currentUid;
     if (uid == null) return;
 
-    // TODO: Re-enable biometric authentication after debugging
-    // final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
-    // if (!gateOk || !mounted) return;
+    final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
+    if (!gateOk || !mounted) return;
 
     final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
@@ -129,9 +127,8 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final uid = _authRepo.currentUid;
     if (uid == null) return;
 
-    // TODO: Re-enable biometric authentication after debugging
-    // final gateOk = await BiometricHelper.authenticate('Confirm: Delete RSA Keys');
-    // if (!gateOk || !mounted) return;
+    final gateOk = await BiometricHelper.authenticate('Confirm: Delete RSA Keys');
+    if (!gateOk || !mounted) return;
 
     final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
