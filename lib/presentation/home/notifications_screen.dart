@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../receiver/receiver_screen.dart';
-import '../sender/sender_screen.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -76,22 +74,24 @@ class _NotificationTile extends StatelessWidget {
     final message = item['message'] as String? ?? '';
     final ts = item['createdAt'] as Timestamp?;
 
+    final isFailure = type == 'transfer_aborted';
+    final accentColor = isFailure ? cs.error : cs.tertiary;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      color: isRead ? null : cs.primaryContainer.withValues(alpha: 0.35),
+      color: isRead ? null : accentColor.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isRead
             ? BorderSide.none
-            : BorderSide(color: cs.primary.withValues(alpha: 0.3)),
+            : BorderSide(color: accentColor.withValues(alpha: 0.3)),
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor:
-              isRead ? cs.surfaceContainerHighest : cs.primaryContainer,
+          backgroundColor: accentColor.withValues(alpha: isRead ? 0.08 : 0.15),
           child: Icon(
             _typeIcon(type),
-            color: isRead ? cs.onSurfaceVariant : cs.primary,
+            color: isRead ? accentColor.withValues(alpha: 0.6) : accentColor,
             size: 20,
           ),
         ),
@@ -113,20 +113,10 @@ class _NotificationTile extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                    color: cs.primary, shape: BoxShape.circle),
+                    color: accentColor, shape: BoxShape.circle),
               ),
         onTap: () async {
-          if (!isRead) await NotificationService.markRead(uid, docId);
-          if (!context.mounted) return;
-          final nav = Navigator.of(context);
-          nav.pop();
-          if (type == 'rsa_key_received') {
-            nav.push(
-                MaterialPageRoute(builder: (_) => const SenderScreen()));
-          } else if (type == 'file_received') {
-            nav.push(
-                MaterialPageRoute(builder: (_) => const ReceiverScreen()));
-          }
+          await NotificationService.markRead(uid, docId);
         },
       ),
     );
@@ -134,10 +124,10 @@ class _NotificationTile extends StatelessWidget {
 
   IconData _typeIcon(String type) {
     switch (type) {
-      case 'rsa_key_received':
-        return Icons.vpn_key_rounded;
-      case 'file_received':
-        return Icons.download_rounded;
+      case 'transfer_completed':
+        return Icons.check_circle_rounded;
+      case 'transfer_aborted':
+        return Icons.cancel_rounded;
       default:
         return Icons.notifications_rounded;
     }

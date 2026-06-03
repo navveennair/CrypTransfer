@@ -237,6 +237,14 @@ class TransferRepository {
           .doc(),
       auditPayload,
     );
+    _addTransferNotifications(
+      batch: batch,
+      senderId: senderId,
+      receiverId: receiverId,
+      senderMessage: "Transfer of '$fileName' to @$receiverUsername completed",
+      receiverMessage: "Transfer of '$fileName' from @$senderUsername completed",
+      type: 'transfer_completed',
+    );
     await batch.commit();
   }
 
@@ -279,7 +287,42 @@ class TransferRepository {
           .doc(),
       payload,
     );
+    _addTransferNotifications(
+      batch: batch,
+      senderId: senderId,
+      receiverId: receiverId,
+      senderMessage: "Transfer of '$fileName' to @$receiverUsername failed",
+      receiverMessage: "Transfer of '$fileName' from @$senderUsername failed",
+      type: 'transfer_aborted',
+    );
     await batch.commit();
+  }
+
+  void _addTransferNotifications({
+    required WriteBatch batch,
+    required String senderId,
+    required String receiverId,
+    required String senderMessage,
+    required String receiverMessage,
+    required String type,
+  }) {
+    final now = FieldValue.serverTimestamp();
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(senderId)
+          .collection(FirebaseConstants.notifications)
+          .doc(),
+      {'type': type, 'message': senderMessage, 'read': false, 'createdAt': now},
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
+          .collection(FirebaseConstants.notifications)
+          .doc(),
+      {'type': type, 'message': receiverMessage, 'read': false, 'createdAt': now},
+    );
   }
 
   /// Atomically reset a transfer doc after a connection-lost interruption.
@@ -421,7 +464,7 @@ class TransferRepository {
 
   // ─── Stream recent transfers for HomeScreen ───────────────────────────────
 
-  /// Stream user's recent transfers from audit_logs collection for HomeScreen
+  /// Stream user's 3 most recent transfers for the HomeScreen preview
   Stream<QuerySnapshot<Map<String, dynamic>>> streamRecentTransfers(
       String userId) {
     return _db
@@ -429,7 +472,18 @@ class TransferRepository {
         .doc(userId)
         .collection(FirebaseConstants.auditLogs)
         .orderBy('loggedAt', descending: true)
-        .limit(10)
+        .limit(3)
+        .snapshots();
+  }
+
+  /// Stream all transfers for TransferSummaryScreen (no limit)
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamAllTransfers(
+      String userId) {
+    return _db
+        .collection(FirebaseConstants.users)
+        .doc(userId)
+        .collection(FirebaseConstants.auditLogs)
+        .orderBy('loggedAt', descending: true)
         .snapshots();
   }
 

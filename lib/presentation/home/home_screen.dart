@@ -11,6 +11,7 @@ import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'find_friends_screen.dart';
+import 'transfer_summary_screen.dart';
 import 'notifications_screen.dart';
 import '../receiver/receiver_screen.dart';
 import '../sender/sender_screen.dart';
@@ -497,14 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: _openAddConnectionSheet,
-                  icon: Icon(Icons.add_rounded, size: 18, color: cs.primary),
-                  label: Text(
-                    'Add New',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
-                  ),
-                ),
+                _SectionButton(label: '+ View', onTap: _openAddConnectionSheet),
               ],
             ),
             const SizedBox(height: 12),
@@ -539,12 +533,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const Spacer(),
-                Text(
-                  'View all',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: cs.primary,
-                    fontWeight: FontWeight.w600,
+                _SectionButton(
+                  label: '+ View',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const TransferSummaryScreen(),
+                    ),
                   ),
                 ),
               ],
@@ -689,6 +683,59 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ─── Transfer status badge ───────────────────────────────────────────────────
+
+// ─── Section header pill button ───────────────────────────────────────────────
+
+class _SectionButton extends StatefulWidget {
+  const _SectionButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_SectionButton> createState() => _SectionButtonState();
+}
+
+class _SectionButtonState extends State<_SectionButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        transform: Matrix4.diagonal3Values(
+          _pressed ? 0.94 : 1.0,
+          _pressed ? 0.94 : 1.0,
+          1.0,
+        ),
+        transformAlignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: _pressed ? 0.20 : 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.primary.withValues(alpha: _pressed ? 0.50 : 0.30)),
+        ),
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: cs.primary,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 Widget _transferStatusBadge(BuildContext context, String status, bool isSender) {
   final cs = Theme.of(context).colorScheme;
