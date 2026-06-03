@@ -629,6 +629,23 @@ Future<void> _onSenderSelected(UserModel sender) async {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _transferStream!,
       builder: (context, snap) {
+        if (snap.hasError) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline_rounded, color: Theme.of(context).colorScheme.error, size: 20),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Transfer monitor error — tap to retry',
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         final hasPending = snap.hasData && snap.data!.docs.isNotEmpty;
         if (hasPending && !_sessionLocked && !_incomingHandled) {
           _incomingHandled = true; // set synchronously before post-frame to prevent re-entry

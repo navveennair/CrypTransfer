@@ -146,6 +146,17 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
           (_) => false,
         );
       }
+    }, onError: (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Connection lost — could not monitor transfer status'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
     });
   }
 

@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../app_theme.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -17,6 +16,7 @@ class AdminDashboardScreen extends StatelessWidget {
       data: AppTheme.dark,
       child: Builder(builder: (context) {
         final cs = Theme.of(context).colorScheme;
+        final tt = Theme.of(context).textTheme;
 
         return Scaffold(
           backgroundColor: cs.surface,
@@ -25,8 +25,7 @@ class AdminDashboardScreen extends StatelessWidget {
             elevation: 0,
             title: Text(
               'Transfer Logs',
-              style: GoogleFonts.orbitron(
-                fontSize: 16,
+              style: tt.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
                 color: cs.primary,
@@ -53,7 +52,9 @@ class AdminDashboardScreen extends StatelessWidget {
                 return Center(
                   child: Text(
                     'No transfer logs found.',
-                    style: GoogleFonts.exo2(color: cs.onSurface.withValues(alpha: 0.5)),
+                    style: tt.bodyMedium?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 );
               }
@@ -83,8 +84,7 @@ class AdminDashboardScreen extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 '@$sender → @$receiver',
-                                style: GoogleFonts.orbitron(
-                                  fontSize: 12,
+                                style: tt.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
                                   color: cs.onSurface,
@@ -97,8 +97,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           fileName,
-                          style: GoogleFonts.exo2(
-                            fontSize: 13,
+                          style: tt.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w500,
                             color: cs.onSurface,
                           ),
@@ -107,8 +106,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '$date  $time'.trim(),
-                          style: GoogleFonts.exo2(
-                            fontSize: 10,
+                          style: tt.bodySmall?.copyWith(
                             color: cs.onSurface.withValues(alpha: 0.5),
                           ),
                         ),

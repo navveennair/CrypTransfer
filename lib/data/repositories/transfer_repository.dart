@@ -282,6 +282,66 @@ class TransferRepository {
     await batch.commit();
   }
 
+  /// Atomically reset a transfer doc after a connection-lost interruption.
+  /// Always sets status=failed and receiverReady=false.
+  /// [wipeAesKey] additionally deletes encryptedAESKey (sender side only — rules
+  /// restrict receiver from touching that field).
+  Future<void> markTransferInterrupted(
+    String transferId, {
+    bool wipeAesKey = false,
+  }) async {
+    final fields = <String, dynamic>{
+      'status': 'failed',
+      'receiverReady': false,
+    };
+    if (wipeAesKey) fields['encryptedAESKey'] = FieldValue.delete();
+    await _db
+        .collection(FirebaseConstants.transfers)
+        .doc(transferId)
+        .update(fields);
+  }
+
+  /// Write a connection-lost audit log to both participants' auditLogs in one batch.
+  Future<void> writeConnectionLostAuditLog({
+    required String senderId,
+    required String receiverId,
+    String senderUsername = '',
+    String receiverUsername = '',
+    String fileName = '',
+    int fileSize = 0,
+  }) async {
+    final payload = <String, dynamic>{
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'senderUsername': senderUsername,
+      'receiverUsername': receiverUsername,
+      'participants': [senderId, receiverId],
+      'fileName': fileName,
+      'fileSize': fileSize,
+      'status': 'connection_lost',
+      'timestamp': FieldValue.serverTimestamp(),
+      'loggedAt': FieldValue.serverTimestamp(),
+    };
+    final batch = _db.batch();
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(senderId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    await batch.commit();
+  }
+
   // ─── Delete transfer document ──────────────────────────────────────────────
 
   Future<void> deleteTransfer(String transferId) async {

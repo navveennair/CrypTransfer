@@ -216,6 +216,17 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
           _startCleanupTimeout();
         }
       }
+    }, onError: (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Connection lost — transfer monitor failed'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
     });
   }
 
