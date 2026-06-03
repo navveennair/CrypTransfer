@@ -1,47 +1,50 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-03T11:30:00Z",
-  "phase": null,
-  "phase_name": "inter-phase — admin dashboard polish complete",
-  "phase_dir": null,
+  "timestamp": "2026-06-03T12:00:00Z",
+  "phase": "10",
+  "phase_name": "UI Polish Phase 2 + Stale-Key Security Fix",
+  "phase_dir": ".planning/phases/10-ui-polish-phase-2-stale-key-security-fix",
   "plan": null,
   "task": null,
   "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Commit 5 broken-HEAD files (connection-lost resilience + admin font)", "status": "done", "commit": "2f1e5c8"},
-    {"id": 2, "name": "Delete orphaned AdminDashboardScreen (never routed, wrong field names)", "status": "done", "commit": "6bb194f"},
-    {"id": 3, "name": "Users tab search box (filter by username/email, clear button)", "status": "done", "commit": "df5d5fb"},
-    {"id": 4, "name": "Security feed date-aware timestamps (HH:mm:ss today, MMM dd for older)", "status": "done", "commit": "df5d5fb"},
-    {"id": 5, "name": "Network tab auto-refresh on tab focus (GlobalKey + TabController listener)", "status": "done", "commit": "df5d5fb"},
-    {"id": 6, "name": "Analytics tab RECENT TRANSFERS section with status badges + detail sheet", "status": "done", "commit": "024c537"}
+    {"id": 1, "name": "TransferSummaryScreen — full history page linked from home screen 'View all'", "status": "done", "commit": "uncommitted"},
+    {"id": 2, "name": "streamRecentTransfers limit 10→3; streamAllTransfers (no limit) added to TransferRepository", "status": "done", "commit": "uncommitted"},
+    {"id": 3, "name": "Notifications repurposed — transfer_completed/transfer_aborted written atomically in writeFinalAuditLog + writeAbortAuditLog batches", "status": "done", "commit": "uncommitted"},
+    {"id": 4, "name": "_SectionButton StatefulWidget — pill button with 80ms scale press animation replacing 'View all' text and TextButton.icon 'Add New'", "status": "done", "commit": "uncommitted"}
   ],
-  "remaining_tasks": [
-    {"id": 7, "name": "Phase 10 UAT Test 1: stale-key guard re-test on device", "status": "not_started"},
-    {"id": 8, "name": "Phase 11 UAT Test 1: AdminGuard 'Access denied' SnackBar on non-admin", "status": "not_started"},
-    {"id": 9, "name": "Phase 11 UAT Test 2: ConnectionNodeMap FutureBuilder grid renders on device", "status": "not_started"},
-    {"id": 10, "name": "Phase 11 UAT Test 3: TransferVolumeChart real 7-day data on device", "status": "not_started"}
-  ],
+  "remaining_tasks": [],
   "blockers": [],
-  "human_actions_pending": [
+  "human_actions_pending": [],
+  "decisions": [
     {
-      "action": "Phase 10 UAT Test 1: receiver closes mailbox, sender taps 'Encrypt Key' within ~1-2s. Expect 'Receiver closed their session — cannot encrypt.' before biometric prompt.",
-      "context": "Pre-emptive freshness check added to _encryptAesKey() on 2026-06-01. Needs device re-test to confirm race window is closed.",
-      "blocking": false
+      "decision": "Recent Transfers home preview capped at 3; full history in TransferSummaryScreen",
+      "rationale": "User request — keeps home screen concise",
+      "phase": "10"
     },
     {
-      "action": "Phase 11 UAT Tests 1-3: AdminGuard redirect, ConnectionNodeMap FutureBuilder grid, TransferVolumeChart real data.",
-      "context": "All code-verified. Need live admin session on device with populated Firestore.",
-      "blocking": false
+      "decision": "Notifications survive kill switch — only rsa_key_received type is deleted by closeReceiverSession; new transfer_completed/transfer_aborted types are untouched",
+      "rationale": "Old notification types were ephemeral session signals that were wiped before user saw them; new types are persistent outcome records",
+      "phase": "10"
+    },
+    {
+      "decision": "Marking a notification as read removes it from the list (allStream where read==false)",
+      "rationale": "User explicitly requested this behaviour",
+      "phase": "10"
+    },
+    {
+      "decision": "_SectionButton is StatefulWidget not StatelessWidget — has _pressed state driving scale+color animation",
+      "rationale": "Matches existing CrypButton/GlassButton pattern in codebase; StatelessWidget gives no tap feedback",
+      "phase": "10"
     }
   ],
-  "decisions": [
-    {"decision": "RECENT TRANSFERS uses streamTransferLogsDetail() (same stream as chart) — no extra Firestore subscription", "rationale": "Data already flowing to the chart; reusing the same stream avoids a duplicate listener", "phase": "inter-phase"},
-    {"decision": "Status color map: completed=secondary(green), aborted/kill_switch/failed/connection_lost=error(red), started=primary", "rationale": "Matches app-wide semantic color conventions", "phase": "inter-phase"},
-    {"decision": "Detail sheet uses monospace for UID fields", "rationale": "UIDs are long opaque strings; monospace makes them scannable and copy-friendly", "phase": "inter-phase"},
-    {"decision": "ConnectionNodeMapState is now public (not _ConnectionNodeMapState)", "rationale": "Required for GlobalKey<ConnectionNodeMapState> in parent AdminDashboard to call refresh()", "phase": "inter-phase"}
+  "uncommitted_files": [
+    "lib/data/repositories/transfer_repository.dart",
+    "lib/presentation/home/home_screen.dart",
+    "lib/presentation/home/notifications_screen.dart",
+    "lib/presentation/home/transfer_summary_screen.dart"
   ],
-  "uncommitted_files": [],
-  "next_action": "Run device UAT for Phases 10 and 11. All code is clean and committed. Start with Phase 10 Test 1 (stale-key guard re-test) as it is the only test that requires precise timing.",
-  "context_notes": "Admin dashboard is now significantly more useful: orphaned screen deleted, users tab searchable, security feed shows dates, network tab refreshes on focus, analytics tab shows real transfer records with expandable detail. The medium-value improvements (user detail sheet, security feed filter chips, chart bar toggle) are the natural next step if admin polish continues."
+  "next_action": "Commit this inter-phase work, then proceed to Phase 11 execution (admin dashboard hardening — 5 plans ready)",
+  "context_notes": "All four files pass flutter analyze cleanly (No issues found). Work was ad-hoc inter-phase features requested by user in this session. Phase 11 plans are pre-written and ready to execute."
 }
