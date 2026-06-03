@@ -1,50 +1,70 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-01T00:00:00Z",
-  "phase": "10",
-  "phase_name": "ui-polish-phase-2-stale-key-security-fix",
-  "phase_dir": ".planning/phases/10-ui-polish-phase-2-stale-key-security-fix",
-  "plan": 2,
-  "task": "post-uat-gap-closure",
-  "total_tasks": "ongoing",
+  "timestamp": "2026-06-03T10:24:42Z",
+  "phase": null,
+  "phase_name": "inter-phase — connection-lost resilience + font consistency",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": "10-01-T1", "name": "Restore stale-key guard in _onHandshakeUpdate", "status": "done", "commit": "f1bf0a7"},
-    {"id": "10-02-A-C", "name": "Dialog spacing + admin dashboard + housekeeping", "status": "done", "commit": "8f56c2d"},
-    {"id": "uat-2", "name": "Dialog spacing visual inspection", "status": "pass"},
-    {"id": "uat-3", "name": "Admin dashboard rendering (code evidence)", "status": "pass-code"},
-    {"id": "gap-1a", "name": "Pre-emptive stale-key freshness check in _encryptAesKey()", "status": "done", "commit": "2f486a0"},
-    {"id": "gap-1b", "name": "Abort audit log + sender navigates home on stale-key abort", "status": "done", "commit": "7b8f207"},
-    {"id": "gap-1c", "name": "HomeScreen left icon red on aborted entries", "status": "done", "commit": "7362f1f"}
+    {"id": 1, "name": "Phase 10 — UI Polish Phase 2 + Stale-Key Security Fix", "status": "done", "commit": "8f56c2d"},
+    {"id": 2, "name": "Phase 11 — Admin Dashboard Security & Efficiency Hardening", "status": "done", "commit": "6b095c6"},
+    {"id": 3, "name": "Quick task 260603-b2a — Re-enable biometric gate on RSA Key Vault", "status": "done", "commit": "35c044c"},
+    {"id": 4, "name": "fix(ui): sidebar light mode, decrypt CrypButton, admin font consistency", "status": "done", "commit": "6024fae"},
+    {"id": 5, "name": "connection-lost repo methods (markTransferInterrupted, writeConnectionLostAuditLog)", "status": "in_progress", "progress": "methods written in transfer_repository.dart, callers already committed in decrypt_screen.dart — NOT YET COMMITTED"},
+    {"id": 6, "name": "connection-lost onError handlers (receiver_transfer_screen, sender_transfer_screen)", "status": "in_progress", "progress": "onError SnackBar handlers added to Firestore stream subscriptions — NOT YET COMMITTED"},
+    {"id": 7, "name": "snap.hasError branch in receiver_screen StreamBuilder", "status": "in_progress", "progress": "GlassContainer error UI added — NOT YET COMMITTED"},
+    {"id": 8, "name": "admin_dashboard_screen GoogleFonts → textTheme font consistency", "status": "in_progress", "progress": "orbitron/exo2 replaced with tt.bodyMedium/bodySmall — NOT YET COMMITTED"}
   ],
   "remaining_tasks": [
+    {"id": 9, "name": "Commit all 5 working-tree changes as single atomic commit", "status": "not_started"},
+    {"id": 10, "name": "Run flutter analyze to confirm 0 issues after commit", "status": "not_started"},
+    {"id": 11, "name": "Phase 10 device UAT (3 pending tests)", "status": "not_started"},
+    {"id": 12, "name": "Phase 11 device UAT (3 pending tests)", "status": "not_started"}
+  ],
+  "blockers": [
     {
-      "id": "gap-2",
-      "name": "closeReceiverSession() missing from all 3 abort navigation paths",
-      "status": "not_started",
-      "detail": "receiver_transfer_screen.dart:129 (sender-abort), decrypt_screen.dart:113 (sender-abort), decrypt_screen.dart:204 (receiver manual abort) all call pushAndRemoveUntil(HomeScreen) WITHOUT calling closeReceiverSession(). Leaves isReadyToReceive=true, publicKey published, sessionActive=true in Firestore. ReceiverScreen._loadReadyToReceiveState() reads this on next open and shows toggle ON."
-    },
-    {
-      "id": "uat-1-retest",
-      "name": "Re-test stale-key guard on device after pre-emptive fix",
-      "status": "not_started",
-      "detail": "AES-encrypt file, stop before Encrypt Key tap, receiver closes mailbox, tap Encrypt Key. Expected: error snackbar before biometric prompt, sender -> HomeScreen, both show Failed badge."
+      "description": "BROKEN HEAD: committed decrypt_screen.dart (HEAD) calls markTransferInterrupted() and writeConnectionLostAuditLog() but these methods only exist in working tree (not committed). Fresh checkout will fail to compile.",
+      "type": "technical",
+      "workaround": "Working-tree transfer_repository.dart has the method definitions. Commit it immediately."
     }
   ],
-  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Re-test UAT-1 (stale-key) on device after pre-emptive fix in commit 2f486a0",
-      "context": "Original reactive guard was insufficient. Pre-emptive Firestore get() fix applied. Needs live device verification.",
+      "action": "Phase 10 UAT Test 1 (stale-key guard re-test): receiver closes mailbox, sender taps 'Encrypt Key' within ~1-2 seconds. Expect 'Receiver closed their session — cannot encrypt.' error before biometric prompt.",
+      "context": "Fix already applied (2026-06-01 pre-emptive freshness check in _encryptAesKey). Re-test needed to confirm the latency-window race is closed.",
+      "blocking": false
+    },
+    {
+      "action": "Phase 11 UAT Test 1 (AdminGuard): sign in as non-admin, push /admin-dashboard, verify 'Access denied' SnackBar + redirect.",
+      "context": "AdminGuard route wrapper implemented. Needs live device confirmation.",
+      "blocking": false
+    },
+    {
+      "action": "Phase 11 UAT Test 2 (ConnectionNodeMap FutureBuilder grid): sign in as admin, open NETWORK tab, verify usernames + connection counts render.",
+      "context": "FutureBuilder migration done. Needs live admin session to confirm.",
+      "blocking": false
+    },
+    {
+      "action": "Phase 11 UAT Test 3 (TransferVolumeChart real data): sign in as admin, open ANALYTICS tab, verify 7-day bars with real counts.",
+      "context": "Real aggregation implemented. Needs populated transfer_logs collection.",
       "blocking": false
     }
   ],
   "decisions": [
-    {"decision": "Pre-emptive freshness check via fetchHandshakePublicKey() before biometric prompt", "rationale": "Stream latency ~1-2s makes reactive guard insufficient — fail fast before biometric UX starts", "phase": "10"},
-    {"decision": "writeAbortAuditLog() batch-writes status=aborted to BOTH users auditLogs", "rationale": "Symmetric audit trail; HomeScreen renders red Failed badge for status==aborted", "phase": "10"},
-    {"decision": "closeReceiverSession() fix applied at abort call sites, NOT in ReceiverScreen.dispose()", "rationale": "dispose() runs in normal navigation too; fix must be surgical to the 3 abort paths only", "phase": "10"}
+    {"decision": "markTransferInterrupted uses a plain update() not WriteBatch — only one doc is touched", "rationale": "Receiver-side abort doc update; no cross-collection atomicity needed", "phase": "inter-phase"},
+    {"decision": "writeConnectionLostAuditLog uses WriteBatch to write to both sender + receiver auditLogs", "rationale": "Both participants need an audit record; atomicity prevents partial logging", "phase": "inter-phase"},
+    {"decision": "admin_dashboard_screen: remove remaining GoogleFonts.orbitron/exo2, replace with tt.bodyMedium/bodySmall", "rationale": "Design-system rule: no per-widget font overrides; use textTheme everywhere", "phase": "inter-phase"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Fix 3 abort paths: add uid + await EncryptionService.closeReceiverSession(uid) before pushAndRemoveUntil(HomeScreen) in receiver_transfer_screen.dart:129, decrypt_screen.dart:113, decrypt_screen.dart:204. Then retest UAT-1.",
-  "context_notes": "Phase 10 UAT-1 found reactive guard insufficient. Fixed with pre-emptive Firestore check (3 commits). Session surfaced structural gap: abort paths bypass closeReceiverSession(), leaving Firestore dirty. Security concern: RSA public key stays live after session ends via abort. Context at 79% - pausing cleanly, no uncommitted changes."
+  "uncommitted_files": [
+    "lib/data/repositories/transfer_repository.dart",
+    "lib/presentation/admin/admin_dashboard_screen.dart",
+    "lib/presentation/receiver/receiver_screen.dart",
+    "lib/presentation/receiver/receiver_transfer_screen.dart",
+    "lib/presentation/sender/sender_transfer_screen.dart"
+  ],
+  "next_action": "IMMEDIATELY commit the 5 uncommitted files: transfer_repository.dart (required — HEAD is broken without it), admin_dashboard_screen.dart, receiver_screen.dart, receiver_transfer_screen.dart, sender_transfer_screen.dart. Then run flutter analyze to confirm 0 issues.",
+  "context_notes": "Both Phase 10 and Phase 11 are fully code-verified and committed. Remaining work is (1) commit the in-progress connection-lost resilience changes (URGENT — HEAD is broken without them), then (2) perform device UAT for Phases 10 and 11."
 }
