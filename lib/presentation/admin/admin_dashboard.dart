@@ -125,6 +125,18 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
 
           const SizedBox(height: 32),
           Text(
+            'RECENT TRANSFERS',
+            style: tt.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildRecentTransfersList(cs, tt),
+
+          const SizedBox(height: 32),
+          Text(
             'ACTIVE HANDSHAKES',
             style: tt.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
@@ -134,6 +146,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           ),
           const SizedBox(height: 12),
           _buildActiveSessionsList(cs, tt),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -194,6 +207,222 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
         );
       },
     );
+  }
+
+  Widget _buildRecentTransfersList(ColorScheme cs, TextTheme tt) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _adminRepo.streamTransferLogsDetail(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(24),
+            child: Center(child: Text('Error loading data', style: TextStyle(color: cs.error))),
+          );
+        }
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final docs = snapshot.data!.docs;
+
+        if (docs.isEmpty) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Text('No transfer records yet', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6))),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: docs.length,
+          separatorBuilder: (context, i) => const SizedBox(height: 8),
+          itemBuilder: (context, i) {
+            final data = docs[i].data() as Map<String, dynamic>;
+            final sender = data['senderUsername'] as String? ?? '?';
+            final receiver = data['receiverUsername'] as String? ?? '?';
+            final fileName = data['fileName'] as String? ?? 'Unknown file';
+            final status = data['status'] as String? ?? 'unknown';
+            final ts = (data['loggedAt'] as Timestamp?)?.toDate();
+
+            final (statusColor, statusIcon) = _statusStyle(status, cs);
+
+            return GlassContainer(
+              padding: const EdgeInsets.all(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _showTransferDetail(context, data, cs, tt),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(statusIcon, color: statusColor, size: 18),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '@$sender → @$receiver',
+                            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: cs.onSurface),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            fileName,
+                            style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: tt.labelSmall?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        if (ts != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatLogTs(ts),
+                            style: TextStyle(fontSize: 9, color: cs.onSurface.withValues(alpha: 0.4)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showTransferDetail(BuildContext context, Map<String, dynamic> data, ColorScheme cs, TextTheme tt) {
+    final status = data['status'] as String? ?? 'unknown';
+    final (statusColor, _) = _statusStyle(status, cs);
+    final fileSize = data['fileSize'] as int? ?? 0;
+    final ts = (data['loggedAt'] as Timestamp?)?.toDate();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: cs.outline),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Icon(Icons.receipt_long_rounded, color: cs.primary, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  'TRANSFER DETAIL',
+                  style: tt.labelMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 1.5, color: cs.primary),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: tt.labelSmall?.copyWith(color: statusColor, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _DetailRow(label: 'Sender', value: '@${data['senderUsername'] ?? '?'}', cs: cs, tt: tt),
+            _DetailRow(label: 'Receiver', value: '@${data['receiverUsername'] ?? '?'}', cs: cs, tt: tt),
+            _DetailRow(label: 'File', value: data['fileName'] as String? ?? '—', cs: cs, tt: tt),
+            _DetailRow(label: 'Size', value: fileSize > 0 ? _formatBytes(fileSize) : '—', cs: cs, tt: tt),
+            if (ts != null)
+              _DetailRow(label: 'Logged at', value: _formatLogTsFull(ts), cs: cs, tt: tt),
+            _DetailRow(label: 'Sender UID', value: data['senderId'] as String? ?? '—', cs: cs, tt: tt, mono: true),
+            _DetailRow(label: 'Receiver UID', value: data['receiverId'] as String? ?? '—', cs: cs, tt: tt, mono: true),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (Color, IconData) _statusStyle(String status, ColorScheme cs) => switch (status) {
+    'completed'       => (cs.secondary, Icons.check_circle_rounded),
+    'aborted'         => (cs.error, Icons.cancel_rounded),
+    'kill_switch'     => (cs.error, Icons.security_rounded),
+    'connection_lost' => (cs.error, Icons.wifi_off_rounded),
+    'failed'          => (cs.error, Icons.error_rounded),
+    'started'         => (cs.primary, Icons.upload_rounded),
+    _                 => (cs.onSurface.withValues(alpha: 0.5), Icons.circle_outlined),
+  };
+
+  String _formatLogTs(DateTime ts) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tsDay = DateTime(ts.year, ts.month, ts.day);
+    if (tsDay == today) {
+      return '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
+    }
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[ts.month - 1]} ${ts.day}';
+  }
+
+  String _formatLogTsFull(DateTime ts) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[ts.month - 1]} ${ts.day}, ${ts.year}  '
+        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Widget _buildActiveSessionsList(ColorScheme cs, TextTheme tt) {
@@ -322,6 +551,56 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final bool mono;
+
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    required this.cs,
+    required this.tt,
+    this.mono = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurface.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: mono
+                  ? TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                    )
+                  : tt.bodySmall?.copyWith(color: cs.onSurface),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PulseIndicator extends StatefulWidget {
   final Color color;
