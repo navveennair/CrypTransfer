@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 10
 current_plan: 1
-status: planning
-last_updated: "2026-05-31T00:00:00.000Z"
+status: planned
+last_updated: "2026-06-01T13:18:56.693Z"
 progress:
-  total_phases: 11
-  completed_phases: 9
-  total_plans: 33
-  completed_plans: 33
+  total_phases: 12
+  completed_phases: 10
+  total_plans: 35
+  completed_plans: 35
   percent: 100
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 10
 **Current plan:** 1
-**Status:** Planning Phase 10
+**Status:** Ready to execute Phase 11 — 5 plans ready
 
 ## Session Log
 
@@ -59,6 +59,9 @@ See: .planning/PROJECT.md
 - 2026-05-26: Manual UAT revealed and fixed 2 critical issues: (1) SenderScreen crash on navigation due to premature ScaffoldMessenger.of(context) in initState() — fixed by deferring to addPostFrameCallback(); (2) Role Assignment Conflict on repeated Receive File clicks due to persistent selectedSenderUid — fixed by clearing old state. Both fixes committed (c181bd4).
 - 2026-05-26: UAT final verification PASSED — Both sender and receiver successfully enter their respective roles without freezes or crashes. Full end-to-end flow tested and working: proposal → accept → assign roles (sender/receiver) → repeat (can switch roles). 107/108 tests passing. **STATUS: PRODUCTION READY**
 - 2026-05-29: Phase 09 planned — 3 plans in 2 waves (Wave 1: 09-01 Nyquist test stubs; Wave 2: 09-02 ReceiverScreen gaps 1+4 + 09-03 SenderScreen gaps 2+3, parallel); verification passed
+- 2026-06-02: Phase 11 planned — 5 plans in 4 waves (Wave 0: test scaffold; Wave 1: AdminRepository hardening; Wave 2: hasError+chart+FutureBuilder, parallel; Wave 3: AdminGuard route guard); verification passed
+- 2026-05-31: Phase 10 planned — 2 plans in 1 wave (10-01: stale-key guard restore; 10-02: glassmorphic dialog spacing + admin dashboard commit + housekeeping); verification passed
+- 2026-06-03: Quick task 260603-b2a complete — re-enabled biometric gate on RSA Key Vault; entry gate + regenerate gate + delete gate all active; BiometricHelper import added; flutter analyze clean
 - 2026-05-29: Phase 08 complete — applicationId renamed to com.navveennair.cryptransfer; google-services.json multi-app (both packages registered); MethodChannels decoupled to cryptransfer/{security,file} per D-04; all D-06 gates green (analyze clean, 107/108 tests, APK stamped, on-device smoke 5a/5b/5c/5d/5e passed); role conflict false positive fixed (stale selectedSenderUid cleared in sender transaction); atomic commit fc8ec0f
 
 ## Accumulated Context
@@ -72,6 +75,7 @@ See: .planning/PROJECT.md
 - Phase 07 added: Sender Reactive Cleanup Sync — sender stream listener on receiver's cleanup status after successful transfer; sender verifies AES key wiped and cleans its own artifacts; both parties navigate to HomeScreen; Firebase rules updated for sender cleanup permissions; safety timeout for unresponsive receiver
 - Phase 08 added: applicationId rename — replace `com.example.cryptransfer` with production package across `android/app/build.gradle.kts` (applicationId), Kotlin package + directory (`MainActivity.kt`), MethodChannel namespace `com.example.cryptransfer/security` (referenced in `MainActivity.kt` and `lib/core/utils/security_lifecycle_mixin.dart`), regenerated `google-services.json` from Firebase project `cryptransfer-96e9f`, and any `-keep` rules in `android/app/proguard-rules.pro` that reference the old package. Pre-release Play Store blocker per `.planning/codebase/CONCERNS.md` §3. Must remain regression-free: `flutter analyze` clean, full test suite passes, FLAG_SECURE pre-flight still functional, kill-switch reactive binding intact.
 - Phase 09 added: Navigation Safety & Session Integrity Hardening — three code-verified gaps: (1) ReceiverScreen canPop unconditionally true (no confirmation dialog on back, no block during active transfer); (2) SenderScreen stale _encryptedAESKey not invalidated when receiver RSA key changes mid-session; (3) SenderScreen Step 1 Browse button active after encryption with no UX indication that re-picking discards encrypted state.
+- Phase 11 added: Admin Dashboard Security & Efficiency Hardening — CRITICAL unguarded /admin-dashboard route (add AdminGuard widget), SERIOUS missing admin UID in setUserActiveStatus audit log, MEDIUM fake TransferVolumeChart data, MEDIUM N parallel Firestore streams in ConnectionNodeMap, MEDIUM no pagination/count() on unbounded queries, MEDIUM missing snap.hasError in admin StreamBuilders, MINOR remove 3 dead AdminRepository methods
 
 ### Decisions
 
@@ -98,5 +102,6 @@ See: .planning/PROJECT.md
 | 260525-kur | Fix duplicate _runAesGcm and move RSA-OAEP encrypt to compute isolate | 2026-05-25 | fdf8a84 | [260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae](.planning/quick/260525-kur-fix-duplicate-runaesgcm-and-move-rsa-oae/) |
 | 260526-sxe | Remove unused deterministic ID implementation (rsa_key_transfers cleanup) | 2026-05-26 | f9351db | [260526-sxe-remove-unused-deterministic-id-implement](.planning/quick/260526-sxe-remove-unused-deterministic-id-implement/) |
 | 260526-t9y | Extract snackbar and dialog logic from HomeScreen | 2026-05-26 | 0fb026a | [260526-t9y-extract-snackbar-and-dialog-logic-from-h](.planning/quick/260526-t9y-extract-snackbar-and-dialog-logic-from-h/) |
+| 260603-b2a | Re-enable biometric gate on RSA Key Vault | 2026-06-03 | 35c044c | [260603-b2a-re-enable-biometric-gate-rsa-key-vault](.planning/quick/260603-b2a-re-enable-biometric-gate-rsa-key-vault/) |
 
 **Planned Phase:** 8 (applicationid-rename-replace-com-example-cryptransfer-with-p) — 1 plans — 2026-05-28T17:24:59.919Z
