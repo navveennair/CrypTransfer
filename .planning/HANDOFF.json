@@ -1,70 +1,47 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-03T10:24:42Z",
+  "timestamp": "2026-06-03T11:30:00Z",
   "phase": null,
-  "phase_name": "inter-phase — connection-lost resilience + font consistency",
+  "phase_name": "inter-phase — admin dashboard polish complete",
   "phase_dir": null,
   "plan": null,
   "task": null,
   "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Phase 10 — UI Polish Phase 2 + Stale-Key Security Fix", "status": "done", "commit": "8f56c2d"},
-    {"id": 2, "name": "Phase 11 — Admin Dashboard Security & Efficiency Hardening", "status": "done", "commit": "6b095c6"},
-    {"id": 3, "name": "Quick task 260603-b2a — Re-enable biometric gate on RSA Key Vault", "status": "done", "commit": "35c044c"},
-    {"id": 4, "name": "fix(ui): sidebar light mode, decrypt CrypButton, admin font consistency", "status": "done", "commit": "6024fae"},
-    {"id": 5, "name": "connection-lost repo methods (markTransferInterrupted, writeConnectionLostAuditLog)", "status": "in_progress", "progress": "methods written in transfer_repository.dart, callers already committed in decrypt_screen.dart — NOT YET COMMITTED"},
-    {"id": 6, "name": "connection-lost onError handlers (receiver_transfer_screen, sender_transfer_screen)", "status": "in_progress", "progress": "onError SnackBar handlers added to Firestore stream subscriptions — NOT YET COMMITTED"},
-    {"id": 7, "name": "snap.hasError branch in receiver_screen StreamBuilder", "status": "in_progress", "progress": "GlassContainer error UI added — NOT YET COMMITTED"},
-    {"id": 8, "name": "admin_dashboard_screen GoogleFonts → textTheme font consistency", "status": "in_progress", "progress": "orbitron/exo2 replaced with tt.bodyMedium/bodySmall — NOT YET COMMITTED"}
+    {"id": 1, "name": "Commit 5 broken-HEAD files (connection-lost resilience + admin font)", "status": "done", "commit": "2f1e5c8"},
+    {"id": 2, "name": "Delete orphaned AdminDashboardScreen (never routed, wrong field names)", "status": "done", "commit": "6bb194f"},
+    {"id": 3, "name": "Users tab search box (filter by username/email, clear button)", "status": "done", "commit": "df5d5fb"},
+    {"id": 4, "name": "Security feed date-aware timestamps (HH:mm:ss today, MMM dd for older)", "status": "done", "commit": "df5d5fb"},
+    {"id": 5, "name": "Network tab auto-refresh on tab focus (GlobalKey + TabController listener)", "status": "done", "commit": "df5d5fb"},
+    {"id": 6, "name": "Analytics tab RECENT TRANSFERS section with status badges + detail sheet", "status": "done", "commit": "024c537"}
   ],
   "remaining_tasks": [
-    {"id": 9, "name": "Commit all 5 working-tree changes as single atomic commit", "status": "not_started"},
-    {"id": 10, "name": "Run flutter analyze to confirm 0 issues after commit", "status": "not_started"},
-    {"id": 11, "name": "Phase 10 device UAT (3 pending tests)", "status": "not_started"},
-    {"id": 12, "name": "Phase 11 device UAT (3 pending tests)", "status": "not_started"}
+    {"id": 7, "name": "Phase 10 UAT Test 1: stale-key guard re-test on device", "status": "not_started"},
+    {"id": 8, "name": "Phase 11 UAT Test 1: AdminGuard 'Access denied' SnackBar on non-admin", "status": "not_started"},
+    {"id": 9, "name": "Phase 11 UAT Test 2: ConnectionNodeMap FutureBuilder grid renders on device", "status": "not_started"},
+    {"id": 10, "name": "Phase 11 UAT Test 3: TransferVolumeChart real 7-day data on device", "status": "not_started"}
   ],
-  "blockers": [
-    {
-      "description": "BROKEN HEAD: committed decrypt_screen.dart (HEAD) calls markTransferInterrupted() and writeConnectionLostAuditLog() but these methods only exist in working tree (not committed). Fresh checkout will fail to compile.",
-      "type": "technical",
-      "workaround": "Working-tree transfer_repository.dart has the method definitions. Commit it immediately."
-    }
-  ],
+  "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Phase 10 UAT Test 1 (stale-key guard re-test): receiver closes mailbox, sender taps 'Encrypt Key' within ~1-2 seconds. Expect 'Receiver closed their session — cannot encrypt.' error before biometric prompt.",
-      "context": "Fix already applied (2026-06-01 pre-emptive freshness check in _encryptAesKey). Re-test needed to confirm the latency-window race is closed.",
+      "action": "Phase 10 UAT Test 1: receiver closes mailbox, sender taps 'Encrypt Key' within ~1-2s. Expect 'Receiver closed their session — cannot encrypt.' before biometric prompt.",
+      "context": "Pre-emptive freshness check added to _encryptAesKey() on 2026-06-01. Needs device re-test to confirm race window is closed.",
       "blocking": false
     },
     {
-      "action": "Phase 11 UAT Test 1 (AdminGuard): sign in as non-admin, push /admin-dashboard, verify 'Access denied' SnackBar + redirect.",
-      "context": "AdminGuard route wrapper implemented. Needs live device confirmation.",
-      "blocking": false
-    },
-    {
-      "action": "Phase 11 UAT Test 2 (ConnectionNodeMap FutureBuilder grid): sign in as admin, open NETWORK tab, verify usernames + connection counts render.",
-      "context": "FutureBuilder migration done. Needs live admin session to confirm.",
-      "blocking": false
-    },
-    {
-      "action": "Phase 11 UAT Test 3 (TransferVolumeChart real data): sign in as admin, open ANALYTICS tab, verify 7-day bars with real counts.",
-      "context": "Real aggregation implemented. Needs populated transfer_logs collection.",
+      "action": "Phase 11 UAT Tests 1-3: AdminGuard redirect, ConnectionNodeMap FutureBuilder grid, TransferVolumeChart real data.",
+      "context": "All code-verified. Need live admin session on device with populated Firestore.",
       "blocking": false
     }
   ],
   "decisions": [
-    {"decision": "markTransferInterrupted uses a plain update() not WriteBatch — only one doc is touched", "rationale": "Receiver-side abort doc update; no cross-collection atomicity needed", "phase": "inter-phase"},
-    {"decision": "writeConnectionLostAuditLog uses WriteBatch to write to both sender + receiver auditLogs", "rationale": "Both participants need an audit record; atomicity prevents partial logging", "phase": "inter-phase"},
-    {"decision": "admin_dashboard_screen: remove remaining GoogleFonts.orbitron/exo2, replace with tt.bodyMedium/bodySmall", "rationale": "Design-system rule: no per-widget font overrides; use textTheme everywhere", "phase": "inter-phase"}
+    {"decision": "RECENT TRANSFERS uses streamTransferLogsDetail() (same stream as chart) — no extra Firestore subscription", "rationale": "Data already flowing to the chart; reusing the same stream avoids a duplicate listener", "phase": "inter-phase"},
+    {"decision": "Status color map: completed=secondary(green), aborted/kill_switch/failed/connection_lost=error(red), started=primary", "rationale": "Matches app-wide semantic color conventions", "phase": "inter-phase"},
+    {"decision": "Detail sheet uses monospace for UID fields", "rationale": "UIDs are long opaque strings; monospace makes them scannable and copy-friendly", "phase": "inter-phase"},
+    {"decision": "ConnectionNodeMapState is now public (not _ConnectionNodeMapState)", "rationale": "Required for GlobalKey<ConnectionNodeMapState> in parent AdminDashboard to call refresh()", "phase": "inter-phase"}
   ],
-  "uncommitted_files": [
-    "lib/data/repositories/transfer_repository.dart",
-    "lib/presentation/admin/admin_dashboard_screen.dart",
-    "lib/presentation/receiver/receiver_screen.dart",
-    "lib/presentation/receiver/receiver_transfer_screen.dart",
-    "lib/presentation/sender/sender_transfer_screen.dart"
-  ],
-  "next_action": "IMMEDIATELY commit the 5 uncommitted files: transfer_repository.dart (required — HEAD is broken without it), admin_dashboard_screen.dart, receiver_screen.dart, receiver_transfer_screen.dart, sender_transfer_screen.dart. Then run flutter analyze to confirm 0 issues.",
-  "context_notes": "Both Phase 10 and Phase 11 are fully code-verified and committed. Remaining work is (1) commit the in-progress connection-lost resilience changes (URGENT — HEAD is broken without them), then (2) perform device UAT for Phases 10 and 11."
+  "uncommitted_files": [],
+  "next_action": "Run device UAT for Phases 10 and 11. All code is clean and committed. Start with Phase 10 Test 1 (stale-key guard re-test) as it is the only test that requires precise timing.",
+  "context_notes": "Admin dashboard is now significantly more useful: orphaned screen deleted, users tab searchable, security feed shows dates, network tab refreshes on focus, analytics tab shows real transfer records with expandable detail. The medium-value improvements (user detail sheet, security feed filter chips, chart bar toggle) are the natural next step if admin polish continues."
 }
