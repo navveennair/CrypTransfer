@@ -20,6 +20,7 @@ class SidebarDrawer extends StatelessWidget {
     final username = authRepo.currentDisplayName ?? 'User';
     final email = user?.email ?? '';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Drawer(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -27,8 +28,12 @@ class SidebarDrawer extends StatelessWidget {
       child: GlassContainer(
         borderRadius: 0,
         blur: 30,
-        color: AppTheme.darkBg.withValues(alpha: 0.7),
-        borderColor: Colors.white.withValues(alpha: 0.1),
+        color: isDark
+            ? AppTheme.darkBg.withValues(alpha: 0.90)
+            : AppTheme.lightSurface.withValues(alpha: 0.95),
+        borderColor: isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : AppTheme.lightBorder.withValues(alpha: 0.8),
         child: Column(
           children: [
             // ── Header ───────────────────────────────────────────

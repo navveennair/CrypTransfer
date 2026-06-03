@@ -503,13 +503,9 @@ class _DecryptScreenState extends State<DecryptScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
+        GlassContainer(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cs.outlineVariant),
-          ),
+          borderRadius: 16,
           child: Column(
             children: [
               Icon(Icons.lock_rounded, size: 44, color: cs.primary),
@@ -544,12 +540,10 @@ class _DecryptScreenState extends State<DecryptScreen>
           ),
         ),
         const SizedBox(height: 20),
-        Container(
+        GlassContainer(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cs.primaryContainer.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(12),
-          ),
+          borderRadius: 12,
+          color: cs.primaryContainer.withValues(alpha: 0.25),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -560,7 +554,7 @@ class _DecryptScreenState extends State<DecryptScreen>
                   'Your private RSA key will be used to recover the AES key. '
                   'The decrypted file is only available locally on this device.',
                   style: TextStyle(
-                      color: cs.onPrimaryContainer,
+                      color: cs.onSurface,
                       fontSize: 13,
                       height: 1.5),
                 ),
@@ -569,11 +563,11 @@ class _DecryptScreenState extends State<DecryptScreen>
           ),
         ),
         const Spacer(),
-        FilledButton.icon(
+        CrypButton(
           icon: const Icon(Icons.lock_open_rounded),
           label: const Text('Decrypt File'),
           onPressed: _decrypt,
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          color: cs.primary,
         ),
       ],
     );
@@ -675,7 +669,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         const Spacer(),
 
         // ── Preview button ────────────────────────────────────────────────
-        OutlinedButton.icon(
+        CrypButton(
           icon: _previewing
               ? const SizedBox(
                   width: 16,
@@ -687,26 +681,24 @@ class _DecryptScreenState extends State<DecryptScreen>
           onPressed: (_previewing || _saving || _tempFilePath == null)
               ? null
               : _preview,
-          style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(50)),
+          color: cs.secondary,
+          height: 50,
         ),
 
         const SizedBox(height: 10),
 
         // ── Save & Continue button ─────────────────────────────────────────
-        FilledButton.icon(
+        CrypButton(
           icon: _saving
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.save_alt_rounded),
           label: Text(_saving ? 'Saving…' : 'Save to Downloads'),
           onPressed: _saving ? null : _saveAndWipe,
-          style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(52)),
+          color: cs.primary,
         ),
       ],
     );
@@ -732,11 +724,11 @@ class _DecryptScreenState extends State<DecryptScreen>
           style: TextStyle(color: cs.onSurfaceVariant, height: 1.5),
         ),
         const SizedBox(height: 32),
-        FilledButton(
+        CrypButton(
+          label: const Text('Go Back'),
           onPressed: () => Navigator.pop(context),
-          style:
-              FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-          child: const Text('Go Back'),
+          color: cs.error,
+          height: 46,
         ),
       ],
     );

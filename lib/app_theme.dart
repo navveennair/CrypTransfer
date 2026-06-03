@@ -50,7 +50,11 @@ class AppTheme {
           titleLarge: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w600, fontSize: 20),
           titleMedium: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w600, fontSize: 16),
           titleSmall: GoogleFonts.poppins(color: lightTextMain, fontWeight: FontWeight.w700, fontSize: 15),
+          labelLarge: GoogleFonts.poppins(color: lightTextMain, fontSize: 14, fontWeight: FontWeight.w600),
+          labelMedium: GoogleFonts.poppins(color: lightTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
           labelSmall: GoogleFonts.poppins(color: lightTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          headlineMedium: GoogleFonts.poppins(color: lightTextMain, fontSize: 28, fontWeight: FontWeight.w700),
+          headlineSmall: GoogleFonts.poppins(color: lightTextMain, fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -85,7 +89,11 @@ class AppTheme {
           titleLarge: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w600, fontSize: 20),
           titleMedium: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w600, fontSize: 16),
           titleSmall: GoogleFonts.poppins(color: darkTextMain, fontWeight: FontWeight.w700, fontSize: 15),
+          labelLarge: GoogleFonts.poppins(color: darkTextMain, fontSize: 14, fontWeight: FontWeight.w600),
+          labelMedium: GoogleFonts.poppins(color: darkTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
           labelSmall: GoogleFonts.poppins(color: darkTextSecondary, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          headlineMedium: GoogleFonts.poppins(color: darkTextMain, fontSize: 28, fontWeight: FontWeight.w700),
+          headlineSmall: GoogleFonts.poppins(color: darkTextMain, fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
       appBarTheme: AppBarTheme(
