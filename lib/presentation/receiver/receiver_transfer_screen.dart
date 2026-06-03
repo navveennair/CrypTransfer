@@ -239,6 +239,11 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       } catch (_) {}
     }
     wipeAll();
+    if (uid != null) {
+      try {
+        await EncryptionService.closeReceiverSession(uid);
+      } catch (_) {}
+    }
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
