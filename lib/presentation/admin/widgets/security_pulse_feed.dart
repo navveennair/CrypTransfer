@@ -56,6 +56,14 @@ class SecurityPulseFeed extends StatelessWidget {
   }
 }
 
+String _formatTimestamp(DateTime ts) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final tsDay = DateTime(ts.year, ts.month, ts.day);
+  if (tsDay == today) return DateFormat('HH:mm:ss').format(ts);
+  return DateFormat('MMM dd, HH:mm').format(ts);
+}
+
 class _SecurityLogTile extends StatelessWidget {
   final String event;
   final String details;
@@ -111,7 +119,7 @@ class _SecurityLogTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      DateFormat('HH:mm:ss').format(timestamp),
+                      _formatTimestamp(timestamp),
                       style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
                     ),
                   ],

@@ -7,10 +7,10 @@ class ConnectionNodeMap extends StatefulWidget {
   const ConnectionNodeMap({super.key});
 
   @override
-  State<ConnectionNodeMap> createState() => _ConnectionNodeMapState();
+  State<ConnectionNodeMap> createState() => ConnectionNodeMapState();
 }
 
-class _ConnectionNodeMapState extends State<ConnectionNodeMap> {
+class ConnectionNodeMapState extends State<ConnectionNodeMap> {
   final _adminRepo = AdminRepository();
   late Future<List<Map<String, dynamic>>> _futureConnections;
 
@@ -20,7 +20,7 @@ class _ConnectionNodeMapState extends State<ConnectionNodeMap> {
     _futureConnections = _adminRepo.fetchUserConnections();
   }
 
-  void _refresh() {
+  void refresh() {
     setState(() {
       _futureConnections = _adminRepo.fetchUserConnections();
     });
@@ -83,7 +83,7 @@ class _ConnectionNodeMapState extends State<ConnectionNodeMap> {
                     color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                   tooltip: 'Refresh network map',
-                  onPressed: _refresh,
+                  onPressed: refresh,
                 ),
               ),
             ),

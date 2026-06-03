@@ -19,15 +19,25 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _adminRepo = AdminRepository();
+  final _networkKey = GlobalKey<ConnectionNodeMapState>();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    // index 1 = NETWORK tab; refresh when user switches to it
+    if (_tabController.index == 1 && !_tabController.indexIsChanging) {
+      _networkKey.currentState?.refresh();
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -80,7 +90,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             controller: _tabController,
             children: [
               _buildAnalyticsTab(cs, tt),
-              ConnectionNodeMap(),
+              ConnectionNodeMap(key: _networkKey),
               SecurityPulseFeed(),
               const UserManagementList(),
             ],
