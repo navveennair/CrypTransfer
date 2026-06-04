@@ -659,6 +659,15 @@ class KeyRepository {
 
       if (isSender) {
         // I want to be sender.
+        // Both-sender conflict: partner is also mid-transaction claiming sender toward me.
+        final partnerPendingSenderFor =
+            partnerData[FirebaseConstants.pendingSenderFor] as String?;
+        if (partnerPendingSenderFor == _uid) {
+          throw RoleConflictException(
+            'Role conflict detected. Both users cannot be senders. '
+            'One user must be sender, another must be receiver.',
+          );
+        }
         // Conflict: If partner has selectedSenderUid set to someone OTHER than me.
         // (If partner chose someone else as sender, they're expecting that person to be sender, not me)
         if (partnerSelectedSender != null && partnerSelectedSender != _uid) {
@@ -670,12 +679,16 @@ class KeyRepository {
         // Clear any stale selectedSenderUid left from a previous receiver session.
         // Without this, the partner's receiver check sees our stale field and
         // wrongly fires a conflict (partnerSelectedSender == partnerUid).
+        final updates = <String, dynamic>{
+          FirebaseConstants.pendingSenderFor: partnerUid,
+        };
         if (mySelectedSender != null) {
-          txn.update(
-            _db.collection(FirebaseConstants.users).doc(_uid),
-            {'selectedSenderUid': FieldValue.delete()},
-          );
+          updates['selectedSenderUid'] = FieldValue.delete();
         }
+        txn.update(
+          _db.collection(FirebaseConstants.users).doc(_uid),
+          updates,
+        );
       } else {
         // I want to be receiver (selecting partner as my sender).
         // Conflict: If partner also has selectedSenderUid set to me, they're also receiver.
@@ -711,17 +724,31 @@ class KeyRepository {
   /// Called when user navigates back from SenderScreen or ReceiverScreen.
   Future<void> clearTransferRoles({required String handshakeDocId}) async {
     try {
-      await _db
-          .collection(FirebaseConstants.handshakes)
-          .doc(handshakeDocId)
-          .update({
-        'senderUid': FieldValue.delete(),
-        'receiverUid': FieldValue.delete(),
-        'rolesAssignedAt': FieldValue.delete(),
-      });
+      await Future.wait([
+        _db.collection(FirebaseConstants.handshakes).doc(handshakeDocId).update({
+          'senderUid': FieldValue.delete(),
+          'receiverUid': FieldValue.delete(),
+          'rolesAssignedAt': FieldValue.delete(),
+        }),
+        _db.collection(FirebaseConstants.users).doc(_uid).update({
+          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+        }),
+      ]);
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Failed to clear transfer roles: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Clears the pending sender claim from the current user's Firestore doc.
+  /// Called when sender exits before a handshake doc is created (pre-connection exit).
+  Future<void> clearSenderClaim() async {
+    try {
+      await _db.collection(FirebaseConstants.users).doc(_uid).update({
+        FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+      });
+    } on FirebaseException {
+      // Best-effort cleanup — ignore errors silently
     }
   }
 

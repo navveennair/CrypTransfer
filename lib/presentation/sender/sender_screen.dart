@@ -112,6 +112,11 @@ class _SenderScreenState extends State<SenderScreen>
     _progressSub?.cancel();
     _progressCtrl.close();
     _readinessTimer?.cancel();
+    // If sender leaves before a handshake was created, clearTransferRoles is never
+    // called — clear the Firestore claim directly so the partner's Send File unblocks.
+    if (_handshakeDocId == null) {
+      _connService.clearSenderClaim();
+    }
     super.dispose();
   }
 

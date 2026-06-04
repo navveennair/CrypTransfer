@@ -19,6 +19,9 @@ abstract class FirebaseConstants {
   static const String rsaKeyManager = 'rsa_key_manager';  // subcollection: users/{uid}/rsa_key_manager
   static const String profile = 'profile';                 // subcollection: users/{uid}/profile
 
+  // ─── User document fields ──────────────────────────────────────────────────
+  static const String pendingSenderFor = 'pendingSenderFor'; // set when user claims sender role toward a partner; cleared on exit
+
   // ─── Firebase Storage paths ────────────────────────────────────────────────
   static const String transfersStorageRoot = 'transfers';
   static const String encryptedFileName = 'encrypted_file';
@@ -26,12 +29,6 @@ abstract class FirebaseConstants {
   // ─── Secure storage keys ───────────────────────────────────────────────────
   static const String privateKeyStorageKey = 'rsa_private_key';
   static const String publicKeyStoragePrefix = 'rsa_public_key_';
-
-  // ─── Google Sign-In ───────────────────────────────────────────────────────
-  // Firebase Console → Authentication → Sign-in method → Google →
-  // Web SDK configuration → Web client ID
-  static const String googleWebClientId =
-      '881677813575-de8cqucd3qd71cbfk3rrb8l65osff7vc.apps.googleusercontent.com';
 
   // ─── Limits ───────────────────────────────────────────────────────────────
   static const int maxDownloadBytes = 100 * 1024 * 1024; // 100 MB
