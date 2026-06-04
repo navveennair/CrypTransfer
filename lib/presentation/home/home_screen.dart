@@ -750,8 +750,7 @@ Widget _transferStatusBadge(BuildContext context, String status, bool isSender) 
           const SizedBox(width: 4),
           Text(
             'Failed',
-            style: TextStyle(
-              fontSize: 11,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: cs.error,
               fontWeight: FontWeight.w600,
             ),

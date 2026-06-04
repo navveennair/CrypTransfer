@@ -51,8 +51,7 @@ class SidebarDrawer extends StatelessWidget {
                       backgroundColor: cs.primary.withValues(alpha: 0.2),
                       child: Text(
                         username.isNotEmpty ? username[0].toUpperCase() : '?',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 26,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: cs.primary,
                         ),
@@ -66,9 +65,8 @@ class SidebarDrawer extends StatelessWidget {
                       children: [
                         Text(
                           username,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: cs.onSurface,
-                            fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -285,7 +283,6 @@ class _DrawerItem extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 11,
                           color: cs.onSurfaceVariant,
                         ),
                       ),

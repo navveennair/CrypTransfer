@@ -234,12 +234,14 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: CrypButton(
+                      label: const Text('Cancel'),
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      height: 44,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: CrypButton(
                       label: Text(confirmLabel),
