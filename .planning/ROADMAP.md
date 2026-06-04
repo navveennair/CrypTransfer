@@ -1,19 +1,5 @@
 # CrypTransfer — Project Roadmap
 
-## Backlog
-
-### Phase 999.1: Follow-up — Phase 02.1 unpanned scope (BACKLOG)
-
-**Goal:** Implement Identity & Networking professional standards that were discussed but never planned
-**Source phase:** 02.1
-**Deferred at:** 2026-05-31 during /gsd-next advancement past Phase 09
-**Scope:**
-- [ ] Google Sign-In integration (`google_sign_in` package, "Continue with Google" button)
-- [ ] Friendships collection (`friendships/{docId}` with participants array, pending/accepted/blocked status)
-- [ ] My Connections Screen (accepted friends list with per-user Disconnect)
-- [ ] First-Login Theme Onboarding (dark/light choice saved to Firestore + shared_preferences)
-- [ ] Login/Register form validation (email format, password strength, obscure-text toggles)
-
 ### Phase 11: Admin Dashboard Security & Efficiency Hardening
 
 **Goal:** Harden the admin dashboard layer across 7 identified issues: close the CRITICAL unguarded /admin-dashboard route (AdminGuard widget), fix SERIOUS missing adminUid in setUserActiveStatus audit log, replace MEDIUM fake TransferVolumeChart sawtooth with real 7-day Dart aggregation, consolidate MEDIUM N parallel Firestore streams in ConnectionNodeMap to a single FutureBuilder, add MEDIUM .limit() pagination to unbounded admin streams, add MEDIUM snapshot.hasError branches to all admin StreamBuilders, and MINOR remove 3 dead AdminRepository methods.
@@ -35,30 +21,6 @@ Plans:
 ### Phase 02: ReceiverTransferScreen Hardening & Memory Safety
 **Goal:** Harden the receiver-side transfer flow with session propagation, memory safety, and lifecycle kill-switch integration.
 **Status:** Complete
-
-### Phase 02.1: Identity & Networking — Professional Standards
-**Goal:** Upgrade the Identity and Networking modules to professional standards: integrate Google Sign-In, replace the search-only friend model with a full `friendships` collection (pending/accepted/blocked), add a first-login theme-selection onboarding overlay, and standardize Login/Register form validation.
-
-**Scope:**
-1. **Google Authentication** — Integrate `google_sign_in` package. Add "Continue with Google" button to Login and Register screens. Firebase Auth flow handles Google identity tokens and auto-creates a `users` document for new accounts.
-2. **Friendships Collection** — Refactor friend logic from search-only to a `friendships/{docId}` Firestore collection with `participants: [uid1, uid2]`, `status: pending|accepted|blocked`, `createdAt`. Query via `arrayContains: currentUser.uid` for a complete two-way friends list.
-3. **My Connections Screen** — New screen showing accepted friends with a per-user "Disconnect" button. Disconnect deletes the friendship document and all shared handshake history (`rsa_key_transfers` docs for that pair) to maintain privacy.
-4. **First-Login Theme Onboarding** — Onboarding overlay/dialog shown only on first login after registration (or when no preference is saved). Asks "Choose your experience: Dark Mode or Light Mode?". Saves preference to Firestore user profile and locally via `shared_preferences`. Theme updates instantly app-wide.
-5. **Form Validation** — Login/Register forms get email-format validation, password-strength validation, and obscure-text toggles for password fields.
-
-**Firestore schema:**
-```
-friendships/{docId}
-  participants: [uid1, uid2]   // arrayContains query for two-way list
-  status: "pending" | "accepted" | "blocked"
-  createdAt: Timestamp
-```
-
-**Verification:**
-- Google Sign-In authenticates and creates users doc on first login
-- Disconnect deletes friendship doc + shared rsa_key_transfers docs
-- Theme changes instantly on onboarding choice and persists across restarts
-- Login/Register forms reject invalid email + weak passwords
 
 ### Phase 03: Managed Profile & RSA Vault
 **Goal:** Implement a biometric-gated RSA Key Manager (Vault) as a zero-remanence proof-check, initialize a `profile` subcollection on user creation, and harden Firestore security rules for the new `rsa_key_manager` subcollection.
