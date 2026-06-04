@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Google sign-in failed.');
+      if (mounted) setState(() => _errorMessage = 'Google sign-in failed. Please try again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

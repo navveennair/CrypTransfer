@@ -57,9 +57,6 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     final uid = _authRepo.currentUid;
     if (uid == null) return;
 
-    final gateOk = await BiometricHelper.authenticate('Confirm: Regenerate RSA Keys');
-    if (!gateOk || !mounted) return;
-
     final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
       icon: Icons.refresh_rounded,

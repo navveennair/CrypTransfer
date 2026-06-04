@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../app_theme.dart';
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
@@ -240,7 +239,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Cannot close session — transfer in progress.'),
-          backgroundColor: Theme.of(context).colorScheme.tertiary,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
       return;
@@ -343,9 +342,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: CrypButton(
+                    label: const Text('Cancel'),
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    height: 44,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -495,14 +496,15 @@ Future<void> _onSenderSelected(UserModel sender) async {
             ),
           ),
           const SizedBox(height: 12),
-          TextButton.icon(
+          CrypButton(
             icon: const Icon(Icons.refresh_rounded, size: 16),
             label: const Text('Regenerate Keys'),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
             ).then((_) => _checkKeyStatus()),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            color: cs.primary,
+            height: 48,
           ),
         ],
       );
@@ -587,18 +589,21 @@ Future<void> _onSenderSelected(UserModel sender) async {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('@$selectedName', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const Text('Selected Sender', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text('Selected Sender', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
                 if (_sessionManager.state == SessionState.open)
-                  IconButton(
-                    icon: const Icon(Icons.sync_alt_rounded, size: 20),
-                    onPressed: () => setState(() {
-                      _sessionManager.clearSender();
-                      _transferStream = null;
-                      _handshakeDone = false;
-                    }),
+                  Tooltip(
+                    message: 'Change sender',
+                    child: IconButton(
+                      icon: const Icon(Icons.sync_alt_rounded, size: 20),
+                      onPressed: () => setState(() {
+                        _sessionManager.clearSender();
+                        _transferStream = null;
+                        _handshakeDone = false;
+                      }),
+                    ),
                   ),
               ],
             ),
@@ -617,7 +622,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          const Icon(Icons.hourglass_empty_rounded, color: AppTheme.primaryBlue, size: 20),
+          Icon(Icons.hourglass_empty_rounded, color: cs.onSurfaceVariant, size: 20),
           const SizedBox(width: 14),
           const Expanded(child: Text('Waiting for connected sender…', style: TextStyle(fontSize: 13))),
         ],
@@ -629,6 +634,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _transferStream!,
       builder: (context, snap) {
+        final cs = Theme.of(context).colorScheme;
         if (snap.hasError) {
           return GlassContainer(
             padding: const EdgeInsets.all(16),
@@ -659,7 +665,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.hourglass_empty_rounded, color: AppTheme.primaryBlue, size: 20),
+              Icon(Icons.hourglass_empty_rounded, color: cs.onSurfaceVariant, size: 20),
               const SizedBox(width: 14),
               const Expanded(child: Text('Waiting for file transfer…', style: TextStyle(fontSize: 13))),
               if (hasPending) const CircularProgressIndicator(strokeWidth: 2),
@@ -681,7 +687,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Cannot close session — transfer in progress.'),
-                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           } else if (_isReadyToReceive) {
@@ -709,9 +715,12 @@ Future<void> _onSenderSelected(UserModel sender) async {
           title: Text('Receive File', style: Theme.of(context).textTheme.titleMedium),
           centerTitle: true,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.settings_suggest_rounded),
-              onPressed: _isReadyToReceive ? null : _openKeyManager,
+            Tooltip(
+              message: _isReadyToReceive ? 'Key manager unavailable while mailbox is open' : 'Manage RSA keys',
+              child: IconButton(
+                icon: const Icon(Icons.settings_suggest_rounded),
+                onPressed: _isReadyToReceive ? null : _openKeyManager,
+              ),
             ),
           ],
         ),
@@ -808,7 +817,7 @@ class _KeyInfoRow extends StatelessWidget {
       children: [
         Icon(Icons.circle, size: 6, color: cs.secondary),
         const SizedBox(width: 8),
-        Text('$label: ', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text('$label: ', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
@@ -961,7 +970,7 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 if (_results.isNotEmpty) ...[
-                  Text('Search Results', style: tt.labelSmall?.copyWith(color: AppTheme.textSecondary)),
+                  Text('Search Results', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   ..._results.map((u) => Card(
                     child: ListTile(
@@ -986,28 +995,21 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                                     height: 20,
                                     child: CircularProgressIndicator(strokeWidth: 2),
                                   )
-                                : FilledButton(
+                                : CrypButton(
+                                      label: const Text('Send'),
                                       onPressed: () => _sendKey(u),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: cs.secondary,
-                                        foregroundColor: cs.onSecondary,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      child: const Text('Send'),
+                                      color: cs.secondary,
+                                      height: 40,
                                     ),
                             ],
                           )
-                        : TextButton(onPressed: () => _connect(u.uid, u), child: const Text('Connect')),
+                        : CrypButton(label: const Text('Connect'), onPressed: () => _connect(u.uid, u), color: cs.primary, height: 40),
                     ),
                   )),
                 ],
                 if (_connectedList.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  Text('Active Connections', style: tt.labelSmall?.copyWith(color: AppTheme.textSecondary)),
+                  Text('Active Connections', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 8),
                   ..._connectedList.map((f) => Card(
                     child: ListTile(
@@ -1086,9 +1088,10 @@ class _OwnKeyStatusCard extends StatelessWidget {
   const _OwnKeyStatusCard({required this.hasPrivateKey, required this.hasPublicKey});
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GlassContainer(
       padding: const EdgeInsets.all(16),
-      color: AppTheme.darkSurface,
+      color: cs.surfaceContainerLow,
       child: Column(
         children: [
           _Row('Device Private Key', hasPrivateKey ? 'Encrypted & Local' : 'Missing'),
@@ -1104,11 +1107,14 @@ class _Row extends StatelessWidget {
   final String l; final String v;
   const _Row(this.l, this.v);
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(l, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+      Text(l, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
       Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
     ]),
   );
+  }
 }

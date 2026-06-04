@@ -137,7 +137,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
           ..showSnackBar(
             SnackBar(
               content: const Text('Transfer aborted — sender terminated the tunnel'),
-              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              backgroundColor: Theme.of(context).colorScheme.error,
               duration: const Duration(seconds: 4),
             ),
           );
@@ -194,9 +194,11 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: CrypButton(
+                      label: const Text('Cancel'),
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      height: 44,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -303,7 +305,7 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
         content: const Text('Transfer stalled — sender connection lost'),
-        backgroundColor: Theme.of(context).colorScheme.tertiary,
+        backgroundColor: Theme.of(context).colorScheme.error,
         duration: const Duration(seconds: 4),
       ));
     Navigator.of(context).pushAndRemoveUntil(
@@ -492,12 +494,12 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
               AnimatedOpacity(
                 opacity: _allStepsDone ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 400),
-                child: FilledButton.icon(
+                child: CrypButton(
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: const Text('Open Secure File'),
                   onPressed: _allStepsDone ? _proceed : null,
-                  style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52)),
+                  color: Theme.of(context).colorScheme.primary,
+                  height: 52,
                 ),
               ),
             ],

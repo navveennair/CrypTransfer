@@ -130,9 +130,7 @@ class AuthRepository {
 
   Future<UserCredential> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        serverClientId: FirebaseConstants.googleWebClientId,
-      ).signIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) throw AuthException('Google sign in cancelled.');
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;

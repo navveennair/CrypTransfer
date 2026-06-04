@@ -307,13 +307,15 @@ class TransferRepository {
     required String type,
   }) {
     final now = FieldValue.serverTimestamp();
+    // toUserId is required by the Firestore notifications create rule:
+    //   allow create: if request.resource.data.toUserId == userId
     batch.set(
       _db
           .collection(FirebaseConstants.users)
           .doc(senderId)
           .collection(FirebaseConstants.notifications)
           .doc(),
-      {'type': type, 'message': senderMessage, 'read': false, 'createdAt': now},
+      {'toUserId': senderId, 'type': type, 'message': senderMessage, 'read': false, 'createdAt': now},
     );
     batch.set(
       _db
@@ -321,7 +323,7 @@ class TransferRepository {
           .doc(receiverId)
           .collection(FirebaseConstants.notifications)
           .doc(),
-      {'type': type, 'message': receiverMessage, 'read': false, 'createdAt': now},
+      {'toUserId': receiverId, 'type': type, 'message': receiverMessage, 'read': false, 'createdAt': now},
     );
   }
 
@@ -577,4 +579,3 @@ class TransferRepository {
     }
   }
 }
-

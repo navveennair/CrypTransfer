@@ -101,7 +101,30 @@ class _DecryptScreenState extends State<DecryptScreen>
     _failedStatusSub = _repo
         .watchTransferStatus(widget.transferId)
         .listen((snap) async {
-      if (!snap.exists) return;
+      if (!snap.exists) {
+        // Doc deleted externally (sender-side cleanup or crash) — wipe and exit.
+        if (!_aborting && _phase != _Phase.error && mounted) {
+          _aborting = true;
+          wipeAll();
+          final uid = _auth.currentUid;
+          if (uid != null) {
+            try { await EncryptionService.closeReceiverSession(uid); } catch (_) {}
+          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(SnackBar(
+              content: const Text('Session terminated — tunnel destroyed.'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              duration: const Duration(seconds: 4),
+            ));
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (_) => false,
+          );
+        }
+        return;
+      }
       _resetWatchdog();
       final status = snap.data()?['status'] as String?;
       if (status == 'failed' && !_aborting && _phase != _Phase.error && mounted) {
@@ -119,7 +142,7 @@ class _DecryptScreenState extends State<DecryptScreen>
           ..showSnackBar(
             SnackBar(
               content: const Text('Transfer aborted — sender terminated the tunnel'),
-              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              backgroundColor: Theme.of(context).colorScheme.error,
               duration: const Duration(seconds: 4),
             ),
           );
@@ -165,9 +188,11 @@ class _DecryptScreenState extends State<DecryptScreen>
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: CrypButton(
+                      label: const Text('Cancel'),
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      height: 44,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -274,7 +299,7 @@ class _DecryptScreenState extends State<DecryptScreen>
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
         content: const Text('Transfer stalled — sender connection lost'),
-        backgroundColor: Theme.of(context).colorScheme.tertiary,
+        backgroundColor: Theme.of(context).colorScheme.error,
         duration: const Duration(seconds: 4),
       ));
     Navigator.of(context).pushAndRemoveUntil(
@@ -608,8 +633,8 @@ class _DecryptScreenState extends State<DecryptScreen>
               shape: BoxShape.circle,
               color: cs.secondary,
             ),
-            child: const Icon(Icons.check_rounded,
-                color: Colors.white, size: 40),
+            child: Icon(Icons.check_rounded,
+                color: cs.onSecondary, size: 40),
           ),
         ),
         const SizedBox(height: 16),

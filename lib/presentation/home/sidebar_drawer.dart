@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app_theme.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../auth/login_screen.dart';
@@ -28,12 +27,8 @@ class SidebarDrawer extends StatelessWidget {
       child: GlassContainer(
         borderRadius: 0,
         blur: 30,
-        color: isDark
-            ? AppTheme.darkBg.withValues(alpha: 0.90)
-            : AppTheme.lightSurface.withValues(alpha: 0.95),
-        borderColor: isDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : AppTheme.lightBorder.withValues(alpha: 0.8),
+        color: cs.surface.withValues(alpha: isDark ? 0.90 : 0.95),
+        borderColor: cs.outlineVariant.withValues(alpha: isDark ? 0.10 : 0.80),
         child: Column(
           children: [
             // ── Header ───────────────────────────────────────────
@@ -192,9 +187,11 @@ class SidebarDrawer extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: TextButton(
+                                child: CrypButton(
+                                  label: const Text('Cancel'),
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Cancel'),
+                                  color: cs.onSurfaceVariant,
+                                  height: 44,
                                 ),
                               ),
                               const SizedBox(width: 12),

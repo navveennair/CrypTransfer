@@ -121,7 +121,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
             ..clearSnackBars()
             ..showSnackBar(
               SnackBar(
-                content: const Text('✓ Receiver has securely closed the session'),
+                content: const Text('Receiver has securely closed the session'),
                 backgroundColor: Theme.of(context).colorScheme.secondary,
                 duration: const Duration(seconds: 4),
               ),
@@ -183,7 +183,6 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         } catch (e) {
           // Remote AES key erasure failed — local wipe still runs below.
           // Log so the failure is visible in security review (no key material logged).
-          debugPrint('[Security] Turn 2 Firestore key erasure failed: $e');
         }
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
         if (mounted) {
@@ -200,7 +199,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
       if (receiverStatus == 'decrypted' && mounted) {
         setState(() {
           _receiverDecrypted = true;
-          _statusMessage = '✅ Receiver successfully decrypted file';
+          _statusMessage = 'Receiver successfully decrypted file';
         });
         _clearSenderLocalMetadata();
       }
@@ -208,7 +207,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
       if (receiverStatus == 'saved' && mounted) {
         _watchdogTimer?.cancel(); // cleanup timeout takes over from here
         setState(() {
-          _statusMessage = '✅ Receiver saved the file securely';
+          _statusMessage = 'Receiver saved the file securely';
           _canEndSession = true;
         });
         if (!_timeoutStarted) {           // guard: arm cleanup timeout exactly once
@@ -331,6 +330,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         content: GlassContainer(
           padding: const EdgeInsets.all(24),
           borderRadius: 28,
+          borderColor: Theme.of(ctx).colorScheme.error.withValues(alpha: 0.4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -351,9 +351,11 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: CrypButton(
+                      label: const Text('Cancel'),
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      height: 44,
                     ),
                   ),
                   const SizedBox(width: 8),

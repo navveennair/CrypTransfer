@@ -38,9 +38,11 @@ Future<bool?> _showDisconnectDialog(BuildContext context, String username) {
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
+                  child: CrypButton(
+                    label: const Text('Cancel'),
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
+                    color: cs.onSurfaceVariant,
+                    height: 44,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -793,24 +795,19 @@ class _SearchResultTileState extends State<_SearchResultTile>
     }
 
     if (status == 'pending_received') {
-      return FilledButton(
+      return CrypButton(
+        label: const Text('Accept'),
         onPressed: docId != null ? () => _accept(docId) : null,
-        style: FilledButton.styleFrom(
-          backgroundColor: cs.secondary,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8)),
-        ),
-        child: const Text('Accept'),
+        color: cs.secondary,
+        height: 40,
       );
     }
 
-    return OutlinedButton(
+    return CrypButton(
+      label: const Text('Connect'),
       onPressed: _sendRequest,
-      style: OutlinedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8)),
-      ),
-      child: const Text('Connect'),
+      color: cs.primary,
+      height: 40,
     );
   }
 

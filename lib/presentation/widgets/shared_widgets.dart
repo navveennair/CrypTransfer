@@ -144,12 +144,12 @@ class StepCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: done
-                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        ? Icon(Icons.check, color: cs.onSecondary, size: 18)
                         : Text(
                             '$step',
                             style: TextStyle(
-                              color: done || currentStep
-                                  ? Colors.white
+                              color: currentStep
+                                  ? cs.onPrimary
                                   : cs.onSurface.withValues(alpha: 0.6),
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -291,11 +291,11 @@ class _StatusBannerState extends State<StatusBanner>
               ),
             ),
             if (widget.onView != null)
-              TextButton(
+              CrypButton(
+                label: const Text('View'),
                 onPressed: widget.onView,
-                style: TextButton.styleFrom(
-                    foregroundColor: cs.onSurface),
-                child: const Text('View'),
+                color: cs.tertiary,
+                height: 36,
               ),
           ],
         ),

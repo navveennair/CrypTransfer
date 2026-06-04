@@ -75,6 +75,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
   final _cleanupRepo = CleanupRepository();
   final _transferRepo = TransferRepository();
   StreamSubscription<DocumentSnapshot>? _docListener;
+  Timer? _senderWaitTimeout;
 
   @override
   void initState() {
@@ -90,6 +91,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
 
   @override
   void dispose() {
+    _senderWaitTimeout?.cancel();
     _docListener?.cancel();
     _doneCtrl.dispose();
     super.dispose();
@@ -127,6 +129,16 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
       _docListener = _cleanupRepo
           .watchTransferForDeletion(widget.transferId)
           .listen(_onTransferDocUpdate);
+
+      // Safety timeout: if sender never confirms within 120s, proceed anyway
+      _senderWaitTimeout = Timer(const Duration(seconds: 120), () {
+        if (_phase == _Phase.waitingForSender && mounted) {
+          _senderWaitTimeout = null;
+          _docListener?.cancel();
+          _docListener = null;
+          _runFinalCleanup();
+        }
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -145,6 +157,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
     final senderCleanedUp = data['senderCleanedUp'] as bool? ?? false;
     final aesKey = data['encryptedAESKey'] as String? ?? '';
     if (senderCleanedUp && aesKey.isEmpty) {
+      _senderWaitTimeout?.cancel();
+      _senderWaitTimeout = null;
       _docListener?.cancel();
       _docListener = null;
       _runFinalCleanup();
@@ -539,8 +553,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
                 shape: BoxShape.circle,
                 color: cs.secondary,
               ),
-              child: const Icon(Icons.shield_rounded,
-                  color: Colors.white, size: 52),
+              child: Icon(Icons.shield_rounded,
+                  color: cs.onSecondary, size: 52),
             ),
           ),
         ),

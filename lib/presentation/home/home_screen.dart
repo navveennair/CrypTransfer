@@ -90,9 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showErrorMessage(String message) {
-    _showErrorSnackBar(message);
-  }
 
   void _showRoleConflictDialog(String message) {
     if (!mounted) return;
@@ -395,9 +392,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const SizedBox(height: 8),
-              TextButton(
+              CrypButton(
+                label: Text('Keep Waiting', style: tt.bodyMedium),
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Keep Waiting', style: tt.bodyMedium),
+                color: cs.onSurfaceVariant,
+                height: 48,
               ),
               const SizedBox(height: 8),
             ],
@@ -466,10 +465,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Hello, $username!',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: cs.onSurface,
-                            fontSize: 18,
                           ),
                         ),
                         Text(
@@ -510,7 +508,6 @@ class _HomeScreenState extends State<HomeScreen> {
               onConnectionTap: _openRolePicker,
               onCancelTap: _cancelProposal,
               onAddPressed: _openAddConnectionSheet,
-              onShowError: _showErrorMessage,
             ),
             const SizedBox(height: 32),
 
@@ -519,7 +516,6 @@ class _HomeScreenState extends State<HomeScreen> {
               incomingPendingStream: _incomingPendingStream,
               onAccept: _acceptProposal,
               onReject: _rejectProposal,
-              onShowError: _showErrorMessage,
             ),
             const SizedBox(height: 32),
 
@@ -566,8 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               size: 40, color: cs.onSurfaceVariant),
                           const SizedBox(height: 12),
                           Text('No transfers yet',
-                              style:
-                                  TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         ],
                       ),
                     ),
@@ -609,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: (data['status'] == 'aborted'
+                              color: (_isFailedStatus(data['status'] as String? ?? '')
                                       ? cs.error
                                       : isSender
                                           ? cs.primary
@@ -618,13 +613,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              data['status'] == 'aborted'
+                              _isFailedStatus(data['status'] as String? ?? '')
                                   ? Icons.cancel_outlined
                                   : isSender
                                       ? Icons.upload_rounded
                                       : Icons.download_rounded,
                               size: 20,
-                              color: data['status'] == 'aborted'
+                              color: _isFailedStatus(data['status'] as String? ?? '')
                                   ? cs.error
                                   : isSender
                                       ? cs.primary
@@ -639,9 +634,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   fileName,
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600),
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
@@ -737,9 +730,12 @@ class _SectionButtonState extends State<_SectionButton> {
   }
 }
 
+bool _isFailedStatus(String status) =>
+    status == 'aborted' || status == 'connection_lost' || status == 'failed';
+
 Widget _transferStatusBadge(BuildContext context, String status, bool isSender) {
   final cs = Theme.of(context).colorScheme;
-  if (status == 'aborted') {
+  if (_isFailedStatus(status)) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -815,8 +811,8 @@ class _NotifBellButton extends StatelessWidget {
                   child: Center(
                     child: Text(
                       count > 9 ? '9+' : '$count',
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onError,
                           fontSize: 9,
                           fontWeight: FontWeight.bold),
                     ),
@@ -866,6 +862,7 @@ class _NotifBannerState extends State<_NotifBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Positioned(
       top: MediaQuery.of(context).padding.top + 8,
       left: 16,
@@ -876,32 +873,32 @@ class _NotifBannerState extends State<_NotifBanner> {
           onTap: widget.onTap,
           child: GlassContainer(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: Colors.indigo.withValues(alpha: 0.2),
-            borderColor: Colors.indigo.withValues(alpha: 0.3),
+            color: cs.tertiary.withValues(alpha: 0.2),
+            borderColor: cs.tertiary.withValues(alpha: 0.3),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.withValues(alpha: 0.2),
+                    color: cs.tertiary.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.notifications_active_rounded,
-                      color: Colors.white, size: 18),
+                  child: Icon(Icons.notifications_active_rounded,
+                      color: cs.onSurface, size: 18),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     widget.message,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: cs.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w500),
                   ),
                 ),
                 const SizedBox(width: 6),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  icon: Icon(Icons.close, color: cs.onSurfaceVariant, size: 20),
                   onPressed: widget.onDismiss,
                 ),
               ],
@@ -1019,7 +1016,10 @@ class _ProposalBannerState extends State<_ProposalBanner> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  CrypButton(
+                    label: _accepting
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Accept Request'),
                     onPressed: (_accepting || _rejecting)
                         ? null
                         : () {
@@ -1029,19 +1029,14 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                               if (mounted) setState(() => _accepting = false);
                             });
                           },
-                    style: TextButton.styleFrom(
-                      foregroundColor: cs.secondary,
-                      minimumSize: const Size(44, 44),
-                    ),
-                    child: _accepting
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Accept Request'),
+                    color: cs.secondary,
+                    height: 44,
                   ),
                   const SizedBox(width: 4),
-                  TextButton(
+                  CrypButton(
+                    label: _rejecting
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Decline Request'),
                     onPressed: (_accepting || _rejecting)
                         ? null
                         : () {
@@ -1051,16 +1046,8 @@ class _ProposalBannerState extends State<_ProposalBanner> {
                               if (mounted) setState(() => _rejecting = false);
                             });
                           },
-                    style: TextButton.styleFrom(
-                      foregroundColor: cs.error,
-                      minimumSize: const Size(44, 44),
-                    ),
-                    child: _rejecting
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Decline Request'),
+                    color: cs.error,
+                    height: 44,
                   ),
                 ],
               ),
@@ -1084,7 +1071,6 @@ class _ActiveConnectionsSection extends StatelessWidget {
   final void Function({required String docId, required String partnerUsername})
       onCancelTap;
   final VoidCallback onAddPressed;
-  final void Function(String msg) onShowError;
 
   const _ActiveConnectionsSection({
     required this.activeAsProposerStream,
@@ -1094,7 +1080,6 @@ class _ActiveConnectionsSection extends StatelessWidget {
     required this.onConnectionTap,
     required this.onCancelTap,
     required this.onAddPressed,
-    required this.onShowError,
   });
 
   @override
@@ -1109,17 +1094,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
               stream: outgoingPendingStream,
               builder: (context, pendingSnap) {
                 if (proposerSnap.hasError || partnerSnap.hasError || pendingSnap.hasError) {
-                  final cs = Theme.of(context).colorScheme;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text(
-                        'Could not load connections. Check your connection.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
+                  return const SizedBox.shrink();
                 }
                 if (proposerSnap.connectionState == ConnectionState.waiting ||
                     partnerSnap.connectionState == ConnectionState.waiting ||
@@ -1280,13 +1255,11 @@ class _PendingRequestsSection extends StatelessWidget {
   final Stream<QuerySnapshot> incomingPendingStream;
   final Future<void> Function({required String docId, required String proposerId}) onAccept;
   final Future<void> Function({required String docId}) onReject;
-  final void Function(String msg) onShowError;
 
   const _PendingRequestsSection({
     required this.incomingPendingStream,
     required this.onAccept,
     required this.onReject,
-    required this.onShowError,
   });
 
   @override
@@ -1299,8 +1272,21 @@ class _PendingRequestsSection extends StatelessWidget {
           return const SizedBox.shrink();
         }
         if (snapshot.hasError) {
-          onShowError('Could not load pending requests. Check your connection.');
-          return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Failed to load connections',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
+                  ),
+                ),
+              ],
+            ),
+          );
         }
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) return const SizedBox.shrink();
@@ -1398,7 +1384,10 @@ class _PendingRequestRowState extends State<_PendingRequestRow> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
+              CrypButton(
+                label: _rejecting
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Decline Request'),
                 onPressed: isLoading
                     ? null
                     : () async {
@@ -1409,16 +1398,8 @@ class _PendingRequestRowState extends State<_PendingRequestRow> {
                           if (mounted) setState(() => _rejecting = false);
                         }
                       },
-                style: TextButton.styleFrom(
-                  foregroundColor: cs.error,
-                  minimumSize: const Size(44, 44),
-                ),
-                child: _rejecting
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Decline Request'),
+                color: cs.error,
+                height: 44,
               ),
               const SizedBox(width: 8),
               CrypButton(

@@ -19,9 +19,10 @@ class NotificationsScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         centerTitle: true,
         actions: [
-          TextButton(
+          IconButton(
+            icon: const Icon(Icons.done_all_rounded),
             onPressed: () => NotificationService.markAllRead(uid),
-            child: const Text('Mark all read'),
+            tooltip: 'Mark all as read',
           ),
         ],
       ),

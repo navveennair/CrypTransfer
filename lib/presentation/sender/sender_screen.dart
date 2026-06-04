@@ -664,18 +664,22 @@ class _SenderScreenState extends State<SenderScreen>
           ],
         ),
         actions: [
-          TextButton(
+          CrypButton(
+            label: const Text('Cancel'),
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            height: 44,
           ),
-          FilledButton(
+          CrypButton(
+            label: const Text('It Matches'),
             onPressed: () async {
               await TofuService.markVerified(uid);
               if (!mounted) return;
               setState(() => _tofuStatus = TofuStatus.verified);
               Navigator.pop(context);
             },
-            child: const Text('It Matches'),
+            color: Theme.of(context).colorScheme.tertiary,
+            height: 48,
           ),
         ],
       ),
@@ -717,15 +721,17 @@ class _SenderScreenState extends State<SenderScreen>
           ],
         ),
         actions: [
-          TextButton(
+          CrypButton(
+            label: const Text('Cancel'),
             onPressed: () {
               Navigator.pop(context);
               _revertToWaiting();
             },
-            child: const Text('Cancel'),
+            color: cs.onSurfaceVariant,
+            height: 44,
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: cs.error),
+          CrypButton(
+            label: const Text('Re-verify & Trust'),
             onPressed: () async {
               await TofuService.repin(uid, keyJson);
               if (!mounted) return;
@@ -736,7 +742,8 @@ class _SenderScreenState extends State<SenderScreen>
               });
               Navigator.pop(context);
             },
-            child: const Text('Re-verify & Trust'),
+            color: cs.error,
+            height: 48,
           ),
         ],
       ),
@@ -786,9 +793,11 @@ class _SenderScreenState extends State<SenderScreen>
                     Row(
                       children: [
                         Expanded(
-                          child: TextButton(
+                          child: CrypButton(
+                            label: const Text('Cancel'),
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Cancel'),
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                            height: 44,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -974,7 +983,7 @@ class _SenderScreenState extends State<SenderScreen>
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: Colors.white),
+                                            strokeWidth: 2),
                                       )
                                     : const Icon(Icons.security_rounded, size: 20),
                                 label: Text(_encryptingKey
@@ -995,8 +1004,8 @@ class _SenderScreenState extends State<SenderScreen>
                       child: _readyToSend
                           ? CrypButton(
                               key: const ValueKey('send-btn'),
-                              icon: const Icon(Icons.send_rounded, size: 20, color: Colors.white),
-                              label: const Text('Send Encrypted File', style: TextStyle(color: Colors.white)),
+                              icon: const Icon(Icons.send_rounded, size: 20),
+                              label: const Text('Send Encrypted File'),
                               onPressed: _send,
                               color: cs.secondary,
                             )
@@ -1529,16 +1538,24 @@ class _TofuStatusBanner extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: cs.tertiary),
             ),
           ),
-          GestureDetector(
-            onTap: onVerify,
-            child: Text(
-              'Verify',
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.tertiary,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.underline,
-                decorationColor: cs.tertiary,
+          Semantics(
+            label: 'Verify receiver identity',
+            button: true,
+            child: InkWell(
+              onTap: onVerify,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Text(
+                  'Verify',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.primary,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                    decorationColor: cs.primary,
+                  ),
+                ),
               ),
             ),
           ),

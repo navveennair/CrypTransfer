@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
@@ -50,29 +53,53 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
     with SecurityLifecycleMixin<SenderSessionEndScreen> {
   final _transferRepo = TransferRepository();
   bool _aesCleanDone = false;
+  StreamSubscription<DocumentSnapshot>? _cleanupSub;
+  bool _edgeCaseHandled = false;
 
   @override
   void initState() {
     super.initState();
     // No buffers to register — AES already zeroed upstream in SenderTransferScreen.
-    _checkAndMarkDone();
+    _watchForCleanupCompletion();
   }
 
-  Future<void> _checkAndMarkDone() async {
-    // D-10: edge-case safety net — verify transfer doc is already gone.
-    // Normal path: doc is deleted by ReceiverEndSessionScreen step 2.
-    // Edge case: receiver cleanup was interrupted before WriteBatch committed.
-    try {
-      final exists = await _transferRepo.getTransferDoc(widget.transferId);
-      if (exists) {
-        await _transferRepo.deleteTransfer(widget.transferId);
+  @override
+  void dispose() {
+    _cleanupSub?.cancel();
+    super.dispose();
+  }
+
+  void _watchForCleanupCompletion() {
+    // Stream the transfer doc — reacts to deletion rather than polling once.
+    // D-10: if doc still exists on arrival (interrupted receiver cleanup), delete it.
+    Timer(const Duration(seconds: 30), () {
+      if (mounted && !_aesCleanDone) {
+        setState(() => _aesCleanDone = true);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Cleanup could not be verified — session cleared locally'),
+          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+        ));
       }
-    } catch (_) {
-      // D-10 edge-case cleanup failed — doc may already be gone or network
-      // is unavailable. AES key was already zeroed upstream in SenderTransferScreen.
-    } finally {
+    });
+    _cleanupSub = _transferRepo
+        .watchTransferStatus(widget.transferId)
+        .listen((snap) async {
+      if (!snap.exists) {
+        _cleanupSub?.cancel();
+        _cleanupSub = null;
+        if (mounted) setState(() => _aesCleanDone = true);
+        return;
+      }
+      // D-10 edge case: doc still exists — receiver cleanup was interrupted.
+      if (!_edgeCaseHandled) {
+        _edgeCaseHandled = true;
+        try { await _transferRepo.deleteTransfer(widget.transferId); } catch (_) {}
+        // Stream will fire again with exists==false, marking done.
+      }
+    }, onError: (_) {
+      // Network error — AES was zeroed upstream; unblock the UI.
       if (mounted) setState(() => _aesCleanDone = true);
-    }
+    });
   }
 
   @override
