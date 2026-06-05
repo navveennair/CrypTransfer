@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
@@ -634,9 +635,9 @@ class _SenderScreenState extends State<SenderScreen>
   }
 
   void _showVerifyDialog() {
-    final uid = _receiverId;
+    final receiverId = _receiverId;
     final fp = _receiverFingerprint;
-    if (uid == null || fp == null) return;
+    if (receiverId == null || fp == null) return;
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -653,9 +654,7 @@ class _SenderScreenState extends State<SenderScreen>
             Center(
               child: Text(
                 fp,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 20,
+                style: GoogleFonts.robotoMono(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 3,
                 ),
@@ -673,7 +672,7 @@ class _SenderScreenState extends State<SenderScreen>
           CrypButton(
             label: const Text('It Matches'),
             onPressed: () async {
-              await TofuService.markVerified(uid);
+              await TofuService.markVerified(receiverId);
               if (!mounted) return;
               setState(() => _tofuStatus = TofuStatus.verified);
               Navigator.pop(context);
@@ -712,9 +711,7 @@ class _SenderScreenState extends State<SenderScreen>
             const SizedBox(height: 16),
             Text(
               'New fingerprint: $fp',
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 14,
+              style: GoogleFonts.robotoMono(
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -856,9 +853,8 @@ class _SenderScreenState extends State<SenderScreen>
                       children: [
                         Text(
                           'Secure Inbox',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
-                            fontSize: 18,
                             color: cs.onSurface,
                           ),
                         ),
@@ -882,6 +878,7 @@ class _SenderScreenState extends State<SenderScreen>
               step: 0,
               title: 'Secure Connection',
               done: _receiverSelected && _receiverReady,
+              currentStep: !(_receiverSelected && _receiverReady),
               child: _receiverSelected
                   ? (_receiverReady
                       ? Column(
@@ -920,6 +917,7 @@ class _SenderScreenState extends State<SenderScreen>
                           step: 1,
                           title: 'Select File',
                           done: _fileSelected,
+                          currentStep: _receiverReady && !_fileSelected,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -948,6 +946,7 @@ class _SenderScreenState extends State<SenderScreen>
                         step: 2,
                         title: 'AES-256-GCM Encryption',
                         done: _fileEncrypted,
+                        currentStep: _fileSelected && !_fileEncrypted,
                         child: _fileEncrypted
                             ? _EncryptedBadge(
                                 keyBits: _aesKey!.length * 8,
@@ -975,6 +974,7 @@ class _SenderScreenState extends State<SenderScreen>
                         step: 3,
                         title: 'RSA Key Handshake',
                         done: _readyToSend,
+                        currentStep: _fileEncrypted && !_readyToSend,
                         child: _readyToSend
                             ? _ReceiverBadge(username: _receiverUsername!)
                             : CrypButton(

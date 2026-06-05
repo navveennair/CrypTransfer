@@ -176,17 +176,44 @@ class HandshakeRepository {
     }
   }
 
-  /// Atomically removes both directional docs for the pair, covering the
-  /// mutual-accept case where two 'connected' docs coexist.
+  /// Atomically removes both directional neutral_handshake docs for the pair
+  /// and clears any stale role-assignment fields from both users' Firestore
+  /// documents.
+  ///
+  /// Without the role field cleanup, [pendingSenderFor] (set when a user picks
+  /// "Send File") and [selectedSenderUid] (set when a user picks "Receive File")
+  /// survive across disconnect + reconnect cycles, causing
+  /// [assignTransferRole] to see a false conflict on the next role pick.
   Future<void> disconnectFromUser(String partnerUid) async {
+    final selfUid = _uid; // capture before any await
     try {
       final batch = _db.batch();
+
+      // Remove both directional neutral_handshake docs.
       batch.delete(_db
           .collection(FirebaseConstants.neutralHandshakes)
-          .doc('${_uid}_$partnerUid'));
+          .doc('${selfUid}_$partnerUid'));
       batch.delete(_db
           .collection(FirebaseConstants.neutralHandshakes)
-          .doc('${partnerUid}_$_uid'));
+          .doc('${partnerUid}_$selfUid'));
+
+      // Clear stale role fields from both users' documents.
+      // FieldValue.delete() on a non-existent field is a safe no-op.
+      batch.update(
+        _db.collection(FirebaseConstants.users).doc(selfUid),
+        {
+          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+          'selectedSenderUid': FieldValue.delete(),
+        },
+      );
+      batch.update(
+        _db.collection(FirebaseConstants.users).doc(partnerUid),
+        {
+          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+          'selectedSenderUid': FieldValue.delete(),
+        },
+      );
+
       await batch.commit();
     } on FirebaseException catch (e) {
       throw NetworkException(
@@ -288,13 +315,13 @@ class HandshakeRepository {
   /// when no relationship exists.
   Stream<({String status, String docId})?> streamHandshakeWithUser(
       String partnerUid) {
-    final myUid = _uid;
+    final selfUid = _uid;
     final outRef = _db
         .collection(FirebaseConstants.neutralHandshakes)
-        .doc('${myUid}_$partnerUid');
+        .doc('${selfUid}_$partnerUid');
     final inRef = _db
         .collection(FirebaseConstants.neutralHandshakes)
-        .doc('${partnerUid}_$myUid');
+        .doc('${partnerUid}_$selfUid');
 
     DocumentSnapshot<Map<String, dynamic>>? outSnap;
     DocumentSnapshot<Map<String, dynamic>>? inSnap;
@@ -303,12 +330,12 @@ class HandshakeRepository {
     // Single subscription — merge both document streams
     final outSub = outRef.snapshots().listen((snap) {
       outSnap = snap;
-      _emitIfResolved(ctrl, outSnap, inSnap, myUid, partnerUid);
+      _emitIfResolved(ctrl, outSnap, inSnap, selfUid, partnerUid);
     });
 
     final inSub = inRef.snapshots().listen((snap) {
       inSnap = snap;
-      _emitIfResolved(ctrl, outSnap, inSnap, myUid, partnerUid);
+      _emitIfResolved(ctrl, outSnap, inSnap, selfUid, partnerUid);
     });
 
     ctrl.onCancel = () {
@@ -322,8 +349,8 @@ class HandshakeRepository {
 
   /// Helper: Resolve and emit a direction-aware status from either doc direction.
   ///
-  /// outSnap = doc I created (${myUid}_${partnerUid}) → I am the proposer.
-  /// inSnap  = doc they created (${partnerUid}_${myUid}) → they are the proposer.
+  /// outSnap = doc I created (${selfUid}_${partnerUid}) → I am the proposer.
+  /// inSnap  = doc they created (${partnerUid}_${selfUid}) → they are the proposer.
   ///
   /// Emitted statuses:
   ///   'pending'   (outSnap) → 'pending_sent'
@@ -333,7 +360,7 @@ class HandshakeRepository {
     StreamController<({String status, String docId})?> ctrl,
     DocumentSnapshot<Map<String, dynamic>>? outSnap,
     DocumentSnapshot<Map<String, dynamic>>? inSnap,
-    String myUid,
+    String selfUid,
     String partnerUid,
   ) {
     if (outSnap == null || inSnap == null) return;

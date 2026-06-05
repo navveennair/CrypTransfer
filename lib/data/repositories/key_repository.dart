@@ -39,7 +39,7 @@ class KeyRepository {
       final result = await _db
           .collection(FirebaseConstants.users)
           .where('username', isGreaterThanOrEqualTo: q)
-          .where('username', isLessThanOrEqualTo: '$q')
+          .where('username', isLessThanOrEqualTo: q)
           .limit(10)
           .get();
       return result.docs
@@ -718,25 +718,40 @@ class KeyRepository {
     return '';
   }
 
-  /// Clears file transfer roles from a handshake document.
+  /// Clears file transfer roles for the current user on back-navigation.
   ///
-  /// Removes senderUid, receiverUid, and rolesAssignedAt fields.
-  /// Called when user navigates back from SenderScreen or ReceiverScreen.
+  /// Always clears both [pendingSenderFor] and [selectedSenderUid] from the
+  /// current user's Firestore doc so a fresh role pick is never blocked by
+  /// stale state. If [handshakeDocId] is non-empty, also strips the role
+  /// fields from the handshake document (best-effort — failure is swallowed).
+  ///
+  /// Called when users navigate back from SenderScreen or ReceiverScreen.
   Future<void> clearTransferRoles({required String handshakeDocId}) async {
     try {
-      await Future.wait([
-        _db.collection(FirebaseConstants.handshakes).doc(handshakeDocId).update({
-          'senderUid': FieldValue.delete(),
-          'receiverUid': FieldValue.delete(),
-          'rolesAssignedAt': FieldValue.delete(),
-        }),
-        _db.collection(FirebaseConstants.users).doc(_uid).update({
-          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
-        }),
-      ]);
+      // Always clear the user-level role claim fields regardless of handshakeDocId.
+      // This covers both the sender (pendingSenderFor) and receiver (selectedSenderUid)
+      // paths, and handles the case where assignTransferRole() returned '' so no
+      // real handshake doc ID was ever assigned.
+      await _db.collection(FirebaseConstants.users).doc(_uid).update({
+        FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+        'selectedSenderUid': FieldValue.delete(),
+      });
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Failed to clear transfer roles: ${e.message ?? e.code}');
+    }
+
+    // Best-effort: also strip role fields from the handshake doc when we have a real ID.
+    if (handshakeDocId.isNotEmpty) {
+      try {
+        await _db.collection(FirebaseConstants.handshakes).doc(handshakeDocId).update({
+          'senderUid': FieldValue.delete(),
+          'receiverUid': FieldValue.delete(),
+          'rolesAssignedAt': FieldValue.delete(),
+        });
+      } on FirebaseException {
+        // Best-effort — ignore errors silently
+      }
     }
   }
 

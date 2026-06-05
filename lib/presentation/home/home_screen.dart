@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../../core/utils/notification_service.dart';
+import '../../core/utils/transfer_status_utils.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/key_repository.dart';
@@ -96,7 +98,6 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.transparent,
         elevation: 0,
         insetPadding: const EdgeInsets.all(24),
         content: GlassContainer(
@@ -296,6 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_) => _RolePickerSheet(
         partnerUid: partnerUid,
         partnerUsername: partnerUsername,
+        currentUserUid: _authRepo.currentUid ?? '',
         keyRepository: _connService,
         onSendFile: () async {
           try {
@@ -406,25 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _acceptProposal(
-      {required String docId, required String proposerId}) async {
-    try {
-      await _handshakeRepo.acceptProposal(docId, proposerId);
-    } catch (_) {
-      _showErrorSnackBar("Couldn't accept request. Try again.");
-      rethrow;
-    }
-  }
-
-  Future<void> _rejectProposal({required String docId}) async {
-    try {
-      await _handshakeRepo.rejectProposal(docId);
-    } catch (_) {
-      _showErrorSnackBar("Couldn't decline request. Try again.");
-      rethrow;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -511,14 +494,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 32),
 
-            // ── Pending Requests ───────────────────────────────────────────────
-            _PendingRequestsSection(
-              incomingPendingStream: _incomingPendingStream,
-              onAccept: _acceptProposal,
-              onReject: _rejectProposal,
-            ),
-            const SizedBox(height: 32),
-
             // ── Recent transfers section ─────────
             Row(
               children: [
@@ -598,7 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isSender ? receiverUsername : senderUsername;
                     return GlassContainer(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
+                          horizontal: 16, vertical: 14),
                       child: Row(
                         children: [
                           Container(
@@ -710,7 +685,7 @@ class _SectionButtonState extends State<_SectionButton> {
           1.0,
         ),
         transformAlignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: cs.primary.withValues(alpha: _pressed ? 0.20 : 0.12),
           borderRadius: BorderRadius.circular(20),
@@ -730,8 +705,7 @@ class _SectionButtonState extends State<_SectionButton> {
   }
 }
 
-bool _isFailedStatus(String status) =>
-    status == 'aborted' || status == 'connection_lost' || status == 'failed';
+bool _isFailedStatus(String status) => isFailedTransferStatus(status);
 
 Widget _transferStatusBadge(BuildContext context, String status, bool isSender) {
   final cs = Theme.of(context).colorScheme;
@@ -863,7 +837,7 @@ class _NotifBannerState extends State<_NotifBanner> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 8,
+      top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
       left: 16,
       right: 16,
       child: Material(
@@ -953,7 +927,7 @@ class _ProposalBannerState extends State<_ProposalBanner> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final top = MediaQuery.of(context).padding.top + 8;
+    final top = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
     return Positioned(
       top: top,
       left: 16,
@@ -1248,182 +1222,6 @@ class _ActiveConnectionRow extends StatelessWidget {
   }
 }
 
-// ─── Pending Requests Section ──────────────────────────────────────────────────
-
-class _PendingRequestsSection extends StatelessWidget {
-  final Stream<QuerySnapshot> incomingPendingStream;
-  final Future<void> Function({required String docId, required String proposerId}) onAccept;
-  final Future<void> Function({required String docId}) onReject;
-
-  const _PendingRequestsSection({
-    required this.incomingPendingStream,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return StreamBuilder<QuerySnapshot>(
-      stream: incomingPendingStream,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        if (snapshot.hasError) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: cs.error, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Failed to load connections',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.error),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.pending_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Pending Requests',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...docs.asMap().entries.map((entry) {
-              final i = entry.key;
-              final doc = entry.value;
-              final data = doc.data() as Map<String, dynamic>;
-              final proposerUsername =
-                  data['proposerUsername'] as String? ?? 'Unknown';
-              final proposerId = data['proposerId'] as String? ?? '';
-              return Padding(
-                padding: EdgeInsets.only(bottom: i < docs.length - 1 ? 8 : 0),
-                child: _PendingRequestRow(
-                  proposerUsername: proposerUsername,
-                  docId: doc.id,
-                  proposerId: proposerId,
-                  onAccept: onAccept,
-                  onReject: onReject,
-                ),
-              );
-            }),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Pending Request Row ───────────────────────────────────────────────────────
-
-class _PendingRequestRow extends StatefulWidget {
-  final String proposerUsername;
-  final String docId;
-  final String proposerId;
-  final Future<void> Function({required String docId, required String proposerId}) onAccept;
-  final Future<void> Function({required String docId}) onReject;
-
-  const _PendingRequestRow({
-    required this.proposerUsername,
-    required this.docId,
-    required this.proposerId,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  State<_PendingRequestRow> createState() => _PendingRequestRowState();
-}
-
-class _PendingRequestRowState extends State<_PendingRequestRow> {
-  bool _accepting = false;
-  bool _rejecting = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isLoading = _accepting || _rejecting;
-
-    return GlassContainer(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              UserAvatar(username: widget.proposerUsername),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '@${widget.proposerUsername} wants to connect',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              CrypButton(
-                label: _rejecting
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Decline Request'),
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        setState(() => _rejecting = true);
-                        try {
-                          await widget.onReject(docId: widget.docId);
-                        } finally {
-                          if (mounted) setState(() => _rejecting = false);
-                        }
-                      },
-                color: cs.error,
-                height: 44,
-              ),
-              const SizedBox(width: 8),
-              CrypButton(
-                label: const Text('Accept Request'),
-                color: Theme.of(context).colorScheme.secondary,
-                onPressed: isLoading
-                    ? null
-                    : () async {
-                        setState(() => _accepting = true);
-                        try {
-                          await widget.onAccept(
-                              docId: widget.docId, proposerId: widget.proposerId);
-                        } finally {
-                          if (mounted) setState(() => _accepting = false);
-                        }
-                      },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Empty Connections Prompt ──────────────────────────────────────────────────
 
 class _EmptyConnectionsPrompt extends StatelessWidget {
@@ -1469,6 +1267,7 @@ class _EmptyConnectionsPrompt extends StatelessWidget {
 class _RolePickerSheet extends StatefulWidget {
   final String partnerUid;
   final String partnerUsername;
+  final String currentUserUid;
   final KeyRepository keyRepository;
   final Future<void> Function() onSendFile;
   final Future<void> Function() onReceiveFile;
@@ -1476,6 +1275,7 @@ class _RolePickerSheet extends StatefulWidget {
   const _RolePickerSheet({
     required this.partnerUid,
     required this.partnerUsername,
+    required this.currentUserUid,
     required this.keyRepository,
     required this.onSendFile,
     required this.onReceiveFile,
@@ -1538,96 +1338,127 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
-                // Send File tile
-                InkWell(
-                  onTap: _loading
-                      ? null
-                      : () => _handleTap('send', widget.onSendFile),
-                  borderRadius: BorderRadius.circular(16),
-                  child: GlassContainer(
-                    borderRadius: 16,
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
+                StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection(FirebaseConstants.users)
+                      .doc(widget.partnerUid)
+                      .snapshots(),
+                  builder: (context, snap) {
+                    final data = snap.data?.data() ?? {};
+                    // Partner claimed Sender toward me → I cannot also be Sender.
+                    final senderBlocked =
+                        (data[FirebaseConstants.pendingSenderFor] as String?) == widget.currentUserUid;
+                    // Partner claimed Receiver with me as their Sender → I cannot also be Receiver.
+                    final receiverBlocked =
+                        (data['selectedSenderUid'] as String?) == widget.currentUserUid;
+                    return Column(
                       children: [
-                        if (_loadingRole == 'send')
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(cs.primary),
+                        // Send File tile
+                        Opacity(
+                          opacity: senderBlocked ? 0.4 : 1.0,
+                          child: InkWell(
+                            onTap: (_loading || senderBlocked)
+                                ? null
+                                : () => _handleTap('send', widget.onSendFile),
+                            borderRadius: BorderRadius.circular(16),
+                            child: GlassContainer(
+                              borderRadius: 16,
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  if (_loadingRole == 'send')
+                                    SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation(cs.primary),
+                                      ),
+                                    )
+                                  else
+                                    Icon(Icons.upload_file_rounded,
+                                        size: 32, color: cs.primary),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Send File',
+                                          style: Theme.of(context).textTheme.titleLarge,
+                                        ),
+                                        Text(
+                                          senderBlocked
+                                              ? 'Partner is already the sender'
+                                              : 'You encrypt and transmit',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: cs.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right_rounded,
+                                      color: cs.onSurfaceVariant),
+                                ],
+                              ),
                             ),
-                          )
-                        else
-                          Icon(Icons.upload_file_rounded,
-                              size: 32, color: cs.primary),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Send File',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              Text(
-                                'You encrypt and transmit',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                              ),
-                            ],
                           ),
                         ),
-                        Icon(Icons.chevron_right_rounded,
-                            color: cs.onSurfaceVariant),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Receive File tile
-                InkWell(
-                  onTap: _loading
-                      ? null
-                      : () => _handleTap('receive', widget.onReceiveFile),
-                  borderRadius: BorderRadius.circular(16),
-                  child: GlassContainer(
-                    borderRadius: 16,
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        if (_loadingRole == 'receive')
-                          SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(cs.secondary),
+                        const SizedBox(height: 16),
+                        // Receive File tile
+                        Opacity(
+                          opacity: receiverBlocked ? 0.4 : 1.0,
+                          child: InkWell(
+                            onTap: (_loading || receiverBlocked)
+                                ? null
+                                : () => _handleTap('receive', widget.onReceiveFile),
+                            borderRadius: BorderRadius.circular(16),
+                            child: GlassContainer(
+                              borderRadius: 16,
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  if (_loadingRole == 'receive')
+                                    SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation(cs.secondary),
+                                      ),
+                                    )
+                                  else
+                                    Icon(Icons.download_rounded,
+                                        size: 32, color: cs.secondary),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Receive File',
+                                          style: Theme.of(context).textTheme.titleLarge,
+                                        ),
+                                        Text(
+                                          receiverBlocked
+                                              ? 'Partner is already the receiver'
+                                              : 'You decrypt and save',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: cs.onSurfaceVariant),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right_rounded,
+                                      color: cs.onSurfaceVariant),
+                                ],
+                              ),
                             ),
-                          )
-                        else
-                          Icon(Icons.download_rounded,
-                              size: 32, color: cs.secondary),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Receive File',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              Text(
-                                'You decrypt and save',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                              ),
-                            ],
                           ),
                         ),
-                        Icon(Icons.chevron_right_rounded,
-                            color: cs.onSurfaceVariant),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
               ],

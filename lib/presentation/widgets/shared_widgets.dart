@@ -352,6 +352,7 @@ class CrypButton extends StatefulWidget {
   final Color? disabledColor;
   final double depth;
   final double height;
+  final double? width;
   final SessionState? sessionState;
 
   const CrypButton({
@@ -363,6 +364,7 @@ class CrypButton extends StatefulWidget {
     this.disabledColor,
     this.depth = 4.0,
     this.height = 52.0,
+    this.width,
     this.sessionState,
   });
 
@@ -502,6 +504,7 @@ class _CrypButtonState extends State<CrypButton> {
         transformAlignment: Alignment.center,
         child: SizedBox(
           height: h + d,
+          width: widget.width,
           child: Stack(
             children: [
             Positioned(

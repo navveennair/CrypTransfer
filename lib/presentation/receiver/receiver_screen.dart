@@ -51,6 +51,8 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   List<UserModel> _connectedFriends = [];
   StreamSubscription<List<UserModel>>? _friendsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _incomingHandshakeSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _senderPresenceSub;
+  bool _senderPresenceConfirmed = false;
   bool _handshaking = false;
   bool _handshakeDone = false;
 
@@ -103,6 +105,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   void dispose() {
     _friendsSub?.cancel();
     _incomingHandshakeSub?.cancel();
+    _senderPresenceSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
     EncryptionService.unbindSession();
@@ -285,8 +288,11 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           setState(() => _isTogglingReady = false);
           return;
         }
-        // Stop listening for incoming handshakes
+        // Stop listening for incoming handshakes and sender presence
         _stopIncomingHandshakeListener();
+        _senderPresenceSub?.cancel();
+        _senderPresenceSub = null;
+        _senderPresenceConfirmed = false;
         // Signal unreadiness: receiver's mailbox is now closed
         await _connService.setReadyToReceive(false);
         EncryptionService.unbindSession();
@@ -370,9 +376,9 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
 Future<void> _onSenderSelected(UserModel sender) async {
     _sessionManager.selectSender(sender.uid, sender.username);
-    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final receiverUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     _transferStream = _transferRepo.watchPendingTransfersFromSender(
-      myUid,
+      receiverUid,
       sender.uid,
     );
     setState(() => _handshaking = true);
@@ -383,14 +389,13 @@ Future<void> _onSenderSelected(UserModel sender) async {
       );
       _handshakeDocId = docId;
 
-      // Role validation: if roles are assigned, verify receiverUid == currentUser
-      final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      // Role validation: if roles are assigned, verify the handshake doc names us as receiver.
       if (docId.isNotEmpty && mounted) {
         try {
           final handshakeDoc =
               await FirebaseFirestore.instance.collection(FirebaseConstants.handshakes).doc(docId).get();
-          final receiverUid = handshakeDoc.data()?['receiverUid'] as String?;
-          if (receiverUid != null && receiverUid.isNotEmpty && receiverUid != currentUid) {
+          final handshakeReceiverUid = handshakeDoc.data()?['receiverUid'] as String?;
+          if (handshakeReceiverUid != null && handshakeReceiverUid.isNotEmpty && handshakeReceiverUid != receiverUid) {
             if (mounted) {
               setState(() => _handshaking = false);
               _showError('Role conflict — partner chose a different role. Try again.');
@@ -409,6 +414,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           _handshakeDone = true;
           _handshaking = false;
         });
+        _startSenderPresenceWatch(sender.uid, receiverUid);
       }
     } catch (e) {
       if (mounted) {
@@ -416,6 +422,37 @@ Future<void> _onSenderSelected(UserModel sender) async {
         _showError(e.toString());
       }
     }
+  }
+
+  void _startSenderPresenceWatch(String senderUid, String receiverUid) {
+    _senderPresenceSub?.cancel();
+    _senderPresenceConfirmed = false;
+    _senderPresenceSub = FirebaseFirestore.instance
+        .collection(FirebaseConstants.users)
+        .doc(senderUid)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted || _sessionLocked) return;
+      final field = snap.data()?[FirebaseConstants.pendingSenderFor] as String?;
+      if (field == receiverUid) {
+        _senderPresenceConfirmed = true;
+      } else if (_senderPresenceConfirmed) {
+        // Sender was confirmed present, now their claim is gone — they abandoned.
+        _senderPresenceSub?.cancel();
+        _senderPresenceSub = null;
+        _senderPresenceConfirmed = false;
+        setState(() {
+          _sessionManager.clearSender();
+          _transferStream = null;
+          _handshakeDone = false;
+          _handshaking = false;
+          _handshakeDocId = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sender left the session.')),
+        );
+      }
+    });
   }
 
   Future<void> _handleIncomingTransfer(
@@ -679,8 +716,11 @@ Future<void> _onSenderSelected(UserModel sender) async {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    // Treat empty string the same as null: assignTransferRole() returns '' when no
+    // real handshake doc was created, so canPop must not be blocked by an empty ID.
+    final hasRealHandshakeDoc = _handshakeDocId != null && _handshakeDocId!.isNotEmpty;
     return PopScope(
-      canPop: _isReadyToReceive ? false : (_handshakeDocId == null),
+      canPop: _isReadyToReceive ? false : !hasRealHandshakeDoc,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           if (_sessionLocked) {
@@ -702,12 +742,11 @@ Future<void> _onSenderSelected(UserModel sender) async {
           }
         } else {
           // D-04: didPop==true means canPop was true (mailbox closed).
-          // Clear transfer roles if a handshake doc exists.
-          if (_handshakeDocId != null) {
-            _connService
-                .clearTransferRoles(handshakeDocId: _handshakeDocId!)
-                .catchError((_) {});
-          }
+          // Always attempt to clear stale role fields on back-navigation.
+          // clearTransferRoles() handles empty/null docId safely.
+          _connService
+              .clearTransferRoles(handshakeDocId: _handshakeDocId ?? '')
+              .catchError((_) {});
         }
       },
       child: Scaffold(
@@ -751,10 +790,9 @@ Future<void> _onSenderSelected(UserModel sender) async {
                         children: [
                           Text(
                             'Secure Inbox',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.onSurface,
-                              fontSize: 18,
                             ),
                           ),
                           Text(
