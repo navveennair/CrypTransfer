@@ -178,16 +178,43 @@ class _UserManagementListState extends State<UserManagementList> {
   }
 }
 
-class _RevokeButton extends StatelessWidget {
+class _RevokeButton extends StatefulWidget {
   final UserModel user;
-  final Function(bool) onToggle;
+  final Future<void> Function(bool) onToggle;
 
   const _RevokeButton({required this.user, required this.onToggle});
 
   @override
+  State<_RevokeButton> createState() => _RevokeButtonState();
+}
+
+class _RevokeButtonState extends State<_RevokeButton> {
+  bool _loading = false;
+
+  Future<void> _handleToggle(bool val) async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onToggle(val);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Action failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (user.isAdmin) {
+
+    if (widget.user.isAdmin) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -204,13 +231,21 @@ class _RevokeButton extends StatelessWidget {
       );
     }
 
+    if (_loading) {
+      return const SizedBox(
+        width: 40,
+        height: 24,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
     return Switch(
-      value: user.isActive,
+      value: widget.user.isActive,
       activeThumbColor: cs.secondary,
       activeTrackColor: cs.secondary.withValues(alpha: 0.2),
       inactiveThumbColor: cs.error,
       inactiveTrackColor: cs.error.withValues(alpha: 0.2),
-      onChanged: onToggle,
+      onChanged: _handleToggle,
     );
   }
 }
