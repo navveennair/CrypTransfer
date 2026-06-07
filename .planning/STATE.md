@@ -61,6 +61,8 @@ See: .planning/PROJECT.md
 - 2026-05-29: Phase 09 planned — 3 plans in 2 waves (Wave 1: 09-01 Nyquist test stubs; Wave 2: 09-02 ReceiverScreen gaps 1+4 + 09-03 SenderScreen gaps 2+3, parallel); verification passed
 - 2026-06-02: Phase 11 planned — 5 plans in 4 waves (Wave 0: test scaffold; Wave 1: AdminRepository hardening; Wave 2: hasError+chart+FutureBuilder, parallel; Wave 3: AdminGuard route guard); verification passed
 - 2026-05-31: Phase 10 planned — 2 plans in 1 wave (10-01: stale-key guard restore; 10-02: glassmorphic dialog spacing + admin dashboard commit + housekeeping); verification passed
+- 2026-06-04: Phase 07.1 human UAT closed — 6/6 tests passed; biometric gap resolved (debug session biometric-gate-appears-twice); cleanup sequence end-to-end verified
+- 2026-06-04: Phase 06 human UAT closed — 8/8 tests passed (CR-01, WR-01, WR-03, TB-01 through TB-05); all gap fixes verified (handshake delete rule, timer restart on revert); 06-HUMAN-UAT.md marked complete
 - 2026-06-03: Quick task 260603-b2a complete — re-enabled biometric gate on RSA Key Vault; entry gate + regenerate gate + delete gate all active; BiometricHelper import added; flutter analyze clean
 - 2026-05-29: Phase 08 complete — applicationId renamed to com.navveennair.cryptransfer; google-services.json multi-app (both packages registered); MethodChannels decoupled to cryptransfer/{security,file} per D-04; all D-06 gates green (analyze clean, 107/108 tests, APK stamped, on-device smoke 5a/5b/5c/5d/5e passed); role conflict false positive fixed (stale selectedSenderUid cleared in sender transaction); atomic commit fc8ec0f
 
@@ -103,5 +105,6 @@ See: .planning/PROJECT.md
 | 260526-sxe | Remove unused deterministic ID implementation (rsa_key_transfers cleanup) | 2026-05-26 | f9351db | [260526-sxe-remove-unused-deterministic-id-implement](.planning/quick/260526-sxe-remove-unused-deterministic-id-implement/) |
 | 260526-t9y | Extract snackbar and dialog logic from HomeScreen | 2026-05-26 | 0fb026a | [260526-t9y-extract-snackbar-and-dialog-logic-from-h](.planning/quick/260526-t9y-extract-snackbar-and-dialog-logic-from-h/) |
 | 260603-b2a | Re-enable biometric gate on RSA Key Vault | 2026-06-03 | 35c044c | [260603-b2a-re-enable-biometric-gate-rsa-key-vault](.planning/quick/260603-b2a-re-enable-biometric-gate-rsa-key-vault/) |
+| 260607-a1k | Remove redundant biometric prompt on key delete | 2026-06-07 | — | [260607-a1k-remove-biometric-on-key-delete](.planning/quick/260607-a1k-remove-biometric-on-key-delete/) |
 
 **Planned Phase:** 8 (applicationid-rename-replace-com-example-cryptransfer-with-p) — 1 plans — 2026-05-28T17:24:59.919Z
