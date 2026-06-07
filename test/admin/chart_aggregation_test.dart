@@ -1,36 +1,79 @@
 // Phase 11 — TransferVolumeChart aggregation logic tests
 // Covers: D-05 (7-day fixed window), D-06 (Dart aggregation, local time grouping, null safety)
-// Status: Wave 0 stubs — aggregateTransferLogs helper extracted in Plan 03
-// Note: Tests reference a top-level aggregateTransferLogs() function to be created in Plan 03.
-//       The function takes List<Map<String,dynamic>> docs and DateTime now, returns List<FlSpot>.
+// aggregateTransferLogs is a pure-Dart top-level function — no Firebase mocking needed.
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cryptransfer/presentation/admin/widgets/transfer_volume_chart.dart';
 
 void main() {
+  // Fixed reference point: 2026-06-08 (Monday)
+  final now = DateTime(2026, 6, 8, 12, 0, 0);
+
+  Map<String, dynamic> docWithLoggedAt(DateTime dt) => {
+        'loggedAt': Timestamp.fromDate(dt),
+      };
+
   group('TransferVolumeChart aggregation', () {
     test('produces exactly 7 FlSpot values covering today-6 through today', () {
-      // Expected: List<FlSpot> aggregateTransferLogs(List<Map<String,dynamic>> docs, DateTime now)
-      // TODO(Phase11-D05-D06): call aggregateTransferLogs(docs, now) where aggregateTransferLogs
-      // is a top-level helper function extracted from TransferVolumeChart builder.
-      // verify result.length == 7
-      // verify result.first.x == 0.0, result.last.x == 6.0
-    }, skip: 'aggregateTransferLogs not extracted yet — implemented in Plan 03');
+      final spots = aggregateTransferLogs([], now);
+      expect(spots.length, 7);
+      expect(spots.first.x, 0.0);
+      expect(spots.last.x, 6.0);
+    });
 
     test('zero-pads days with no transfers as FlSpot(i, 0)', () {
-      // Expected: List<FlSpot> aggregateTransferLogs(List<Map<String,dynamic>> docs, DateTime now)
-      // TODO(Phase11-D06): pass empty doc list, verify all 7 spots have y == 0
-    }, skip: 'aggregateTransferLogs not extracted yet — implemented in Plan 03');
+      final spots = aggregateTransferLogs([], now);
+      for (final spot in spots) {
+        expect(spot.y, 0.0, reason: 'Day ${spot.x.toInt()} should have 0 transfers');
+      }
+    });
+
+    test('counts a transfer on today (index 6)', () {
+      final docs = [docWithLoggedAt(DateTime(2026, 6, 8, 10, 0, 0))];
+      final spots = aggregateTransferLogs(docs, now);
+      expect(spots[6].y, 1.0);
+    });
+
+    test('counts a transfer on 6 days ago (index 0)', () {
+      // 6 days before 2026-06-08 = 2026-06-02
+      final docs = [docWithLoggedAt(DateTime(2026, 6, 2, 8, 0, 0))];
+      final spots = aggregateTransferLogs(docs, now);
+      expect(spots[0].y, 1.0);
+    });
 
     test('filters out documents with loggedAt older than 7 days', () {
-      // Expected: List<FlSpot> aggregateTransferLogs(List<Map<String,dynamic>> docs, DateTime now)
-      // TODO(Phase11-D06): pass 2 docs — one from 8 days ago, one from today.
-      // verify count: day 6 (today) = 1, day 0 (8 days ago) not counted
-    }, skip: 'aggregateTransferLogs not extracted yet — implemented in Plan 03');
+      // 8 days ago — should be excluded
+      final docs = [
+        docWithLoggedAt(DateTime(2026, 5, 31, 8, 0, 0)), // 8 days ago
+        docWithLoggedAt(DateTime(2026, 6, 8, 10, 0, 0)), // today
+      ];
+      final spots = aggregateTransferLogs(docs, now);
+      // Only the today entry counts
+      expect(spots[6].y, 1.0);
+      // 8-days-ago is outside the window — all earlier days are 0
+      expect(spots[0].y, 0.0);
+    });
 
     test('handles null loggedAt field without throwing', () {
-      // Expected: List<FlSpot> aggregateTransferLogs(List<Map<String,dynamic>> docs, DateTime now)
-      // TODO(Phase11-D06): pass a doc with loggedAt: null.
-      // verify no exception thrown, null doc is skipped in aggregation
-    }, skip: 'aggregateTransferLogs not extracted yet — implemented in Plan 03');
+      final docs = [
+        {'loggedAt': null},
+        docWithLoggedAt(DateTime(2026, 6, 8, 10, 0, 0)),
+      ];
+      expect(() => aggregateTransferLogs(docs, now), returnsNormally);
+      final spots = aggregateTransferLogs(docs, now);
+      // Null doc is skipped; today still counts
+      expect(spots[6].y, 1.0);
+    });
+
+    test('accumulates multiple transfers on the same day', () {
+      final docs = [
+        docWithLoggedAt(DateTime(2026, 6, 8, 9, 0, 0)),
+        docWithLoggedAt(DateTime(2026, 6, 8, 14, 0, 0)),
+        docWithLoggedAt(DateTime(2026, 6, 8, 22, 0, 0)),
+      ];
+      final spots = aggregateTransferLogs(docs, now);
+      expect(spots[6].y, 3.0);
+    });
   });
 }
