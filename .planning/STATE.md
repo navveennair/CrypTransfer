@@ -106,6 +106,6 @@ See: .planning/PROJECT.md
 | 260526-t9y | Extract snackbar and dialog logic from HomeScreen | 2026-05-26 | 0fb026a | [260526-t9y-extract-snackbar-and-dialog-logic-from-h](.planning/quick/260526-t9y-extract-snackbar-and-dialog-logic-from-h/) |
 | 260603-b2a | Re-enable biometric gate on RSA Key Vault | 2026-06-03 | 35c044c | [260603-b2a-re-enable-biometric-gate-rsa-key-vault](.planning/quick/260603-b2a-re-enable-biometric-gate-rsa-key-vault/) |
 | 260607-a1k | Remove redundant biometric prompt on key delete | 2026-06-07 | a0cce1d | [260607-a1k-remove-biometric-on-key-delete](.planning/quick/260607-a1k-remove-biometric-on-key-delete/) |
-| 260607-b3m | Fix RSA Key Vault first-time generate dialog copy | 2026-06-07 | — | [260607-b3m-fix-generate-dialog-first-time-key](.planning/quick/260607-b3m-fix-generate-dialog-first-time-key/) |
+| 260607-b3m | Fix RSA Key Vault first-time generate dialog copy | 2026-06-07 | 0e8c433 | [260607-b3m-fix-generate-dialog-first-time-key](.planning/quick/260607-b3m-fix-generate-dialog-first-time-key/) |
 
 **Planned Phase:** 8 (applicationid-rename-replace-com-example-cryptransfer-with-p) — 1 plans — 2026-05-28T17:24:59.919Z
