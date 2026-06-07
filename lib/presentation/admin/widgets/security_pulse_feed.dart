@@ -41,7 +41,11 @@ class SecurityPulseFeed extends StatelessWidget {
           itemCount: logs.length,
           itemBuilder: (context, i) {
             final data = logs[i].data() as Map<String, dynamic>;
-            final timestamp = (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+            // Keep timestamp nullable: a null value (e.g. from a pending
+            // serverTimestamp or a malformed doc) must NOT fall back to
+            // DateTime.now() — that would make an old event appear current
+            // in the security audit feed (WR-03).
+            final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
             final event = data['event'] as String? ?? 'UNKNOWN_EVENT';
 
             return _SecurityLogTile(
@@ -67,7 +71,7 @@ String _formatTimestamp(DateTime ts) {
 class _SecurityLogTile extends StatelessWidget {
   final String event;
   final String details;
-  final DateTime timestamp;
+  final DateTime? timestamp;
 
   const _SecurityLogTile({
     required this.event,
@@ -119,7 +123,7 @@ class _SecurityLogTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _formatTimestamp(timestamp),
+                      timestamp != null ? _formatTimestamp(timestamp!) : '—',
                       style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
                     ),
                   ],
