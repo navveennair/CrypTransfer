@@ -10,47 +10,67 @@ import '../../data/models/user_model.dart';
 /// - Redirects silently to '/' if no user is authenticated.
 /// - Renders [child] when [UserModel.isAdmin] is true.
 ///
+/// Implemented as a [StatefulWidget] so that [AuthRepository] is instantiated
+/// once and [streamUserProfile] is subscribed once in [initState], preventing
+/// listener leaks on rebuild (CR-02).
+///
 /// All navigation uses [WidgetsBinding.instance.addPostFrameCallback] to
 /// avoid "setState called during build" errors (D-01/D-02/D-03).
-class AdminGuard extends StatelessWidget {
+class AdminGuard extends StatefulWidget {
   final Widget child;
 
   const AdminGuard({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
+  State<AdminGuard> createState() => _AdminGuardState();
+}
+
+class _AdminGuardState extends State<AdminGuard> {
+  final _authRepo = AuthRepository();
+  Stream<UserModel?>? _profileStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = _authRepo.currentUser?.uid;
+    if (uid != null) {
+      _profileStream = _authRepo.streamUserProfile(uid);
+    }
+  }
+
+  Widget _loadingScaffold(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final authRepo = AuthRepository();
-    final user = authRepo.currentUser;
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
 
-    Widget loadingScaffold() => Scaffold(
-          backgroundColor: cs.surface,
-          body: const Center(child: CircularProgressIndicator()),
-        );
-
-    // State A: no authenticated user — redirect silently, no SnackBar
-    if (user == null) {
+  @override
+  Widget build(BuildContext context) {
+    // State A: no authenticated user at initState time — redirect silently, no SnackBar
+    if (_profileStream == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
+        if (mounted) {
           Navigator.pushReplacementNamed(context, '/');
         }
       });
-      return loadingScaffold();
+      return _loadingScaffold(context);
     }
 
-    // States B/C/D: authenticated user — stream isAdmin status
+    // States B/C/D: authenticated user — stream isAdmin status (single subscription)
     return StreamBuilder<UserModel?>(
-      stream: authRepo.streamUserProfile(user.uid),
+      stream: _profileStream,
       builder: (context, snapshot) {
         // State B: stream loading
         if (!snapshot.hasData && !snapshot.hasError) {
-          return loadingScaffold();
+          return _loadingScaffold(context);
         }
 
         // State C: error or non-admin — redirect with SnackBar
         if (snapshot.hasError || snapshot.data?.isAdmin != true) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
+            if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Access denied'),
@@ -60,11 +80,11 @@ class AdminGuard extends StatelessWidget {
               Navigator.pushReplacementNamed(context, '/');
             }
           });
-          return loadingScaffold();
+          return _loadingScaffold(context);
         }
 
         // State D: admin confirmed — render child
-        return child;
+        return widget.child;
       },
     );
   }
