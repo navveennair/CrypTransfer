@@ -1,50 +1,66 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-03T12:00:00Z",
-  "phase": "10",
-  "phase_name": "UI Polish Phase 2 + Stale-Key Security Fix",
-  "phase_dir": ".planning/phases/10-ui-polish-phase-2-stale-key-security-fix",
+  "timestamp": "2026-06-07T18:56:03.821Z",
+  "phase": "11",
+  "phase_name": "admin-dashboard-security-efficiency-hardening-fix-critical-u",
+  "phase_dir": ".planning/phases/11-admin-dashboard-security-efficiency-hardening-fix-critical-u",
   "plan": null,
   "task": null,
   "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "TransferSummaryScreen — full history page linked from home screen 'View all'", "status": "done", "commit": "uncommitted"},
-    {"id": 2, "name": "streamRecentTransfers limit 10→3; streamAllTransfers (no limit) added to TransferRepository", "status": "done", "commit": "uncommitted"},
-    {"id": 3, "name": "Notifications repurposed — transfer_completed/transfer_aborted written atomically in writeFinalAuditLog + writeAbortAuditLog batches", "status": "done", "commit": "uncommitted"},
-    {"id": 4, "name": "_SectionButton StatefulWidget — pill button with 80ms scale press animation replacing 'View all' text and TextButton.icon 'Add New'", "status": "done", "commit": "uncommitted"}
+    {"id": 1, "name": "Code review Phase 11 (standard depth)", "status": "done", "commit": "ad6e20d"},
+    {"id": 2, "name": "Fix CR-01: _RevokeButton StatefulWidget + error handling", "status": "done", "commit": "8dbaf19"},
+    {"id": 3, "name": "Fix CR-02: AdminGuard StatefulWidget single-subscription stream", "status": "done", "commit": "4559f5e"},
+    {"id": 4, "name": "Fix WR-01 to WR-05 (batching, docs, timestamp, StreamBuilders, tests)", "status": "done", "commit": "9f2404a-ebd7126"},
+    {"id": 5, "name": "Re-review Phase 11 — all prior issues confirmed fixed", "status": "done", "commit": "e743b3f"},
+    {"id": 6, "name": "Fix WR-NEW-01: cache handshakes stream in initState", "status": "done", "commit": "9c50fe4"},
+    {"id": 7, "name": "Fix WR-NEW-02: _redirecting guard on AdminGuard", "status": "done", "commit": "5fe9090"},
+    {"id": 8, "name": "Fix notifications: write connection_request notif to partner inbox", "status": "done", "commit": "3e4dfc6"},
+    {"id": 9, "name": "Fix notifications: don't markRead on banner auto-dismiss", "status": "done", "commit": "69aa156"}
   ],
-  "remaining_tasks": [],
+  "remaining_tasks": [
+    {"id": 10, "name": "UAT Phase 11 — Test 1: AdminGuard Access Denied", "status": "not_started"},
+    {"id": 11, "name": "UAT Phase 11 — Test 2: ConnectionNodeMap FutureBuilder grid", "status": "not_started"},
+    {"id": 12, "name": "UAT Phase 11 — Test 3: TransferVolumeChart real data", "status": "not_started"},
+    {"id": 13, "name": "Mark Phase 11 complete in ROADMAP.md + STATE.md if UAT passes", "status": "not_started"}
+  ],
   "blockers": [],
-  "human_actions_pending": [],
-  "decisions": [
+  "human_actions_pending": [
     {
-      "decision": "Recent Transfers home preview capped at 3; full history in TransferSummaryScreen",
-      "rationale": "User request — keeps home screen concise",
-      "phase": "10"
+      "action": "Run UAT Test 1: Sign in as non-admin, navigate to /admin-dashboard directly. Confirm Access denied SnackBar fires and AdminDashboard never renders.",
+      "context": "Phase 11 UAT in progress. 11-HUMAN-UAT.md has 3 pending tests.",
+      "blocking": true
     },
     {
-      "decision": "Notifications survive kill switch — only rsa_key_received type is deleted by closeReceiverSession; new transfer_completed/transfer_aborted types are untouched",
-      "rationale": "Old notification types were ephemeral session signals that were wiped before user saw them; new types are persistent outcome records",
-      "phase": "10"
+      "action": "Run UAT Test 2: Sign in as admin, open NETWORK tab. Confirm grid loads with refresh button.",
+      "context": "Phase 11 UAT Test 2.",
+      "blocking": true
     },
     {
-      "decision": "Marking a notification as read removes it from the list (allStream where read==false)",
-      "rationale": "User explicitly requested this behaviour",
-      "phase": "10"
-    },
-    {
-      "decision": "_SectionButton is StatefulWidget not StatelessWidget — has _pressed state driving scale+color animation",
-      "rationale": "Matches existing CrypButton/GlassButton pattern in codebase; StatelessWidget gives no tap feedback",
-      "phase": "10"
+      "action": "Run UAT Test 3: Sign in as admin, open ANALYTICS tab. Confirm 7 real data points, no sawtooth.",
+      "context": "Phase 11 UAT Test 3.",
+      "blocking": true
     }
   ],
-  "uncommitted_files": [
-    "lib/data/repositories/transfer_repository.dart",
-    "lib/presentation/home/home_screen.dart",
-    "lib/presentation/home/notifications_screen.dart",
-    "lib/presentation/home/transfer_summary_screen.dart"
+  "decisions": [
+    {
+      "decision": "Separate _proposalBannerEntry from _bannerEntry in HomeScreen",
+      "rationale": "Shared slot caused banners to kill each other on mount race condition.",
+      "phase": "11"
+    },
+    {
+      "decision": "Remove auto-dismiss from _ProposalBanner",
+      "rationale": "5s too short for connection request requiring explicit accept/reject.",
+      "phase": "11"
+    },
+    {
+      "decision": "Only markRead on onTap not onDismiss in _showNotifBanner",
+      "rationale": "Auto-dismiss was consuming transfer notifications before user saw them in NotificationsScreen.",
+      "phase": "11"
+    }
   ],
-  "next_action": "Commit this inter-phase work, then proceed to Phase 11 execution (admin dashboard hardening — 5 plans ready)",
-  "context_notes": "All four files pass flutter analyze cleanly (No issues found). Work was ad-hoc inter-phase features requested by user in this session. Phase 11 plans are pre-written and ready to execute."
+  "uncommitted_files": [],
+  "next_action": "Resume UAT for Phase 11. Load 11-HUMAN-UAT.md and present Test 1 (AdminGuard Access Denied) to user.",
+  "context_notes": "Phase 11 code is clean — 0 critical, 0 warnings after two review+fix cycles. Two bonus notification bugs fixed this session outside Phase 11 scope. UAT is the only remaining gate before Phase 11 can be marked complete."
 }
