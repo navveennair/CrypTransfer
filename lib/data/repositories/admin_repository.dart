@@ -79,7 +79,9 @@ class AdminRepository {
         .limit(50)
         .get();
 
-    final futures = usersSnap.docs.map((userDoc) async {
+    // Batch sub-collection reads in groups of 10 to avoid hitting Firestore
+    // concurrent-read quota limits (WR-01). Up to 50 users are fetched above.
+    Future<Map<String, dynamic>> fetchOne(QueryDocumentSnapshot<Map<String, dynamic>> userDoc) async {
       final uid = userDoc.id;
       final data = userDoc.data();
       final friendships = await _db
@@ -93,8 +95,14 @@ class AdminRepository {
         'username': data['username'] as String? ?? '',
         'connectionCount': friendships.size,
       };
-    }).toList();
+    }
 
-    return Future.wait(futures);
+    const batchSize = 10;
+    final results = <Map<String, dynamic>>[];
+    for (int i = 0; i < usersSnap.docs.length; i += batchSize) {
+      final batch = usersSnap.docs.skip(i).take(batchSize);
+      results.addAll(await Future.wait(batch.map(fetchOne)));
+    }
+    return results;
   }
 }
