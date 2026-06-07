@@ -53,20 +53,24 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
   String _fingerprint(String publicKeyJson) =>
       TofuService.displayFingerprint(publicKeyJson);
 
-  Future<void> _onRegenerate() async {
+  Future<void> _onRegenerate({required bool hasKey}) async {
     final uid = _authRepo.currentUid;
     if (uid == null) return;
 
     final cs = Theme.of(context).colorScheme;
     final confirmed = await _showConfirmDialog(
-      icon: Icons.refresh_rounded,
+      icon: hasKey ? Icons.refresh_rounded : Icons.vpn_key_rounded,
       iconColor: cs.primary,
-      title: 'Regenerate RSA Keys?',
-      message: 'This will generate a new RSA-2048 keypair.\n\n'
-          'Your old private key will be replaced on this device '
-          'and your public key in Firestore will be updated.\n\n'
-          'Active sessions will be notified automatically.',
-      confirmLabel: 'Regenerate',
+      title: hasKey ? 'Regenerate RSA Keys?' : 'Generate RSA Keys?',
+      message: hasKey
+          ? 'This will generate a new RSA-2048 keypair.\n\n'
+              'Your old private key will be replaced on this device '
+              'and your public key in Firestore will be updated.\n\n'
+              'Active sessions will be notified automatically.'
+          : 'This will generate an RSA-2048 keypair for your account.\n\n'
+              'Your public key will be stored in Firestore so senders '
+              'can encrypt files for you.',
+      confirmLabel: hasKey ? 'Regenerate' : 'Generate',
       confirmColor: cs.primary,
     );
     if (!confirmed || !mounted) return;
@@ -390,7 +394,7 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
               size: 20,
             ),
             label: Text(hasKey ? 'Regenerate Keys' : 'Generate Keys'),
-            onPressed: _regenerating ? null : _onRegenerate,
+            onPressed: _regenerating ? null : () => _onRegenerate(hasKey: hasKey),
             color: cs.primary,
           ),
           if (hasKey) ...[
