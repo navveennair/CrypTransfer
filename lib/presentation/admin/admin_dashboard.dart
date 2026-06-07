@@ -21,11 +21,18 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   final _adminRepo = AdminRepository();
   final _networkKey = GlobalKey<ConnectionNodeMapState>();
 
+  // Streams initialised once in initState so sibling StreamBuilders do not
+  // re-subscribe on rebuild (WR-04).
+  late final Stream<int> _totalTransfersStream;
+  late final Stream<int> _totalUsersStream;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
+    _totalTransfersStream = _adminRepo.streamTotalTransfers();
+    _totalUsersStream = _adminRepo.streamTotalUsers();
   }
 
   void _onTabChanged() {
@@ -153,59 +160,41 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   }
 
   Widget _buildSummaryCards(ColorScheme cs) {
-    return StreamBuilder<int>(
-      stream: _adminRepo.streamTotalTransfers(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Row(
-            children: [
-              _SummaryCard(label: 'TRANSFERS', value: '–', icon: Icons.swap_horiz_rounded, color: cs.primary),
-              const SizedBox(width: 16),
-              _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.secondary),
-            ],
-          );
-        }
-        if (snapshot.hasError) {
-          return Row(
-            children: [
-              _SummaryCard(label: 'TRANSFERS', value: '–', icon: Icons.swap_horiz_rounded, color: cs.error),
-              const SizedBox(width: 16),
-              _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.error),
-            ],
-          );
-        }
-        final totalTransfers = snapshot.data ?? 0;
-
-        return Row(
-          children: [
-            _SummaryCard(
+    // Two sibling StreamBuilders referencing stable stream fields initialised in
+    // initState — avoids inner-card flicker caused by nested StreamBuilder
+    // reconstruction on every outer emission (WR-04).
+    return Row(
+      children: [
+        StreamBuilder<int>(
+          stream: _totalTransfersStream,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _SummaryCard(label: 'TRANSFERS', value: '–', icon: Icons.swap_horiz_rounded, color: cs.error);
+            }
+            return _SummaryCard(
               label: 'TRANSFERS',
-              value: totalTransfers.toString(),
+              value: snapshot.data?.toString() ?? '–',
               icon: Icons.swap_horiz_rounded,
-              color: cs.primary,
-            ),
-            const SizedBox(width: 16),
-            StreamBuilder<int>(
-              stream: _adminRepo.streamTotalUsers(),
-              builder: (context, userSnap) {
-                if (userSnap.connectionState == ConnectionState.waiting) {
-                  return _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.secondary);
-                }
-                if (userSnap.hasError) {
-                  return _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.error);
-                }
-                final totalUsers = userSnap.data ?? 0;
-                return _SummaryCard(
-                  label: 'TOTAL NODES',
-                  value: totalUsers.toString(),
-                  icon: Icons.hub_rounded,
-                  color: cs.secondary,
-                );
-              },
-            ),
-          ],
-        );
-      },
+              color: snapshot.connectionState == ConnectionState.waiting ? cs.primary : cs.primary,
+            );
+          },
+        ),
+        const SizedBox(width: 16),
+        StreamBuilder<int>(
+          stream: _totalUsersStream,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _SummaryCard(label: 'TOTAL NODES', value: '–', icon: Icons.hub_rounded, color: cs.error);
+            }
+            return _SummaryCard(
+              label: 'TOTAL NODES',
+              value: snapshot.data?.toString() ?? '–',
+              icon: Icons.hub_rounded,
+              color: cs.secondary,
+            );
+          },
+        ),
+      ],
     );
   }
 
