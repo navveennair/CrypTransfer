@@ -217,10 +217,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onDismiss: () {
           entry.remove();
           if (_bannerEntry == entry) _bannerEntry = null;
-          if (type != 'outcome') {
-            final uid = _authRepo.currentUid;
-            if (uid != null) NotificationService.markRead(uid, docId);
-          }
+          // Do NOT markRead on auto-dismiss — notification must persist in
+          // NotificationsScreen until the user explicitly acknowledges it.
         },
         onTap: () {
           entry.remove();
