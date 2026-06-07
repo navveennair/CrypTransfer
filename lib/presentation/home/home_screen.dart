@@ -28,7 +28,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<Map<String, dynamic>?>? _notifSub;
-  OverlayEntry? _bannerEntry;
+  OverlayEntry? _bannerEntry;          // general notifications
+  OverlayEntry? _proposalBannerEntry;  // connection request proposals (separate slot)
   String? _lastBannerDocId;
 
   final _connService = KeyRepository();
@@ -66,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _notifSub?.cancel();
     _bannerEntry?.remove();
+    _proposalBannerEntry?.remove();
     _pendingProposalSub?.cancel();
     _outcomePendingSub?.cancel();
     for (final sub in _outcomeSubs.values) {
@@ -243,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showProposalBanner(DocumentSnapshot<Map<String, dynamic>> doc) {
-    _bannerEntry?.remove();
+    _proposalBannerEntry?.remove();
     final data = doc.data() ?? {};
     final proposerUsername = data['proposerUsername'] as String? ?? 'Someone';
     final docId = doc.id;
@@ -255,26 +257,26 @@ class _HomeScreenState extends State<HomeScreen> {
         message: '@$proposerUsername wants to connect',
         onAccept: () {
           entry.remove();
-          if (_bannerEntry == entry) _bannerEntry = null;
+          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
           _handshakeRepo.acceptProposal(docId, proposerId).catchError((e) {
             _showErrorSnackBar("Couldn't accept request. Try again.");
           });
         },
         onReject: () {
           entry.remove();
-          if (_bannerEntry == entry) _bannerEntry = null;
+          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
           _handshakeRepo.rejectProposal(docId).catchError((e) {
             _showErrorSnackBar("Couldn't decline request. Try again.");
           });
         },
         onDismiss: () {
           entry.remove();
-          if (_bannerEntry == entry) _bannerEntry = null;
+          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
           // No action — proposal stays pending per D-03
         },
       ),
     );
-    _bannerEntry = entry;
+    _proposalBannerEntry = entry;
     Overlay.of(context).insert(entry);
   }
 
@@ -905,22 +907,18 @@ class _ProposalBanner extends StatefulWidget {
 }
 
 class _ProposalBannerState extends State<_ProposalBanner> {
-  late final Timer _timer;
   bool _accepting = false;
   bool _rejecting = false;
 
   @override
   void initState() {
     super.initState();
-    // 5-second auto-dismiss — same as _NotifBanner; no action taken on auto-dismiss
-    _timer = Timer(const Duration(seconds: 5), () {
-      if (mounted) widget.onDismiss();
-    });
+    // No auto-dismiss — user must explicitly accept, reject, or close.
+    // Connection requests require a conscious decision; 5s is too short.
   }
 
   @override
   void dispose() {
-    _timer.cancel();
     super.dispose();
   }
 

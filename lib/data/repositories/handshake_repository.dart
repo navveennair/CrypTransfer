@@ -53,8 +53,10 @@ class HandshakeRepository {
           .collection(FirebaseConstants.neutralHandshakes)
           .doc('${_uid}_$partnerUid');
 
+      bool isNew = false;
       await _db.runTransaction((tx) async {
         final snap = await tx.get(docRef);
+        isNew = !snap.exists;
         if (!snap.exists) {
           tx.set(docRef, {
             'proposerId': _uid,
@@ -74,6 +76,30 @@ class HandshakeRepository {
           });
         }
       });
+
+      // Write a notification to the partner's inbox so it persists in
+      // NotificationsScreen even after the in-app banner auto-dismisses.
+      // Best-effort: failure here does not roll back the proposal write.
+      // Only written for new proposals to avoid duplicate inbox entries on re-send.
+      if (isNew) {
+        try {
+          await _db
+              .collection(FirebaseConstants.users)
+              .doc(partnerUid)
+              .collection(FirebaseConstants.notifications)
+              .add({
+            'toUserId': partnerUid,
+            'type': 'connection_request',
+            'message': '@$currentUsername wants to connect',
+            'fromUid': _uid,
+            'fromUsername': currentUsername,
+            'read': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } catch (_) {
+          // Non-fatal — partner will still see the banner via streamIncomingPending
+        }
+      }
     } on FirebaseException catch (e) {
       throw NetworkException('Failed to send proposal: ${e.message ?? e.code}');
     }
@@ -177,13 +203,19 @@ class HandshakeRepository {
   }
 
   /// Atomically removes both directional neutral_handshake docs for the pair
-  /// and clears any stale role-assignment fields from both users' Firestore
-  /// documents.
+  /// and clears any stale role-assignment fields from the calling user's own
+  /// Firestore document.
   ///
-  /// Without the role field cleanup, [pendingSenderFor] (set when a user picks
-  /// "Send File") and [selectedSenderUid] (set when a user picks "Receive File")
-  /// survive across disconnect + reconnect cycles, causing
-  /// [assignTransferRole] to see a false conflict on the next role pick.
+  /// Only the calling user's own doc is updated — Firestore security rules
+  /// (allow update: if isOwner(userId) || isAdmin()) prevent writing to another
+  /// user's document. The partner's stale [pendingSenderFor] / [selectedSenderUid]
+  /// fields are inert once the connection no longer exists and will be cleared
+  /// by the partner's own [KeyRepository.clearTransferRoles] call on their next
+  /// sender/receiver screen exit.
+  ///
+  /// The neutral_handshakes deletes cover both directions (`selfUid_partnerUid`
+  /// and `partnerUid_selfUid`). If only one direction exists the other delete is
+  /// a safe no-op because the security rule guards `resource == null`.
   Future<void> disconnectFromUser(String partnerUid) async {
     final selfUid = _uid; // capture before any await
     try {
@@ -197,17 +229,11 @@ class HandshakeRepository {
           .collection(FirebaseConstants.neutralHandshakes)
           .doc('${partnerUid}_$selfUid'));
 
-      // Clear stale role fields from both users' documents.
+      // Clear stale role fields from the calling user's own document only.
+      // Writing to users/{partnerUid} would violate isOwner(partnerUid).
       // FieldValue.delete() on a non-existent field is a safe no-op.
       batch.update(
         _db.collection(FirebaseConstants.users).doc(selfUid),
-        {
-          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
-          'selectedSenderUid': FieldValue.delete(),
-        },
-      );
-      batch.update(
-        _db.collection(FirebaseConstants.users).doc(partnerUid),
         {
           FirebaseConstants.pendingSenderFor: FieldValue.delete(),
           'selectedSenderUid': FieldValue.delete(),

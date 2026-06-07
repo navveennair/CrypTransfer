@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../widgets/shared_widgets.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -78,15 +79,11 @@ class _NotificationTile extends StatelessWidget {
     final isFailure = type == 'transfer_aborted';
     final accentColor = isFailure ? cs.error : cs.tertiary;
 
-    return Card(
+    return GlassContainer(
       margin: const EdgeInsets.only(bottom: 8),
+      borderRadius: 12,
       color: isRead ? null : accentColor.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isRead
-            ? BorderSide.none
-            : BorderSide(color: accentColor.withValues(alpha: 0.3)),
-      ),
+      borderColor: isRead ? null : accentColor.withValues(alpha: 0.3),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: accentColor.withValues(alpha: isRead ? 0.08 : 0.15),
@@ -98,14 +95,13 @@ class _NotificationTile extends StatelessWidget {
         ),
         title: Text(
           message,
-          style: TextStyle(
-              fontSize: 13,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: isRead ? FontWeight.normal : FontWeight.w600),
         ),
         subtitle: ts != null
             ? Text(
                 _fmtTime(ts.toDate()),
-                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               )
             : null,
         trailing: isRead
@@ -129,6 +125,8 @@ class _NotificationTile extends StatelessWidget {
         return Icons.check_circle_rounded;
       case 'transfer_aborted':
         return Icons.cancel_rounded;
+      case 'connection_request':
+        return Icons.person_add_rounded;
       default:
         return Icons.notifications_rounded;
     }
