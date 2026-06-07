@@ -12,9 +12,25 @@ class AdminRepository {
 
   // ─── Stats ───────────────────────────────────────────────────────────────
 
+  /// Returns a real-time count of transfer log documents.
+  ///
+  /// KNOWN LIMITATION (WR-02): This downloads every document in the
+  /// `transfer_logs` collection on each emission, which is an unbounded read
+  /// cost as the collection grows. The preferred fix is to use Firestore
+  /// AggregateQuery (`collection.count().get()`) which runs server-side and
+  /// transfers only the count — available in `cloud_firestore ^4.x`.
+  ///
+  /// TODO: Replace with AggregateQuery once the project upgrades to
+  /// cloud_firestore >=4.0.0 and the Firebase project enables the
+  /// AggregateQuery API. Until then, the collection is expected to stay small
+  /// enough that read cost is acceptable.
   Stream<int> streamTotalTransfers() =>
       _db.collection(FirebaseConstants.transferLogs).snapshots().map((s) => s.size);
 
+  /// Returns a real-time count of user documents.
+  ///
+  /// KNOWN LIMITATION (WR-02): Same unbounded read cost as [streamTotalTransfers].
+  /// TODO: Replace with AggregateQuery when available (see above).
   Stream<int> streamTotalUsers() =>
       _db.collection(FirebaseConstants.users).snapshots().map((s) => s.size);
 
