@@ -28,6 +28,7 @@ class AdminGuard extends StatefulWidget {
 class _AdminGuardState extends State<AdminGuard> {
   final _authRepo = AuthRepository();
   Stream<UserModel?>? _profileStream;
+  bool _redirecting = false;
 
   @override
   void initState() {
@@ -67,19 +68,22 @@ class _AdminGuardState extends State<AdminGuard> {
           return _loadingScaffold(context);
         }
 
-        // State C: error or non-admin — redirect with SnackBar
+        // State C: error or non-admin — redirect with SnackBar (once only)
         if (snapshot.hasError || snapshot.data?.isAdmin != true) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Access denied'),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-              Navigator.pushReplacementNamed(context, '/');
-            }
-          });
+          if (!_redirecting) {
+            _redirecting = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Access denied'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+                Navigator.pushReplacementNamed(context, '/');
+              }
+            });
+          }
           return _loadingScaffold(context);
         }
 
