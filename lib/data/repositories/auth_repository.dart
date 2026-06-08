@@ -128,6 +128,24 @@ class AuthRepository {
     return cred;
   }
 
+  Future<void> sendPasswordResetEmail(String username) async {
+    final query = await _db
+        .collection(FirebaseConstants.users)
+        .where('username', isEqualTo: username)
+        .limit(1)
+        .get();
+    if (query.docs.isEmpty) {
+      throw AuthException('No account found with this username.',
+          code: 'username-not-found');
+    }
+    final email = (query.docs.first.data()['email'] as String?)?.trim() ?? '';
+    if (email.isEmpty) {
+      throw AuthException('Account data is corrupted.',
+          code: 'account-data-corrupted');
+    }
+    await _auth.sendPasswordResetEmail(email: email);
+  }
+
   Future<UserCredential> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
