@@ -387,27 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () =>
-                                  _showForgotPasswordSheet(context),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 32),
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  color: cs.primary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 28),
 
                           if (_errorMessage.isNotEmpty)
                             Padding(
@@ -447,6 +427,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             label: const Text('Sign in with Google'),
                             color: Theme.of(context).colorScheme.secondary,
                             height: 48,
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: TextButton(
+                              onPressed: () => _showForgotPasswordSheet(context),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Forgot password?',
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
