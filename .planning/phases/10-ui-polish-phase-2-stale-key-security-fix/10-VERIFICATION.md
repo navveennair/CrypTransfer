@@ -1,9 +1,10 @@
 ---
 phase: 10-ui-polish-phase-2-stale-key-security-fix
-verified: 2026-05-31T14:00:00Z
-status: human_needed
+verified: 2026-06-04T00:00:00Z
+status: passed
 score: 8/8 must-haves verified
 overrides_applied: 0
+human_verification_completed: 2026-06-04T00:00:00Z
 human_verification:
   - test: "Trigger a key-change scenario: open the app as receiver, establish sender connection, then close and reopen the receiver mailbox (regenerating RSA keypair). On the sender side, verify the SnackBar 'Receiver key changed — re-encrypt required.' appears and no transfer proceeds with the stale AES key."
     expected: "SnackBar appears; sender's encrypt button re-enables requiring the user to re-initiate encryption; previously encrypted AES key is wiped."

@@ -180,8 +180,9 @@ Plans:
 3. **Admin dashboard visual identity commit** — Commit the completed 260531-a1k quick task: AppBar title rename (`COMMAND CENTER` → `CrypTransferAdmin`), `GlassContainer` in `_SecurityLogTile` and `_NodeTile`, `AdminDashboardScreen` dark theme + Orbitron/Exo2 fonts.
 4. **Pending ROADMAP/STATE housekeeping** — Commit the Phase 999.1 backlog deferral in `ROADMAP.md` and the Phase 08 completion status update.
 
+**Status:** Complete
 **Plans:** 2 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Wave 1: Stale-key guard restore in SenderScreen + regression test update
-- [ ] 10-02-PLAN.md — Wave 1 (parallel): Glassmorphic dialog finalization across 6 screens + admin dashboard commit + housekeeping
+- [x] 10-01-PLAN.md — Wave 1: Stale-key guard restore in SenderScreen + regression test update
+- [x] 10-02-PLAN.md — Wave 1 (parallel): Glassmorphic dialog finalization across 6 screens + admin dashboard commit + housekeeping
