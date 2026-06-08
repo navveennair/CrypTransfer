@@ -1,66 +1,53 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-07T18:56:03.821Z",
+  "timestamp": "2026-06-08T08:30:00Z",
   "phase": "11",
-  "phase_name": "admin-dashboard-security-efficiency-hardening-fix-critical-u",
+  "phase_name": "Admin Dashboard Security & Efficiency Hardening",
   "phase_dir": ".planning/phases/11-admin-dashboard-security-efficiency-hardening-fix-critical-u",
-  "plan": null,
-  "task": null,
-  "total_tasks": null,
+  "plan": 5,
+  "task": 0,
+  "total_tasks": 0,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Code review Phase 11 (standard depth)", "status": "done", "commit": "ad6e20d"},
-    {"id": 2, "name": "Fix CR-01: _RevokeButton StatefulWidget + error handling", "status": "done", "commit": "8dbaf19"},
-    {"id": 3, "name": "Fix CR-02: AdminGuard StatefulWidget single-subscription stream", "status": "done", "commit": "4559f5e"},
-    {"id": 4, "name": "Fix WR-01 to WR-05 (batching, docs, timestamp, StreamBuilders, tests)", "status": "done", "commit": "9f2404a-ebd7126"},
-    {"id": 5, "name": "Re-review Phase 11 — all prior issues confirmed fixed", "status": "done", "commit": "e743b3f"},
-    {"id": 6, "name": "Fix WR-NEW-01: cache handshakes stream in initState", "status": "done", "commit": "9c50fe4"},
-    {"id": 7, "name": "Fix WR-NEW-02: _redirecting guard on AdminGuard", "status": "done", "commit": "5fe9090"},
-    {"id": 8, "name": "Fix notifications: write connection_request notif to partner inbox", "status": "done", "commit": "3e4dfc6"},
-    {"id": 9, "name": "Fix notifications: don't markRead on banner auto-dismiss", "status": "done", "commit": "69aa156"}
+    {"id": 1, "name": "Phase 11 cross-AI review (11-REVIEWS.md)", "status": "done"},
+    {"id": 2, "name": "TransferVolumeChart MYT timezone fix (UTC+8)", "status": "done"},
+    {"id": 3, "name": "R8 Play Core dontwarn fix (was blocking all release builds)", "status": "done"},
+    {"id": 4, "name": "Removed cupertino_icons (0 uses confirmed)", "status": "done"},
+    {"id": 5, "name": "Kotlin ProGuard tightened (kotlin.** -> targeted rules)", "status": "done"},
+    {"id": 6, "name": "GMS ProGuard reverted (Google Sign-In safety)", "status": "done"},
+    {"id": 7, "name": "Built + installed arm64 APK to SM A076B (20.7MB)", "status": "done"}
   ],
   "remaining_tasks": [
-    {"id": 10, "name": "UAT Phase 11 — Test 1: AdminGuard Access Denied", "status": "not_started"},
-    {"id": 11, "name": "UAT Phase 11 — Test 2: ConnectionNodeMap FutureBuilder grid", "status": "not_started"},
-    {"id": 12, "name": "UAT Phase 11 — Test 3: TransferVolumeChart real data", "status": "not_started"},
-    {"id": 13, "name": "Mark Phase 11 complete in ROADMAP.md + STATE.md if UAT passes", "status": "not_started"}
+    {"id": 8, "name": "Commit Phase 11 code + build optimizations", "status": "not_started"},
+    {"id": 9, "name": "Mark Phase 11 complete in STATE.md + ROADMAP.md", "status": "not_started"},
+    {"id": 10, "name": "Verify Google Sign-In on device", "status": "not_started"},
+    {"id": 11, "name": "Build AAB for Play Store", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Run UAT Test 1: Sign in as non-admin, navigate to /admin-dashboard directly. Confirm Access denied SnackBar fires and AdminDashboard never renders.",
-      "context": "Phase 11 UAT in progress. 11-HUMAN-UAT.md has 3 pending tests.",
-      "blocking": true
-    },
-    {
-      "action": "Run UAT Test 2: Sign in as admin, open NETWORK tab. Confirm grid loads with refresh button.",
-      "context": "Phase 11 UAT Test 2.",
-      "blocking": true
-    },
-    {
-      "action": "Run UAT Test 3: Sign in as admin, open ANALYTICS tab. Confirm 7 real data points, no sawtooth.",
-      "context": "Phase 11 UAT Test 3.",
+      "action": "Test Google Sign-In on SM A076B with installed APK",
+      "context": "ProGuard changes this session — must verify before Play Store submission",
       "blocking": true
     }
   ],
   "decisions": [
-    {
-      "decision": "Separate _proposalBannerEntry from _bannerEntry in HomeScreen",
-      "rationale": "Shared slot caused banners to kill each other on mount race condition.",
-      "phase": "11"
-    },
-    {
-      "decision": "Remove auto-dismiss from _ProposalBanner",
-      "rationale": "5s too short for connection request requiring explicit accept/reject.",
-      "phase": "11"
-    },
-    {
-      "decision": "Only markRead on onTap not onDismiss in _showNotifBanner",
-      "rationale": "Auto-dismiss was consuming transfer notifications before user saw them in NotificationsScreen.",
-      "phase": "11"
-    }
+    {"decision": "MYT (UTC+8) for chart date grouping", "rationale": "User explicit requirement", "phase": "11"},
+    {"decision": "Reverted GMS ProGuard tightening", "rationale": "Runtime risk to Google Sign-In via GMS reflection", "phase": "11"},
+    {"decision": "Kept Kotlin ProGuard tightening", "rationale": "Standard safe practice for R8", "phase": "11"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Resume UAT for Phase 11. Load 11-HUMAN-UAT.md and present Test 1 (AdminGuard Access Denied) to user.",
-  "context_notes": "Phase 11 code is clean — 0 critical, 0 warnings after two review+fix cycles. Two bonus notification bugs fixed this session outside Phase 11 scope. UAT is the only remaining gate before Phase 11 can be marked complete."
+  "uncommitted_files": [
+    "android/app/proguard-rules.pro",
+    "pubspec.yaml",
+    "pubspec.lock",
+    "lib/presentation/admin/widgets/transfer_volume_chart.dart",
+    ".planning/phases/11-admin-dashboard-security-efficiency-hardening-fix-critical-u/11-REVIEWS.md",
+    "lib/data/repositories/admin_repository.dart",
+    "lib/presentation/admin/admin_dashboard.dart",
+    "lib/presentation/admin/widgets/connection_node_map.dart",
+    "lib/presentation/admin/widgets/security_pulse_feed.dart",
+    "lib/presentation/admin/widgets/user_management_list.dart"
+  ],
+  "next_action": "Commit Phase 11 code + build optimizations. Then mark Phase 11 complete in STATE.md + ROADMAP.md. Then test Google Sign-In on device.",
+  "context_notes": "Phase 11 UAT fully passed. lib/ changes for Phase 11 were in working tree from prior session but never committed. This session: MYT fix, ProGuard fixes, cupertino_icons removal, 11-REVIEWS.md. Critical: R8 was completely broken before this session (Play Core missing class error) — now fixed."
 }

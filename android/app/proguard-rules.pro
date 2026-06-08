@@ -15,10 +15,13 @@
 -keep class org.bouncycastle.** { *; }
 -dontwarn org.bouncycastle.**
 
-# Kotlin stdlib
--keep class kotlin.** { *; }
--dontwarn kotlin.**
+# Kotlin: keep metadata + WhenMappings; let R8 tree-shake the rest of stdlib
+-keep class kotlin.Metadata { *; }
 -keepclassmembers class **$WhenMappings { <fields>; }
+-dontwarn kotlin.**
+
+# Play Core — referenced by Flutter deferred components; app doesn't use them
+-dontwarn com.google.android.play.core.**
 
 # Prevent stripping of serialisation-sensitive classes
 -keepattributes *Annotation*
