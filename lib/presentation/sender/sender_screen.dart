@@ -624,6 +624,7 @@ class _SenderScreenState extends State<SenderScreen>
     }
     if (!mounted) return;
     if (status == TofuStatus.keyChanged) {
+      setState(() => _tofuStatus = TofuStatus.keyChanged);
       _showKeyChangedDialog(receiverUid, publicKeyJson);
     } else {
       final fp = TofuService.displayFingerprint(publicKeyJson);
@@ -832,6 +833,7 @@ class _SenderScreenState extends State<SenderScreen>
           children: [
             // ── Welcome banner ────────────────────────────────
             GlassContainer(
+              blur: 0,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               borderRadius: 28,
               color: cs.primary.withValues(alpha: 0.1),
@@ -989,7 +991,10 @@ class _SenderScreenState extends State<SenderScreen>
                                 label: Text(_encryptingKey
                                     ? 'Encrypting key…'
                                     : 'Encrypt Key for @${_receiverUsername ?? "receiver"}'),
-                                onPressed: _fileEncrypted && !_encryptingKey
+                                onPressed: _fileEncrypted &&
+                                           !_encryptingKey &&
+                                           _tofuStatus != null &&
+                                           _tofuStatus != TofuStatus.keyChanged
                                     ? _encryptAesKey
                                     : null,
                                 color: cs.secondary,
@@ -1036,6 +1041,7 @@ class _EncryptionProgressWidget extends StatelessWidget {
     final pct = (progress * 100).toInt();
     final isReading = progress < 0.7;
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.all(16),
       color: cs.tertiary.withValues(alpha: 0.08),
       borderColor: cs.tertiary.withValues(alpha: 0.2),
@@ -1158,6 +1164,7 @@ class _ConnectedBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       color: cs.secondary.withValues(alpha: 0.1),
       borderColor: cs.secondary.withValues(alpha: 0.2),
@@ -1211,6 +1218,7 @@ class _FileCard extends StatelessWidget {
     final ext = (file.extension ?? '').toLowerCase();
 
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.all(14),
       color: cs.surface.withValues(alpha: 0.05),
       child: Row(
@@ -1288,6 +1296,7 @@ class _EncryptedBadge extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.all(16),
       color: cs.tertiary.withValues(alpha: 0.08),
       borderColor: cs.tertiary.withValues(alpha: 0.2),
@@ -1353,6 +1362,7 @@ class _ReceiverBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       color: cs.primary.withValues(alpha: 0.1),
       borderColor: cs.primary.withValues(alpha: 0.2),
@@ -1468,6 +1478,7 @@ class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
           if (widget.timerRunning) ...[
             const SizedBox(height: 16),
             GlassContainer(
+              blur: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: cs.primary.withValues(alpha: 0.07),
               borderColor: cs.primary.withValues(alpha: 0.15),
@@ -1508,6 +1519,7 @@ class _TofuStatusBanner extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     if (status == TofuStatus.verified) {
       return GlassContainer(
+        blur: 0,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         color: cs.secondary.withValues(alpha: 0.08),
         borderColor: cs.secondary.withValues(alpha: 0.2),
@@ -1525,6 +1537,7 @@ class _TofuStatusBanner extends StatelessWidget {
     }
     // firstContact or trusted — tertiary nudge, transfer allowed
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       color: cs.tertiary.withValues(alpha: 0.08),
       borderColor: cs.tertiary.withValues(alpha: 0.2),
