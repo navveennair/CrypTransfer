@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../app_theme.dart';
+import '../../core/errors/app_exceptions.dart';
 import '../home/home_screen.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
@@ -20,6 +21,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _forgotPasswordController = TextEditingController();
   final _authService = AuthRepository();
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -122,10 +124,136 @@ class _LoginScreenState extends State<LoginScreen> {
     return 'Login failed. Please try again.';
   }
 
+  void _showForgotPasswordSheet(BuildContext context) {
+    _forgotPasswordController.clear();
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        bool loading = false;
+        String? error;
+        bool sent = false;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+              ),
+              child: GlassContainer(
+                padding: const EdgeInsets.all(24),
+                borderRadius: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Reset Password',
+                      style: Theme.of(ctx).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Enter your username and we'll send a password reset link to your email.",
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (sent) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded,
+                              color: Colors.green, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Reset email sent! Check your inbox.',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      TextField(
+                        controller: _forgotPasswordController,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: 'Username',
+                          prefixIcon: const Icon(
+                              Icons.alternate_email_rounded,
+                              size: 20),
+                          errorText: error,
+                          filled: true,
+                          fillColor: cs.onSurface.withValues(alpha: 0.03),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: cs.primary, width: 2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      loading
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          : CrypButton(
+                              label: const Text('Send Reset Link'),
+                              color: cs.primary,
+                              onPressed: () async {
+                                final username =
+                                    _forgotPasswordController.text.trim();
+                                if (username.isEmpty) {
+                                  setSheetState(() => error = 'Required');
+                                  return;
+                                }
+                                setSheetState(() {
+                                  loading = true;
+                                  error = null;
+                                });
+                                try {
+                                  await _authService
+                                      .sendPasswordResetEmail(username);
+                                  setSheetState(() => sent = true);
+                                } on AuthException catch (e) {
+                                  setSheetState(() => error = e.message);
+                                } catch (_) {
+                                  setSheetState(() => error =
+                                      'Something went wrong. Please try again.');
+                                } finally {
+                                  setSheetState(() => loading = false);
+                                }
+                              },
+                            ),
+                    ],
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _forgotPasswordController.dispose();
     super.dispose();
   }
 
@@ -259,7 +387,27 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () =>
+                                  _showForgotPasswordSheet(context),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Forgot password?',
+                                style: TextStyle(
+                                  color: cs.primary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
 
                           if (_errorMessage.isNotEmpty)
                             Padding(
