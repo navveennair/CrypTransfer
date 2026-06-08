@@ -61,6 +61,7 @@ See: .planning/PROJECT.md
 - 2026-05-29: Phase 09 planned — 3 plans in 2 waves (Wave 1: 09-01 Nyquist test stubs; Wave 2: 09-02 ReceiverScreen gaps 1+4 + 09-03 SenderScreen gaps 2+3, parallel); verification passed
 - 2026-06-02: Phase 11 planned — 5 plans in 4 waves (Wave 0: test scaffold; Wave 1: AdminRepository hardening; Wave 2: hasError+chart+FutureBuilder, parallel; Wave 3: AdminGuard route guard); verification passed
 - 2026-05-31: Phase 10 planned — 2 plans in 1 wave (10-01: stale-key guard restore; 10-02: glassmorphic dialog spacing + admin dashboard commit + housekeeping); verification passed
+- 2026-06-08: Quick task 260608-a4b complete — created scripts/reset_user_audit.js to delete user audit logs from Firestore (audit_logs, rsa_key_manager subcollections + transfer_logs by participant)
 - 2026-06-04: Phase 07.1 human UAT closed — 6/6 tests passed; biometric gap resolved (debug session biometric-gate-appears-twice); cleanup sequence end-to-end verified
 - 2026-06-04: Phase 06 human UAT closed — 8/8 tests passed (CR-01, WR-01, WR-03, TB-01 through TB-05); all gap fixes verified (handshake delete rule, timer restart on revert); 06-HUMAN-UAT.md marked complete
 - 2026-06-03: Quick task 260603-b2a complete — re-enabled biometric gate on RSA Key Vault; entry gate + regenerate gate + delete gate all active; BiometricHelper import added; flutter analyze clean
@@ -108,5 +109,6 @@ See: .planning/PROJECT.md
 | 260607-a1k | Remove redundant biometric prompt on key delete | 2026-06-07 | a0cce1d | [260607-a1k-remove-biometric-on-key-delete](.planning/quick/260607-a1k-remove-biometric-on-key-delete/) |
 | 260607-b3m | Fix RSA Key Vault first-time generate dialog copy | 2026-06-07 | 0e8c433 | [260607-b3m-fix-generate-dialog-first-time-key](.planning/quick/260607-b3m-fix-generate-dialog-first-time-key/) |
 | 260608-c4f | Add forgot password feature to the login page | 2026-06-08 | 341454d | [260608-c4f-forgot-password-login](.planning/quick/260608-c4f-forgot-password-login/) |
+| 260608-a4b | Write script to delete user audit logs from Firestore | 2026-06-08 | — | [260608-a4b-delete-user-audit-logs](.planning/quick/260608-a4b-delete-user-audit-logs/) |
 
 **Planned Phase:** 8 (applicationid-rename-replace-com-example-cryptransfer-with-p) — 1 plans — 2026-05-28T17:24:59.919Z
