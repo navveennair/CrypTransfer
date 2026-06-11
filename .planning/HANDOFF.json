@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-08T08:30:00Z",
+  "timestamp": "2026-06-11T06:38:52.000Z",
   "phase": "11",
   "phase_name": "Admin Dashboard Security & Efficiency Hardening",
   "phase_dir": ".planning/phases/11-admin-dashboard-security-efficiency-hardening-fix-critical-u",
@@ -15,13 +15,16 @@
     {"id": 4, "name": "Removed cupertino_icons (0 uses confirmed)", "status": "done"},
     {"id": 5, "name": "Kotlin ProGuard tightened (kotlin.** -> targeted rules)", "status": "done"},
     {"id": 6, "name": "GMS ProGuard reverted (Google Sign-In safety)", "status": "done"},
-    {"id": 7, "name": "Built + installed arm64 APK to SM A076B (20.7MB)", "status": "done"}
+    {"id": 7, "name": "Built + installed arm64 APK to SM A076B (20.7MB)", "status": "done"},
+    {"id": 8, "name": "[unrelated ad-hoc] Reviewed CrypTransfer_Database_Design_ERD.docx vs Firestore data model; generated CrypTransfer_Database_Design_ERD_Corrected.docx", "status": "done"},
+    {"id": 9, "name": "[unrelated ad-hoc] Reviewed CrypTransfer_Enhanced_Activity_Diagrams_v3.docx (AD001-AD015) vs codebase; reported findings", "status": "done"}
   ],
   "remaining_tasks": [
-    {"id": 8, "name": "Commit Phase 11 code + build optimizations", "status": "not_started"},
-    {"id": 9, "name": "Mark Phase 11 complete in STATE.md + ROADMAP.md", "status": "not_started"},
-    {"id": 10, "name": "Verify Google Sign-In on device", "status": "not_started"},
-    {"id": 11, "name": "Build AAB for Play Store", "status": "not_started"}
+    {"id": 10, "name": "Commit Phase 11 code + build optimizations", "status": "not_started"},
+    {"id": 11, "name": "Mark Phase 11 complete in STATE.md + ROADMAP.md", "status": "not_started"},
+    {"id": 12, "name": "Verify Google Sign-In on device", "status": "not_started"},
+    {"id": 13, "name": "Build AAB for Play Store", "status": "not_started"},
+    {"id": 14, "name": "[unrelated ad-hoc, optional] Generate corrected v4 Activity Diagram docx for AD007/AD008/AD012/AD014 if user confirms", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [
@@ -29,12 +32,19 @@
       "action": "Test Google Sign-In on SM A076B with installed APK",
       "context": "ProGuard changes this session — must verify before Play Store submission",
       "blocking": true
+    },
+    {
+      "action": "Decide whether to generate corrected v4 Activity Diagram docx",
+      "context": "Unrelated ad-hoc doc-review task; assistant offered this and was awaiting reply when /gsd:pause-work was called",
+      "blocking": false
     }
   ],
   "decisions": [
     {"decision": "MYT (UTC+8) for chart date grouping", "rationale": "User explicit requirement", "phase": "11"},
     {"decision": "Reverted GMS ProGuard tightening", "rationale": "Runtime risk to Google Sign-In via GMS reflection", "phase": "11"},
-    {"decision": "Kept Kotlin ProGuard tightening", "rationale": "Standard safe practice for R8", "phase": "11"}
+    {"decision": "Kept Kotlin ProGuard tightening", "rationale": "Standard safe practice for R8", "phase": "11"},
+    {"decision": "[ad-hoc] Saved corrected ERD as a new docx (CrypTransfer_Database_Design_ERD_Corrected.docx) rather than editing the original in place", "rationale": "User asked to 'check' the original first; original left untouched", "phase": null},
+    {"decision": "[ad-hoc] When generating .py scripts that touch project files, write them to the Windows project path and run via python3 from Bash, then delete", "rationale": "Bash's /tmp does not map to the same location as Write tool's /tmp on this machine", "phase": null}
   ],
   "uncommitted_files": [
     "android/app/proguard-rules.pro",
@@ -46,8 +56,15 @@
     "lib/presentation/admin/admin_dashboard.dart",
     "lib/presentation/admin/widgets/connection_node_map.dart",
     "lib/presentation/admin/widgets/security_pulse_feed.dart",
-    "lib/presentation/admin/widgets/user_management_list.dart"
+    "lib/presentation/admin/widgets/user_management_list.dart",
+    "CrypTransfer_Database_Design_ERD.docx",
+    "CrypTransfer_Database_Design_ERD_Corrected.docx",
+    "CrypTransfer_Enhanced_Activity_Diagrams_v3.docx",
+    "graphify-out/converted/CrypTransfer_Database_Design_ERD_4137676b.md",
+    "graphify-out/converted/CrypTransfer_Enhanced_Activity_Diagrams_v3_40e2053f.md",
+    "scripts/generate_database_erd.py",
+    "scripts/generate_final_activity_diagrams.py"
   ],
-  "next_action": "Commit Phase 11 code + build optimizations. Then mark Phase 11 complete in STATE.md + ROADMAP.md. Then test Google Sign-In on device.",
-  "context_notes": "Phase 11 UAT fully passed. lib/ changes for Phase 11 were in working tree from prior session but never committed. This session: MYT fix, ProGuard fixes, cupertino_icons removal, 11-REVIEWS.md. Critical: R8 was completely broken before this session (Play Core missing class error) — now fixed."
+  "next_action": "Commit Phase 11 code + build optimizations. Then mark Phase 11 complete in STATE.md + ROADMAP.md. Then test Google Sign-In on device. Separately (unrelated): ask user if they want CrypTransfer_Enhanced_Activity_Diagrams_v3_corrected.docx generated for AD007/AD008/AD012/AD014.",
+  "context_notes": "Phase 11 work from the prior session is still fully pending commit (large uncommitted batch). This session additionally did an unrelated ad-hoc documentation review (ERD + Activity Diagrams docx vs codebase) which produced new untracked files but touched NO lib/ or phase files. The two workstreams are independent and can be committed separately."
 }
