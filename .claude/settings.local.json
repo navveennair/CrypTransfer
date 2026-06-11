@@ -111,7 +111,35 @@
       "Bash(echo \"Logcat 5554 PID: $!\")",
       "Bash(grep -v \"^$\")",
       "Bash(grep -n \"\\\\.listen\\\\|}\\);$\")",
-      "Bash(git push *)"
-    ]
+      "Bash(git push *)",
+      "Skill(gsd:do)",
+      "Bash(r)",
+      "PowerShell(Test-Path *)",
+      "Bash(Copy-Item *)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(grep -c 'authorities=\"\\\\${applicationId}\\\\.fileprovider\"' android/app/src/main/AndroidManifest.xml)",
+      "Bash(aapt dump *)",
+      "Bash(/c/Users/navve/AppData/Local/Android/Sdk/platform-tools/adb.exe *)",
+      "Bash(grep -v \"//.*Colors\\\\.\")",
+      "Skill(gsd:resume-work)",
+      "Skill(gsd:resume-work:*)",
+      "Bash(git checkout *)",
+      "Bash(\"C:\\\\Users\\\\navve\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\build-tools\\\\36.1.0\\\\aapt.exe\" dump *)",
+      "Bash(xargs grep -l \"FindFriends\\\\|find_friends\\\\|neutral_handshake\\\\|streamHandshake\")",
+      "Skill(gsd:pause-work)",
+      "Bash(firebase emulators:start --only firestore --project cryptransfer-96e9f)",
+      "Bash(npm test *)",
+      "Skill(gsd:next)",
+      "Skill(gsd:complete-milestone)",
+      "Skill(gsd:audit-milestone)",
+      "PowerShell(node \"C:/Users/navve/projects/cryptransfer/.claude/get-shit-done/bin/gsd-tools.cjs\" phases.list 2>&1)",
+      "Skill(gsd:discuss-phase)",
+      "Bash(adb -s emulator-5556 exec-out screencap -p)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(Remove-Item *)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }
