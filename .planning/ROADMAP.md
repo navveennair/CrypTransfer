@@ -5,14 +5,15 @@
 **Goal:** Harden the admin dashboard layer across 7 identified issues: close the CRITICAL unguarded /admin-dashboard route (AdminGuard widget), fix SERIOUS missing adminUid in setUserActiveStatus audit log, replace MEDIUM fake TransferVolumeChart sawtooth with real 7-day Dart aggregation, consolidate MEDIUM N parallel Firestore streams in ConnectionNodeMap to a single FutureBuilder, add MEDIUM .limit() pagination to unbounded admin streams, add MEDIUM snapshot.hasError branches to all admin StreamBuilders, and MINOR remove 3 dead AdminRepository methods.
 **Requirements**: D-01 through D-12 (locked decisions in 11-CONTEXT.md)
 **Depends on:** Phase 10
+**Status:** Complete
 **Plans:** 5 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — Wave 0: Test scaffold (admin_guard_test.dart, admin_repository_test.dart, chart_aggregation_test.dart)
-- [ ] 11-02-PLAN.md — Wave 1: AdminRepository hardening (D-04 adminUid, D-08 fetchUserConnections, D-11 dead method removal, D-12 limits)
-- [ ] 11-03-PLAN.md — Wave 2: Presentation hasError branches + TransferVolumeChart real aggregation (D-05/D-06/D-10)
-- [ ] 11-04-PLAN.md — Wave 2 (parallel): ConnectionNodeMap FutureBuilder conversion (D-07/D-08/D-09)
-- [ ] 11-05-PLAN.md — Wave 3: AdminGuard route guard — new file + main.dart wire-up (D-01/D-02/D-03)
+- [x] 11-01-PLAN.md — Wave 0: Test scaffold (admin_guard_test.dart, admin_repository_test.dart, chart_aggregation_test.dart)
+- [x] 11-02-PLAN.md — Wave 1: AdminRepository hardening (D-04 adminUid, D-08 fetchUserConnections, D-11 dead method removal, D-12 limits)
+- [x] 11-03-PLAN.md — Wave 2: Presentation hasError branches + TransferVolumeChart real aggregation (D-05/D-06/D-10)
+- [x] 11-04-PLAN.md — Wave 2 (parallel): ConnectionNodeMap FutureBuilder conversion (D-07/D-08/D-09)
+- [x] 11-05-PLAN.md — Wave 3: AdminGuard route guard — new file + main.dart wire-up (D-01/D-02/D-03)
 
 ---
 
