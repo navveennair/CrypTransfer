@@ -16,6 +16,7 @@
  *   - users/{uid}/audit_logs        (personal transfer audit records)
  *   - users/{uid}/rsa_key_manager   (RSA key rotation audit)
  *   - transfer_logs                 (global log — docs where participants contains uid)
+ *   - transfers                     (active/completed transfers as sender or receiver)
  */
 
 const admin = require('firebase-admin');
@@ -61,6 +62,32 @@ async function deleteCollection(ref, label) {
   await batch.commit();
   console.log(`  ${label}: deleted ${snapshot.size} doc(s)`);
   return snapshot.size;
+}
+
+async function deleteByField(collectionName, field, uid, label) {
+  const snapshot = await db
+    .collection(collectionName)
+    .where(field, '==', uid)
+    .get();
+
+  if (snapshot.empty) {
+    console.log(`  ${label}: 0 docs`);
+    return 0;
+  }
+
+  let deleted = 0;
+  const chunks = [];
+  for (let i = 0; i < snapshot.docs.length; i += 500) {
+    chunks.push(snapshot.docs.slice(i, i + 500));
+  }
+  for (const chunk of chunks) {
+    const batch = db.batch();
+    chunk.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += chunk.length;
+  }
+  console.log(`  ${label}: deleted ${deleted} doc(s)`);
+  return deleted;
 }
 
 async function deleteByParticipant(collectionName, uid) {
@@ -111,6 +138,8 @@ async function deleteByParticipant(collectionName, uid) {
   total += await deleteCollection(userRef.collection('audit_logs'), 'users/{uid}/audit_logs');
   total += await deleteCollection(userRef.collection('rsa_key_manager'), 'users/{uid}/rsa_key_manager');
   total += await deleteByParticipant('transfer_logs', uid);
+  total += await deleteByField('transfers', 'senderId', uid, 'transfers (as sender)');
+  total += await deleteByField('transfers', 'receiverId', uid, 'transfers (as receiver)');
 
   console.log(`\nDone. ${total} document(s) deleted.`);
   console.log('The user can now start fresh.\n');

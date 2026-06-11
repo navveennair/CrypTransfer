@@ -1,3 +1,6 @@
+# Firebase service account (never commit — contains private credentials)
+scripts/serviceAccountKey.json
+
 # Miscellaneous
 *.class
 *.log
