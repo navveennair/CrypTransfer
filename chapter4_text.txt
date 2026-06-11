@@ -118,25 +118,25 @@
 
 [492]: 4.4   Database Design
 
-[493]: The schema enlists five fundamental tables, such as User, TransferSession, File, RSAKey and AESKey. The user stores have user details, with TransferSession showing every transfer transaction, sender and receiver, and the time window of that transfer. File stores metadata about each moved item (name, size, MIME type and storage destination) and contains a foreign key to its TransferSession. RSAKeys contains the RSA key pair consisting of user RSA public and secret keys as applicable to a particular session and refers to TransferSession, as well as user. The symmetric key that is used to encrypt the file contents, is present in AESKey, which is also associated with the corresponding user and session. Such connections make all file transfers to be in encrypted, trackable and safe connected form to the participants of the transmissions.
+[493]: The schema enlists five fundamental tables, such as User, TransferSession, File, RSAKeys and AESKey. The User table stores user credentials including userID (PK), username, password, email, and role. The TransferSession table tracks every transfer transaction with sessionID (PK), senderID (FK), receiverID (FK), and a timestamp. File stores metadata about each moved item including fileID (PK), fileName, fileSize, fileType, and filePath, and contains a transferSessionID (FK) linking it to its parent session. RSAKeys contains the RSA key pair consisting of keyID (PK), userID (FK), publicKeyID, and privateKeyID, and refers to the TransferSession. The symmetric key used to encrypt the file contents is stored in the AESKey table, which includes aesKeyID (PK), userID (FK), and transferSessionID (FK).
 
-[495]: Figure 4.21 Database Design for CrpyTransfer system
+[495]: Figure 4.21 Database Design for CrypTransfer system
 
-[496]: The user class is associated with TransferSession class with forreign key ON TransferSession tabel. Particularity here is that the foreign keys senderID and receiverID refer to the User model. This reliance ensures that any user is capable to initiate a transfer session or oblige to transfer data. This allows the system to track which users participate in a file transfer instance.
+[496]: The User class is associated with the TransferSession class through a 1-to-1 relationship where a User initiates a TransferSession. The foreign keys senderID and receiverID in the TransferSession table refer to the User model, allowing the system to track participants in each transfer instance.
 
-[497]: The TransferSession class encapsulate a single-file transfer event. A TransferSession may have many File records, and the File table will have a backreference to it (transferSessionID). This relationship also ensures that every file is linked to one transfer session and we are able to track send and receive session behavior.
+[497]: The TransferSession class encapsulates a single-file transfer event. It contains a File record through a 1-to-1 relationship, where the File table has a backreference (transferSessionID) to its parent session. This ensures that every file is linked to exactly one transfer session for precise tracking.
 
-[498]: We also have a relationship between the User object and the RSAKeys table by the userID foreign key on the RSAKeys table. A user may have several RSA KeyPairs which are used to encrypt/decrypt AESKeys during transfer. In this manner, user can be assured that data are secure with the appropriate encryption keys per user.
+[498]: There is a relationship between the User object and the RSAKeys table through the userID foreign key. A single User generates 0..* RSAKeys pairs. This relationship allows users to maintain unique cryptographic identities for different sessions, ensuring data security through appropriate key management.
 
-[499]: The TransferSession class correlates to the RSAKeys table. Two RSA key record can be utilized for a particular transfer session. These are the RSA keys used to securely exchange and encrypt the AES key we've encrypted the file data with in-session (to send). Which is how user make sure that the AES key that have been used to encrypt a file is safe for the decrypt only by the receiver.
+[499]: The TransferSession class uses the RSAKeys table in a 1-to-1 relationship. The RSA keys associated with the session are used to securely exchange and encrypt the AES key. This setup ensures that the AES key used to encrypt a file is only accessible to the authorized receiver.
 
-[500]: The RSAKeys class is the one responsible for encrypting the AESKey class. The RSA keys will be used by the receiver to decrypt the AES key. The receiver can decrypt the AES key with their private RSA key and so decrypt the content of the messages file.
+[500]: The AESKey table is encryptedBy the RSAKeys table in a 1-to-1 relationship. The receiver uses their private RSA key to decrypt the AES key, which then allows for the decryption of the file contents. This multi-layered encryption approach is central to the system's security.
 
-[501]: The AESKey table into File table one more foreign key aesKeyID is placed in the File table. This foreign key connects them to each file a precise with an AESKey to which the file is associated, connecting the key which was used to encrypt the file with it. The file is first encrypted with the file contents by an AESKey,then by foreign key to ensure which AES key to encrypt which file,which is better tracked and secure.
+[501]: The File table is encryptedWith the AESKey table. The aesKeyID is placed as a foreign key in the AESKey table (associated with the file and session), ensuring that the specific symmetric key used for the file contents is correctly mapped and retrievable.
 
-[502]: The class AESKey is associated with the class User by means of the foreign key userID within the table AESKey. Each user has one AES key for encrypting files that s/he has sent or received. Said relation accomplishes the storage of encryption keys in such a manner that to each AES key is assigned a user and the transferring sessions.
+[502]: The AESKey class is associated with the User class through a 1-to-1 relationship (User create AESKey). Every user is responsible for the creation of the symmetric key used in their outgoing transfers, ensuring that encryption occurs at the edge before data transmission.
 
-[503]: Finally, the relationship of the User, TransferSession, File, RSAKeys and AESKey provides a safe and traceable transfer. The ERD will support the secure encryption process, its corresponding key management and session handling needed to satisfy the data confidentiality, integrity and non-repudiation requirements of the entire system.
+[503]: Finally, the interconnected relationships between User, TransferSession, File, RSAKeys, and AESKey provide a safe and traceable transfer protocol. The ERD supports the secure hybrid encryption process, session handling, and non-repudiation requirements of the entire system.
 
 [505]: 4.5   Interface Design
 
