@@ -36,19 +36,48 @@ class GlassContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
+
+    final effectiveBorderColor = borderColor ??
+        (blur > 0
+            ? (isDark ? AppTheme.glassBorderDark : AppTheme.glassBorderLight)
+            : cs.outlineVariant);
+
+    final effectiveBgColor =
+        color ?? (isDark ? AppTheme.glassBgDark : AppTheme.glassBgLight);
+
+    final shadows = boxShadow ??
+        [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ];
+
+    if (blur <= 0) {
+      return Container(
+        margin: margin,
+        width: width,
+        height: height,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: effectiveBgColor,
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(color: effectiveBorderColor, width: 1.5),
+          boxShadow: shadows,
+        ),
+        child: child,
+      );
+    }
+
     return Container(
       margin: margin,
       width: width,
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: boxShadow ?? [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: shadows,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
@@ -57,12 +86,9 @@ class GlassContainer extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: color ?? (isDark ? AppTheme.glassBgDark : AppTheme.glassBgLight),
+              color: effectiveBgColor,
               borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: borderColor ?? (isDark ? AppTheme.glassBorderDark : AppTheme.glassBorderLight),
-                width: 1.5,
-              ),
+              border: Border.all(color: effectiveBorderColor, width: 1.5),
             ),
             child: child,
           ),
@@ -118,6 +144,7 @@ class StepCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       child: GlassContainer(
         borderRadius: 24,
+        blur: 0,
         padding: const EdgeInsets.all(20),
         borderColor: borderColor,
         color: bgColor,

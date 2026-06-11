@@ -161,7 +161,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
             ..showSnackBar(
               SnackBar(
                 content: const Text('Transfer aborted — receiver terminated the tunnel'),
-                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                backgroundColor: Theme.of(context).colorScheme.error,
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -270,7 +270,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
           content: const Text('Transfer stalled — receiver connection lost'),
-          backgroundColor: Theme.of(context).colorScheme.tertiary,
+          backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 4),
         ));
       Navigator.of(context).pushAndRemoveUntil(
@@ -558,8 +558,8 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
                 const SizedBox(height: 16),
                 Text(
                   'Upload Failed',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontSize: 18, color: cs.error),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: cs.error),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -696,8 +696,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
                 const SizedBox(height: 14),
                 Text(
                   '${(_progress * 100).toStringAsFixed(0)}%',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontSize: 28,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: cs.primary,
                   ),
                   textAlign: TextAlign.center,

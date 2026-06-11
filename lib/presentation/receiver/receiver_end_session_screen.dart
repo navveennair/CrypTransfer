@@ -486,7 +486,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         const SizedBox(height: 24),
         Text(
           'Waiting for Sender…',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 22),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -508,8 +508,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
         const SizedBox(height: 24),
         Text(
           'Ending Session…',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700, fontSize: 22),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 6),
@@ -562,9 +562,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
 
         Text(
           'Session Ended',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
-            fontSize: 24,
             color: cs.secondary,
           ),
           textAlign: TextAlign.center,
@@ -603,7 +602,7 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
             MaterialPageRoute(builder: (_) => const HomeScreen()),
             (_) => false,
           ),
-          color: cs.secondary,
+          color: cs.primary,
         ),
       ],
     );
@@ -634,21 +633,22 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Icon(icon, size: 17, color: color),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 68,
+          Expanded(
+            flex: 2,
             child: Text(
               label,
-              style: TextStyle(
-                  fontSize: 13,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                   fontWeight: FontWeight.w500),
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
+            flex: 5,
             child: Text(
               value,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600),
               overflow: TextOverflow.ellipsis,
             ),
           ),

@@ -1,59 +1,95 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+
 import '../../../data/repositories/admin_repository.dart';
-import '../../widgets/shared_widgets.dart';
+
+// Palette — must stay in sync with admin_dashboard.dart
+const _spfCard    = Color(0xFF111B28);
+const _spfBorder  = Color(0xFF1C2D3F);
+const _spfAmber   = Color(0xFFF59E0B);
+const _spfRed     = Color(0xFFEF4444);
+const _spfText    = Color(0xFFA3B8CC);
+const _spfMuted   = Color(0xFF3D5269);
+
+TextStyle _jb({
+  double size = 12,
+  Color color = _spfText,
+  FontWeight weight = FontWeight.w400,
+  double? spacing,
+}) => GoogleFonts.jetBrainsMono(
+  fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing,
+);
 
 class SecurityPulseFeed extends StatelessWidget {
   final _adminRepo = AdminRepository();
-
   SecurityPulseFeed({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return StreamBuilder<QuerySnapshot>(
       stream: _adminRepo.streamSecurityAuditLog(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: _spfAmber));
         }
         if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              'Error loading data',
-              style: TextStyle(color: cs.error),
-            ),
-          );
+          return Center(child: Text('ERROR LOADING FEED', style: _jb(color: _spfRed)));
         }
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: _spfAmber));
+        }
 
         final logs = snapshot.data!.docs;
 
         if (logs.isEmpty) {
           return Center(
-            child: Text('No security events detected', style: TextStyle(color: cs.onSurfaceVariant)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.shield_outlined, color: _spfAmber.withValues(alpha: 0.3), size: 40),
+                const SizedBox(height: 16),
+                Text('NO SECURITY EVENTS DETECTED', style: _jb(size: 11, color: _spfMuted, spacing: 2)),
+              ],
+            ),
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: logs.length,
-          itemBuilder: (context, i) {
-            final data = logs[i].data() as Map<String, dynamic>;
-            // Keep timestamp nullable: a null value (e.g. from a pending
-            // serverTimestamp or a malformed doc) must NOT fall back to
-            // DateTime.now() — that would make an old event appear current
-            // in the security audit feed (WR-03).
-            final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
-            final event = data['event'] as String? ?? 'UNKNOWN_EVENT';
-
-            return _SecurityLogTile(
-              event: event,
-              details: data['details'] as String? ?? '',
-              timestamp: timestamp,
-            );
-          },
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: const BoxDecoration(
+                color: _spfCard,
+                border: Border(bottom: BorderSide(color: _spfBorder)),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(width: 70, child: Text('TIME', style: _jb(size: 9, color: _spfMuted, spacing: 1.5))),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('EVENT', style: _jb(size: 9, color: _spfMuted, spacing: 1.5))),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                itemCount: logs.length,
+                itemBuilder: (context, i) {
+                  final data = logs[i].data() as Map<String, dynamic>;
+                  final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+                  final event = (data['event'] as String?)?.trim();
+                  final details = (data['details'] as String?)?.trim() ?? '';
+                  return _SecurityLogTile(
+                    event: event?.isNotEmpty == true ? event! : 'UNKNOWN_EVENT',
+                    details: details,
+                    timestamp: timestamp,
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -65,8 +101,17 @@ String _formatTimestamp(DateTime ts) {
   final today = DateTime(now.year, now.month, now.day);
   final tsDay = DateTime(ts.year, ts.month, ts.day);
   if (tsDay == today) return DateFormat('HH:mm:ss').format(ts);
-  return DateFormat('MMM dd, HH:mm').format(ts);
+  return DateFormat('MMM dd HH:mm').format(ts);
 }
+
+bool _isCritical(String event) =>
+    event.contains('ERROR') ||
+    event.contains('FAILURE') ||
+    event.contains('WIPE') ||
+    event.contains('kill_switch') ||
+    event.contains('KILL') ||
+    event.contains('aborted') ||
+    event.contains('connection_lost');
 
 class _SecurityLogTile extends StatelessWidget {
   final String event;
@@ -81,62 +126,90 @@ class _SecurityLogTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final isCritical = event.contains('ERROR') || event.contains('FAILURE') || event.contains('WIPE');
-    final color = isCritical ? cs.error : cs.primary;
+    final critical = _isCritical(event);
+    final accent = critical ? _spfRed : _spfAmber;
+    final timeStr = timestamp != null ? _formatTimestamp(timestamp!) : '--:--:--';
 
-    return GlassContainer(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      borderRadius: 16,
-      borderColor: isCritical ? cs.error.withValues(alpha: 0.5) : cs.outline,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isCritical ? Icons.warning_amber_rounded : Icons.shield_outlined,
-              color: color,
-              size: 20,
-            ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: critical ? _spfRed.withValues(alpha: 0.05) : _spfCard,
+            border: Border.all(color: _spfBorder),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      event.toUpperCase(),
-                      style: tt.labelMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                        color: color,
-                      ),
+                Container(width: 3, color: accent),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Timestamp column
+                        SizedBox(
+                          width: 70,
+                          child: Text(timeStr, style: _jb(size: 10, color: _spfMuted)),
+                        ),
+                        const SizedBox(width: 12),
+                        // Event + details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  if (critical) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      color: _spfRed,
+                                      child: Text(
+                                        'ALERT',
+                                        style: _jb(
+                                          size: 8,
+                                          color: Colors.black,
+                                          weight: FontWeight.w700,
+                                          spacing: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      event.toUpperCase(),
+                                      style: _jb(
+                                        size: 12,
+                                        color: accent,
+                                        weight: FontWeight.w700,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (details.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  details,
+                                  style: _jb(size: 11, color: _spfText),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      timestamp != null ? _formatTimestamp(timestamp!) : '—',
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  details,
-                  style: tt.bodyMedium?.copyWith(color: cs.onSurface),
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

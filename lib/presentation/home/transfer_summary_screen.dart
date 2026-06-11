@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/utils/transfer_status_utils.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../widgets/shared_widgets.dart';
@@ -38,10 +39,9 @@ class _TransferSummaryScreenState extends State<TransferSummaryScreen> {
         ),
         title: Text(
           'Transfer Summary',
-          style: TextStyle(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: cs.onSurface,
             fontWeight: FontWeight.w700,
-            fontSize: 18,
           ),
         ),
         bottom: PreferredSize(
@@ -73,7 +73,7 @@ class _TransferSummaryScreenState extends State<TransferSummaryScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'No transfers yet',
-                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -118,7 +118,7 @@ class _TransferRow extends StatelessWidget {
     final receiverUsername = data['receiverUsername'] as String?;
     final peer = isSender ? receiverUsername : senderUsername;
     final status = data['status'] as String? ?? '';
-    final isAborted = status == 'aborted';
+    final isAborted = isFailedTransferStatus(status);
 
     final iconColor = isAborted
         ? cs.error
@@ -153,7 +153,7 @@ class _TransferRow extends StatelessWidget {
               children: [
                 Text(
                   fileName,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
@@ -180,7 +180,7 @@ class _TransferRow extends StatelessWidget {
 
   Widget _statusBadge(
       BuildContext context, String status, bool isSender, ColorScheme cs) {
-    if (status == 'aborted') {
+    if (isFailedTransferStatus(status)) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -195,8 +195,7 @@ class _TransferRow extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               'Failed',
-              style: TextStyle(
-                fontSize: 11,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: cs.error,
                 fontWeight: FontWeight.w600,
               ),

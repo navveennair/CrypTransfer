@@ -249,8 +249,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Disconnected from @$username'),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+            content: Text('Disconnected from @$username',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -287,7 +288,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: GlassContainer(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 16),
+                    horizontal: 20, vertical: 20),
                 color: cs.secondary.withValues(alpha: 0.1),
                 borderColor: cs.secondary.withValues(alpha: 0.2),
                 child: Row(
@@ -380,9 +381,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'My Connections',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: cs.primary,
-                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -444,9 +444,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'Incoming Requests',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: cs.secondary,
-                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -487,10 +486,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                                 TextStyle(color: cs.onSurfaceVariant)),
                         trailing: CrypButton(
                           onPressed: () => _acceptRequest(req),
-                          label: const Text('Accept',
-                              style: TextStyle(fontSize: 12)),
+                          label: const Text('Accept', style: TextStyle(fontSize: 11)),
                           color: cs.secondary,
-                          height: 36,
+                          height: 30,
+                          width: 70,
                         ),
                       ),
                     ),
@@ -508,9 +507,8 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Text(
                   'Search Results',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: cs.onSurfaceVariant,
-                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -567,8 +565,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'Connect with Friends',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 18,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -708,8 +705,9 @@ class _SearchResultTileState extends State<_SearchResultTile>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:
-                Text('Disconnected from @${widget.user.username}'),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                Text('Disconnected from @${widget.user.username}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -770,7 +768,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
               Text('Connected',
                   style: TextStyle(
                       color: cs.secondary,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontSize: 12)),
               Icon(Icons.arrow_drop_down,
                   color: cs.secondary, size: 18),
@@ -796,18 +794,20 @@ class _SearchResultTileState extends State<_SearchResultTile>
 
     if (status == 'pending_received') {
       return CrypButton(
-        label: const Text('Accept'),
+        label: const Text('Accept', style: TextStyle(fontSize: 11)),
         onPressed: docId != null ? () => _accept(docId) : null,
         color: cs.secondary,
-        height: 40,
+        height: 30,
+        width: 70,
       );
     }
 
     return CrypButton(
-      label: const Text('Connect'),
+      label: const Text('Connect', style: TextStyle(fontSize: 11)),
       onPressed: _sendRequest,
       color: cs.primary,
-      height: 40,
+      height: 30,
+      width: 70,
     );
   }
 

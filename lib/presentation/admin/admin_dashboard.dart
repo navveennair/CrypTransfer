@@ -258,7 +258,7 @@ class _StatusDotState extends State<_StatusDot> with SingleTickerProviderStateMi
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: 7,
         height: 7,
         decoration: BoxDecoration(
@@ -329,7 +329,7 @@ class _AnalyticsTab extends StatelessWidget {
               ),
 
               const SizedBox(height: 28),
-              _SectionLabel('TRANSFER VOLUME — 7D'),
+              _sectionLabel('TRANSFER VOLUME — 7D'),
               const SizedBox(height: 12),
 
               // Chart
@@ -356,14 +356,10 @@ class _AnalyticsTab extends StatelessWidget {
               ),
 
               const SizedBox(height: 32),
-              _SectionLabel('TRANSFER LOG'),
+              _sectionLabel('TRANSFER LOG'),
               const SizedBox(height: 12),
               _TransferLog(snapshot: snapshot, context: context),
 
-              const SizedBox(height: 32),
-              _SectionLabel('ACTIVE HANDSHAKES'),
-              const SizedBox(height: 12),
-              _ActiveHandshakes(adminRepo: adminRepo),
               const SizedBox(height: 32),
             ],
           ),
@@ -424,7 +420,7 @@ class _StatCard extends StatelessWidget {
 }
 
 // ── Section Label ─────────────────────────────────────────────────────────────
-Widget _SectionLabel(String label) => Row(
+Widget _sectionLabel(String label) => Row(
       children: [
         Container(width: 3, height: 13, color: _amber),
         const SizedBox(width: 10),
@@ -650,145 +646,6 @@ class _TransferRow extends StatelessWidget {
   String _p(int n) => n.toString().padLeft(2, '0');
 }
 
-// ── Active Handshakes ─────────────────────────────────────────────────────────
-class _ActiveHandshakes extends StatefulWidget {
-  final AdminRepository adminRepo;
-  const _ActiveHandshakes({required this.adminRepo});
-
-  @override
-  State<_ActiveHandshakes> createState() => _ActiveHandshakesState();
-}
-
-class _ActiveHandshakesState extends State<_ActiveHandshakes> {
-  late final Stream<QuerySnapshot> _handshakesStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _handshakesStream = widget.adminRepo.streamActiveHandshakesDetail();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _handshakesStream,
-      builder: (_, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snap.hasError || !snap.hasData) {
-          return _shell(
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('ERROR', style: _jb(color: _red))),
-            ),
-          );
-        }
-        final sessions = snap.data!.docs;
-        if (sessions.isEmpty) {
-          return _shell(
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('NO ACTIVE HANDSHAKES', style: _jb(color: _muted))),
-            ),
-          );
-        }
-        return _shell(
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sessions.length,
-            itemBuilder: (_, i) {
-              final data = sessions[i].data() as Map<String, dynamic>;
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _border)),
-                ),
-                child: Row(
-                  children: [
-                    _LiveDot(),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '@${data['fromUsername'] ?? '...'} ──── @${data['toUsername'] ?? '...'}',
-                        style: _jb(size: 12, color: _text),
-                      ),
-                    ),
-                    Text('ESTABLISHED',
-                        style: _jb(size: 9, color: _emerald, spacing: 1.5)),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _shell(Widget child) => Container(
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: _border),
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: child,
-      );
-}
-
-// ── Live Dot ──────────────────────────────────────────────────────────────────
-class _LiveDot extends StatefulWidget {
-  @override
-  State<_LiveDot> createState() => _LiveDotState();
-}
-
-class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!MediaQuery.of(context).disableAnimations) {
-      if (!_ctrl.isAnimating) _ctrl.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: _emerald,
-          boxShadow: [
-            BoxShadow(
-              color: _emerald.withValues(alpha: 0.3 + 0.4 * _ctrl.value),
-              blurRadius: 6 + 8 * _ctrl.value,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ── Detail Line ───────────────────────────────────────────────────────────────
 class _DetailLine extends StatelessWidget {
@@ -838,8 +695,9 @@ String _fmtBytes(int bytes) {
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
+String _padTwo(int n) => n.toString().padLeft(2, '0');
+
 String _fmtTsFull(DateTime ts) {
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  final p = (int n) => n.toString().padLeft(2, '0');
-  return '${mo[ts.month - 1]} ${ts.day}, ${ts.year}  ${p(ts.hour)}:${p(ts.minute)}:${p(ts.second)}';
+  return '${mo[ts.month - 1]} ${ts.day}, ${ts.year}  ${_padTwo(ts.hour)}:${_padTwo(ts.minute)}:${_padTwo(ts.second)}';
 }

@@ -141,8 +141,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
               const SizedBox(height: 16),
               Text(
                 'Session Ended',
-                style: tt.titleLarge?.copyWith(
-                  fontSize: 22,
+                style: tt.headlineSmall?.copyWith(
                   color: cs.secondary,
                 ),
                 textAlign: TextAlign.center,
@@ -163,7 +162,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: cs.tertiary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
                   ),
                   child: Row(
@@ -195,7 +194,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: cs.tertiary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
                   ),
                   child: const Text(
@@ -209,7 +208,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: cs.secondary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: cs.secondary.withValues(alpha: 0.3)),
                   ),
                   child: const Column(
@@ -247,7 +246,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: cs.secondary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: cs.secondary.withValues(alpha: 0.3)),
                 ),
                 child: _aesCleanDone
@@ -291,7 +290,7 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
                           MaterialPageRoute(builder: (_) => const HomeScreen()),
                           (_) => false,
                         ),
-                        color: cs.secondary,
+                        color: cs.tertiary,
                       )
                     : Padding(
                         key: const ValueKey('waiting'),

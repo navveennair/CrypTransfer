@@ -438,8 +438,8 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
 
               Text(
                 'Incoming File',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700, fontSize: 22),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
               ),
 
@@ -564,8 +564,7 @@ class _StepTile extends StatelessWidget {
           Expanded(
             child: Text(
               step.label,
-              style: TextStyle(
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: step.done || step.active ? fg : cs.onSurfaceVariant,
                 fontWeight: step.done || step.active
                     ? FontWeight.w600
@@ -602,20 +601,21 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: cs.primary),
         const SizedBox(width: 10),
-        SizedBox(
-          width: 52,
+        Expanded(
+          flex: 2,
           child: Text(
             label,
-            style: TextStyle(
-                fontSize: 13,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.w500),
           ),
         ),
+        const SizedBox(width: 8),
         Expanded(
+          flex: 5,
           child: Text(
             value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
         ),

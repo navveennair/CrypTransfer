@@ -420,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [_NotifBellButton(authRepo: _authRepo), const SizedBox(width: 8)],
       ),
       drawer: const SidebarDrawer(),
-      body: SingleChildScrollView(
+body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

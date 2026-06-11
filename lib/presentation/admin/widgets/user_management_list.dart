@@ -193,6 +193,27 @@ class _RevokeButtonState extends State<_RevokeButton> {
 
   Future<void> _handleToggle(bool val) async {
     if (_loading) return;
+    if (!val) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
+          title: const Text('Revoke Access'),
+          content: Text('Disable @${widget.user.username}? They will be unable to sign in.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Revoke', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+    }
     setState(() => _loading = true);
     try {
       await widget.onToggle(val);

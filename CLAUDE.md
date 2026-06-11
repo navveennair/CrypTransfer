@@ -333,7 +333,12 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 
 ## ✅ Static Analysis
 
-`flutter analyze` passes with **No issues found** as of 2026-05-26. Latest fixes:
+`flutter analyze` passes with **No issues found** as of 2026-06-11. Latest fixes:
+- `unnecessary_underscores` — `(_, __)` → `(_, _)` in `AnimatedBuilder` builder (`admin_dashboard.dart`)
+- `non_constant_identifier_names` / `prefer_function_declarations_over_variables` — `_SectionLabel` widget function renamed to `_sectionLabel` (lowerCamelCase); `_fmtTsFull`'s inline closure `p` extracted to top-level `_padTwo()` function (`admin_dashboard.dart`)
+- `unused_element` — removed unreferenced `_spfBg` constant (`security_pulse_feed.dart`)
+
+Previous fixes (2026-05-26):
 - `use_build_context_synchronously` — replaced `context.mounted` with State's `mounted` property in async callbacks (`home_screen.dart`, `_openRolePicker` onSendFile/onReceiveFile handlers)
 
 Previous fixes (2026-05-15):

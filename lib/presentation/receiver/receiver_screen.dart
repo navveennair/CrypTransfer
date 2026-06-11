@@ -307,6 +307,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             _sessionLocked = false;
             _handshaking = false;
             _handshakeDone = false;
+            _incomingHandled = false;
             _connectedFriends.clear();
             _transferStream = null;
             _handshakeDocId = null;
@@ -432,7 +433,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
         .doc(senderUid)
         .snapshots()
         .listen((snap) {
-      if (!mounted || _sessionLocked) return;
+      if (!mounted || _sessionLocked || _incomingHandled) return;
       final field = snap.data()?[FirebaseConstants.pendingSenderFor] as String?;
       if (field == receiverUid) {
         _senderPresenceConfirmed = true;
@@ -515,6 +516,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassContainer(
+            blur: 0,
             padding: const EdgeInsets.all(14),
             color: cs.secondary.withValues(alpha: 0.1),
             borderColor: cs.secondary.withValues(alpha: 0.2),
@@ -585,6 +587,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
     final tt = Theme.of(context).textTheme;
     if (_loadingReadyState) return const LinearProgressIndicator();
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: _isReadyToReceive ? cs.secondary.withValues(alpha: 0.1) : null,
       child: Row(
@@ -615,6 +618,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GlassContainer(
+            blur: 0,
             padding: const EdgeInsets.all(14),
             color: cs.primary.withValues(alpha: 0.1),
             child: Row(
@@ -656,6 +660,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
     }
 
     return GlassContainer(
+      blur: 0,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -674,6 +679,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
         final cs = Theme.of(context).colorScheme;
         if (snap.hasError) {
           return GlassContainer(
+            blur: 0,
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
@@ -699,6 +705,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
         }
 
         return GlassContainer(
+          blur: 0,
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
@@ -769,6 +776,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
             children: [
               // ── Welcome banner ────────────────────────────────
               GlassContainer(
+                blur: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 borderRadius: 28,
                 color: cs.primary.withValues(alpha: 0.1),

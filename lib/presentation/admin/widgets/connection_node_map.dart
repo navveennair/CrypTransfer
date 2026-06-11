@@ -54,37 +54,41 @@ class ConnectionNodeMapState extends State<ConnectionNodeMap> {
           );
         }
 
-        return Stack(
+        return Column(
           children: [
-            GridView.builder(
-              padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: users.length,
-              itemBuilder: (context, i) {
-                final record = users[i];
-                return _NodeTile(
-                  username: record['username'] as String? ?? '',
-                  connectionCount: record['connectionCount'] as int? ?? 0,
-                );
-              },
-            ),
-            Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.refresh_rounded,
-                    color: cs.onSurface.withValues(alpha: 0.6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                    tooltip: 'Refresh network map',
+                    onPressed: refresh,
                   ),
-                  tooltip: 'Refresh network map',
-                  onPressed: refresh,
+                ],
+              ),
+            ),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.8,
                 ),
+                itemCount: users.length,
+                itemBuilder: (context, i) {
+                  final record = users[i];
+                  return _NodeTile(
+                    username: record['username'] as String? ?? '',
+                    connectionCount: record['connectionCount'] as int? ?? 0,
+                  );
+                },
               ),
             ),
           ],
@@ -139,7 +143,7 @@ class _NodeTile extends StatelessWidget {
                     ),
                     child: Text(
                       connectionCount.toString(),
-                      style: TextStyle(color: cs.onSecondary, fontSize: 8, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: cs.onSecondary, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -160,7 +164,7 @@ class _NodeTile extends StatelessWidget {
             isActive ? 'CONNECTED' : 'ISOLATED',
             style: TextStyle(
               color: isActive ? cs.secondary : cs.onSurface.withValues(alpha: 0.24),
-              fontSize: 8,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
             ),

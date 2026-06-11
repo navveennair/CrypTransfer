@@ -738,8 +738,8 @@ class _DecryptScreenState extends State<DecryptScreen>
         const SizedBox(height: 16),
         Text(
           'Decryption Failed',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700, fontSize: 18, color: cs.error),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700, color: cs.error),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -780,20 +780,21 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: cs.primary),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 90,
+        Expanded(
+          flex: 2,
           child: Text(
             label,
-            style: TextStyle(
-                fontSize: 13,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontWeight: FontWeight.w500),
           ),
         ),
+        const SizedBox(width: 12),
         Expanded(
+          flex: 5,
           child: Text(
             value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis,
           ),
         ),

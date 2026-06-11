@@ -20,7 +20,8 @@ abstract class FirebaseConstants {
   static const String profile = 'profile';                 // subcollection: users/{uid}/profile
 
   // ─── User document fields ──────────────────────────────────────────────────
-  static const String pendingSenderFor = 'pendingSenderFor'; // set when user claims sender role toward a partner; cleared on exit
+  static const String pendingSenderFor = 'pendingSenderFor';     // set when user claims sender role toward a partner; cleared on exit
+  static const String pendingReceiverFor = 'pendingReceiverFor'; // set when user claims receiver role toward a partner; cleared on exit
 
   // ─── Firebase Storage paths ────────────────────────────────────────────────
   static const String transfersStorageRoot = 'transfers';

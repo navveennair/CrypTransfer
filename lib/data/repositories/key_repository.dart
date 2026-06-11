@@ -676,14 +676,14 @@ class KeyRepository {
             'Partner has already selected a different sender.',
           );
         }
-        // Clear any stale selectedSenderUid left from a previous receiver session.
-        // Without this, the partner's receiver check sees our stale field and
-        // wrongly fires a conflict (partnerSelectedSender == partnerUid).
         final updates = <String, dynamic>{
           FirebaseConstants.pendingSenderFor: partnerUid,
         };
         if (mySelectedSender != null) {
           updates['selectedSenderUid'] = FieldValue.delete();
+        }
+        if (myData[FirebaseConstants.pendingReceiverFor] != null) {
+          updates[FirebaseConstants.pendingReceiverFor] = FieldValue.delete();
         }
         txn.update(
           _db.collection(FirebaseConstants.users).doc(_uid),
@@ -691,23 +691,41 @@ class KeyRepository {
         );
       } else {
         // I want to be receiver (selecting partner as my sender).
-        // Conflict: If partner also has selectedSenderUid set to me, they're also receiver.
-        // This means both are trying to be receiver.
-        if (partnerSelectedSender == _uid) {
-          // Partner selected me as sender, but I'm trying to be receiver too — conflict!
+
+        // Both-receiver conflict (early claim): partner already wrote pendingReceiverFor
+        // pointing at me, meaning they're also trying to be receiver.
+        final partnerPendingReceiverFor =
+            partnerData[FirebaseConstants.pendingReceiverFor] as String?;
+        if (partnerPendingReceiverFor == _uid) {
           throw RoleConflictException(
             'Role conflict detected. Both users cannot be receivers. '
             'One user must be sender, another must be receiver.',
           );
         }
-        // FIX: Clear old role state if switching from previous receiver session
-        if (mySelectedSender != null && mySelectedSender != partnerUid) {
-          // User was receiver with a different partner; allow clearing old state
-          txn.update(
-            _db.collection(FirebaseConstants.users).doc(_uid),
-            {'selectedSenderUid': FieldValue.delete()},
+        // Both-receiver conflict (late claim): partner already committed receiver session
+        // (selectedSenderUid set to me means they picked me as their sender).
+        if (partnerSelectedSender == _uid) {
+          throw RoleConflictException(
+            'Role conflict detected. Both users cannot be receivers. '
+            'One user must be sender, another must be receiver.',
           );
         }
+
+        // Claim receiver role atomically so a concurrent receiver pick by the partner
+        // will see this marker on transaction retry and throw the conflict above.
+        final updates = <String, dynamic>{
+          FirebaseConstants.pendingReceiverFor: partnerUid,
+        };
+        if (mySelectedSender != null && mySelectedSender != partnerUid) {
+          updates['selectedSenderUid'] = FieldValue.delete();
+        }
+        if (myData[FirebaseConstants.pendingSenderFor] != null) {
+          updates[FirebaseConstants.pendingSenderFor] = FieldValue.delete();
+        }
+        txn.update(
+          _db.collection(FirebaseConstants.users).doc(_uid),
+          updates,
+        );
       }
     });
 
@@ -734,6 +752,7 @@ class KeyRepository {
       // real handshake doc ID was ever assigned.
       await _db.collection(FirebaseConstants.users).doc(_uid).update({
         FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+        FirebaseConstants.pendingReceiverFor: FieldValue.delete(),
         'selectedSenderUid': FieldValue.delete(),
       });
     } on FirebaseException catch (e) {
