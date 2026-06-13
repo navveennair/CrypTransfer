@@ -245,7 +245,7 @@ class _SenderScreenState extends State<SenderScreen>
                 SnackBar(
                   content: const Text('Receiver key changed — re-encrypt required.'),
                   backgroundColor: Theme.of(context).colorScheme.error,
-                  duration: const Duration(seconds: 4),
+                  duration: const Duration(seconds: 6),
                 ),
               );
           }
