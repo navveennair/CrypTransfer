@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
@@ -308,6 +309,20 @@ class _SenderScreenState extends State<SenderScreen>
       final result = await FilePicker.pickFiles(withData: kIsWeb);
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
+      if (file.size > FirebaseConstants.maxDownloadBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'File too large — maximum is 100 MB '
+                '(${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB selected)',
+              ),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+        return;
+      }
       if (!kIsWeb && file.path == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
