@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 
 /// Centralised biometric / device-credential authentication helper.
@@ -8,41 +8,37 @@ import 'package:local_auth/local_auth.dart';
 class BiometricHelper {
   static final _auth = LocalAuthentication();
 
-  /// Returns true if the device has enrolled biometric credentials
-  /// (fingerprint, face, iris). Does NOT include PIN/pattern/password —
-  /// those are not reliably available on emulators and cause silent failures.
-  static Future<bool> checkBiometrics() async {
-    try {
-      return await _auth.canCheckBiometrics;
-    } catch (e) {
-      print('[BiometricHelper] checkBiometrics() error: $e');
-      return false;
-    }
-  }
-
-  /// Attempts biometric authentication.
+  /// Attempts biometric or device-credential authentication.
   ///
-  /// Returns `true` on success or when no biometric hardware is enrolled
-  /// (emulators, devices with PIN-only lock screens pass through).
-  /// Returns `false` only on explicit user cancellation or failed attempt.
+  /// Uses [LocalAuthentication.isDeviceSupported] as the guard:
+  /// - If the device has ANY security lock (PIN/pattern/password/biometric),
+  ///   calls [authenticate] with `biometricOnly: false` so the OS picks the
+  ///   best available method (biometrics preferred, PIN/pattern as fallback).
+  /// - If the device has NO security lock at all (factory-reset device,
+  ///   emulator without PIN), passes through with a debug warning — no auth
+  ///   is possible on such a device.
+  ///
+  /// Returns `false` on explicit user cancellation or failed attempt.
   static Future<bool> authenticate(String reason) async {
     try {
-      final canAuth = await checkBiometrics();
-      print('[BiometricHelper] authenticate: canAuth=$canAuth');
-      if (!canAuth) {
-        print('[BiometricHelper] No biometrics available, returning true');
+      final isSupported = await _auth.isDeviceSupported();
+      if (!isSupported) {
+        // No security lock at all — pass through with a warning.
+        if (kDebugMode) {
+          debugPrint('[BiometricHelper] Device has no security lock — passing through');
+        }
         return true;
       }
-      print('[BiometricHelper] Calling _auth.authenticate(reason="$reason")');
+      if (kDebugMode) debugPrint('[BiometricHelper] authenticate: isSupported=true, calling _auth.authenticate');
       final result = await _auth.authenticate(
         localizedReason: reason,
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
-      print('[BiometricHelper] authenticate() returned: $result');
+      if (kDebugMode) debugPrint('[BiometricHelper] authenticate() returned: $result');
       return result;
     } catch (e) {
-      print('[BiometricHelper] authenticate() EXCEPTION: $e');
+      if (kDebugMode) debugPrint('[BiometricHelper] authenticate() EXCEPTION: $e');
       return false;
     }
   }
