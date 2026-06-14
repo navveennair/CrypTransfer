@@ -44,6 +44,7 @@ class AuthRepository {
     required String phone,
     required String password,
   }) async {
+    await _ensureAuthenticated();
     final existing = await _db
         .collection(FirebaseConstants.users)
         .where('username', isEqualTo: username)
@@ -99,6 +100,7 @@ class AuthRepository {
     required String username,
     required String password,
   }) async {
+    await _ensureAuthenticated();
     late QuerySnapshot<Map<String, dynamic>> query;
     try {
       query = await _db
@@ -129,6 +131,7 @@ class AuthRepository {
   }
 
   Future<void> sendPasswordResetEmail(String username) async {
+    await _ensureAuthenticated();
     final query = await _db
         .collection(FirebaseConstants.users)
         .where('username', isEqualTo: username)
@@ -214,9 +217,22 @@ class AuthRepository {
     await _auth.signOut();
   }
 
+  // ─── Anonymous auth pre-flight ─────────────────────────────────────────────
+  // Callers that need to query Firestore before the user is signed in (username
+  // availability check, login username→email lookup, password reset) call this
+  // first.  If there is already a real or anonymous session it is a no-op.
+  // The anonymous session is silently superseded when the user later signs in
+  // with email/password or Google.
+  Future<void> _ensureAuthenticated() async {
+    if (_auth.currentUser == null) {
+      await _auth.signInAnonymously();
+    }
+  }
+
   // ─── Username uniqueness ───────────────────────────────────────────────────
 
   Future<bool> isUsernameTaken(String username) async {
+    await _ensureAuthenticated();
     final result = await _db
         .collection(FirebaseConstants.users)
         .where('username', isEqualTo: username)

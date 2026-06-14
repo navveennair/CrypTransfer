@@ -18,10 +18,11 @@ service cloud.firestore {
     }
 
     // ─── users ───────────────────────────────────────────────────────────────
-    // List is public so username lookup works before auth (login/register).
-    // Individual document GET requires authentication.
+    // All queries against the users collection require authentication.
+    // Pre-auth callers (registration check, login, password reset) sign in
+    // anonymously via AuthRepository._ensureAuthenticated() before querying.
     match /users/{userId} {
-      allow list: if true;  // Required for username availability check during registration
+      allow list: if isAuthenticated();
       allow get: if isAuthenticated();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
