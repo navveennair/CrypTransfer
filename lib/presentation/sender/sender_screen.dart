@@ -126,14 +126,7 @@ class _SenderScreenState extends State<SenderScreen>
     _handshakeSub = _connService.streamHandshakesForSender().listen(
       _onHandshakeUpdate,
       onError: (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Stream error: $error'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        _showError('Stream error: $error', duration: const Duration(seconds: 5));
       },
     );
   }
@@ -142,36 +135,35 @@ class _SenderScreenState extends State<SenderScreen>
       QuerySnapshot<Map<String, dynamic>> snap) {
     if (!mounted) return;
 
-    if (snap.docs.isEmpty) {
+    // Once paired with a specific receiver, only process their doc.
+    // Before pairing (discovery mode), accept the first doc in the snapshot.
+    // This prevents a stale or concurrent handshake doc from a different
+    // receiver being processed, and ensures TOFU checks target the right key.
+    final knownReceiverId = _receiverId ?? widget.preFilledPartnerUid;
+    final relevantDocs = knownReceiverId != null
+        ? snap.docs
+            .where((d) =>
+                (d.data()['receiverId'] as String?) == knownReceiverId)
+            .toList()
+        : snap.docs;
+
+    if (relevantDocs.isEmpty) {
       // CR-01: skip the first empty snapshot (Firestore stream fires synchronously
       // on subscription before any data has loaded — treat it as settled and return).
       if (!_streamSettled) {
         _streamSettled = true;
         return;
       }
-      // Phase 6: eject sender if waiting for readiness and session collapses (D-09)
-      if (!_receiverReady) {
-        _readinessTimer?.cancel();
-        _readinessTimer = null;
-        _ejectToHomeScreen();
-        return;
-      }
       // Don't wipe mid-encryption — let the compute() isolate finish so the
       // user doesn't lose their progress silently.
       if (_encrypting || _encryptingKey) return;
-      final wasConnected = _receiverId != null;
-      _revertToWaiting();
-      if (wasConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Secure connection closed by receiver.'),
-            backgroundColor: Theme.of(context).colorScheme.tertiary,
-          ),
-        );
-      }
+      _readinessTimer?.cancel();
+      _readinessTimer = null;
+      _ejectToHomeScreen();
+      return;
     } else {
-      final docId = snap.docs.first.id;
-      final doc = snap.docs.first.data();
+      final docId = relevantDocs.first.id;
+      final doc = relevantDocs.first.data();
       final receiverId = doc['receiverId'] as String? ?? '';
       // 'receiverUsername' is the canonical field (written by updated key_repository).
       // Fall back to legacy 'fromUsername' for documents created before this fix.
@@ -187,12 +179,7 @@ class _SenderScreenState extends State<SenderScreen>
         final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
         if (assignedSenderUid != currentUid) {
           _revertToWaiting();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Role conflict — partner also chose Sender. Go back and pick again.'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          _showError('Role conflict — partner also chose Sender. Go back and pick again.');
           return;
         }
       }
@@ -200,9 +187,7 @@ class _SenderScreenState extends State<SenderScreen>
       if (publicKey != null &&
           publicKey.isNotEmpty &&
           status == 'handshake_complete' &&
-          receiverId.isNotEmpty &&
-          (widget.preFilledPartnerUid == null ||
-           receiverId == widget.preFilledPartnerUid)) {
+          receiverId.isNotEmpty) {
         // FIX 2: assignTransferRole() now returns empty string (no Firestore write).
         // Accept the stream-discovered docId regardless of what we got from HomeScreen.
         if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
@@ -221,14 +206,8 @@ class _SenderScreenState extends State<SenderScreen>
           _checkTofuStatus(receiverId, publicKey);
         }
 
-        if (isReconnect && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Connection re-established with @$receiverUsername — new RSA key received.'),
-              backgroundColor: Theme.of(context).colorScheme.secondary,
-              duration: const Duration(seconds: 4),
-            ),
-          );
+        if (isReconnect) {
+          _showSuccess('Connection re-established with @$receiverUsername — new RSA key received.');
         }
 
         // Skip stale-key check if encryption is already in flight.
@@ -239,17 +218,8 @@ class _SenderScreenState extends State<SenderScreen>
             publicKey != previousPublicKey &&
             _encryptedAESKey != null) {
           _wipeSensitiveData();
-          if (mounted) {
-            ScaffoldMessenger.of(context)
-              ..clearSnackBars()
-              ..showSnackBar(
-                SnackBar(
-                  content: const Text('Receiver key changed — re-encrypt required.'),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-          }
+          _showError('Receiver key changed — re-encrypt required.',
+              duration: const Duration(seconds: 6), clear: true);
         }
 
         // Parse receiverReady from handshake doc (set automatically if mailbox is open)
@@ -265,14 +235,7 @@ class _SenderScreenState extends State<SenderScreen>
           // Don't wipe mid-encryption — compute() is in flight.
           if (_encrypting || _encryptingKey) return;
           _revertToWaiting();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Receiver closed their mailbox — waiting for confirmation.'),
-                backgroundColor: Theme.of(context).colorScheme.tertiary,
-              ),
-            );
-          }
+          _showInfo('Receiver closed their mailbox — waiting for confirmation.');
         }
       }
     }
@@ -299,7 +262,11 @@ class _SenderScreenState extends State<SenderScreen>
         _tofuStatus = null;
         _receiverFingerprint = null;
       });
-      _startReadinessTimer();
+      // Only restart the timer if we have a known receiver to wait for.
+      // In discovery mode (no pre-filled partner), don't start the timer.
+      if (_receiverId != null) {
+        _startReadinessTimer();
+      }
     }
   }
 
@@ -310,28 +277,14 @@ class _SenderScreenState extends State<SenderScreen>
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
       if (file.size > FirebaseConstants.maxDownloadBytes) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'File too large — maximum is 100 MB '
-                '(${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB selected)',
-              ),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
+        _showError(
+          'File too large — maximum is 100 MB '
+          '(${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB selected)',
+        );
         return;
       }
       if (!kIsWeb && file.path == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text("This file type isn't supported — try saving it locally first."),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
-        }
+        _showError("This file type isn't supported — try saving it locally first.");
         return;
       }
       setState(() {
@@ -533,13 +486,34 @@ class _SenderScreenState extends State<SenderScreen>
     wipeAll();
   }
 
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
+  void _showError(String msg, {Duration? duration, bool clear = false}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (clear) messenger.clearSnackBars();
+    messenger.showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Theme.of(context).colorScheme.error,
+      duration: duration ?? const Duration(seconds: 4),
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  void _showSuccess(String msg, {Duration duration = const Duration(seconds: 4)}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Theme.of(context).colorScheme.secondary,
+      duration: duration,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  void _showInfo(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Theme.of(context).colorScheme.tertiary,
+    ));
   }
 
   void _startReadinessTimer() {
@@ -561,27 +535,14 @@ class _SenderScreenState extends State<SenderScreen>
     setState(() {
       _receiverReady = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Secure channel established. Receiver is ready.'),
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    _showSuccess('Secure channel established. Receiver is ready.');
   }
 
   void _ejectToHomeScreen() {
     _wipeSensitiveData();
+    _showError('Session Terminated — receiver closed the session.',
+        duration: const Duration(seconds: 5));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Session Terminated — receiver closed the session.'),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => HomeScreen()),
@@ -616,15 +577,8 @@ class _SenderScreenState extends State<SenderScreen>
         // Best-effort — don't block navigation on a log write failure.
       }
     }
+    _showError(msg, duration: const Duration(seconds: 5), clear: true);
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text(msg),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-      ));
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => HomeScreen()),
@@ -721,14 +675,41 @@ class _SenderScreenState extends State<SenderScreen>
           children: [
             const Text(
               'This receiver\'s public key has changed since your last session. '
-              'This could indicate a legitimate key rotation or a man-in-the-middle attack.',
+              'This may indicate a man-in-the-middle attack.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Call or meet your receiver and confirm the new fingerprint matches '
+              'exactly before proceeding:',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                fp,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.robotoMono(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 2,
+                  color: cs.onErrorContainer,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Text(
-              'New fingerprint: $fp',
-              style: GoogleFonts.robotoMono(
-                fontWeight: FontWeight.bold,
+              'Only tap "It Matches" after confirming out-of-band.',
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
@@ -744,14 +725,15 @@ class _SenderScreenState extends State<SenderScreen>
             height: 44,
           ),
           CrypButton(
-            label: const Text('Re-verify & Trust'),
+            label: const Text('It Matches — Trust New Key'),
             onPressed: () async {
+              // Repin AND mark verified in one step — no unverified trust path.
               await TofuService.repin(uid, keyJson);
+              await TofuService.markVerified(uid);
               if (!mounted) return;
-              final display = TofuService.displayFingerprint(keyJson);
               setState(() {
-                _tofuStatus = TofuStatus.trusted;
-                _receiverFingerprint = display;
+                _tofuStatus = TofuStatus.verified;
+                _receiverFingerprint = fp;
               });
               Navigator.pop(context);
             },
