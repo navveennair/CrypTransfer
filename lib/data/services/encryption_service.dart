@@ -275,7 +275,7 @@ class EncryptionService {
         }).ignore();
       }
 
-      // 4. Delete all handshakes initiated by this user (as receiver).
+      // 4. Delete all handshakes where this user is the receiver.
       final handshakes = await FirebaseFirestore.instance
           .collection(FirebaseConstants.handshakes)
           .where('receiverId', isEqualTo: uid)
@@ -289,12 +289,42 @@ class EncryptionService {
         await batch.commit();
       }
 
-      // 5. Delete rsa_key_received notifications from this user's inbox (best-effort).
+      // 4b. Delete sender-side handshakes (sessions where this user was the file-sender).
+      final senderHandshakes = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.handshakes)
+          .where('senderId', isEqualTo: uid)
+          .get();
+
+      if (senderHandshakes.docs.isNotEmpty) {
+        final batchSender = FirebaseFirestore.instance.batch();
+        for (final doc in senderHandshakes.docs) {
+          batchSender.delete(doc.reference);
+        }
+        await batchSender.commit();
+      }
+
+      // 4c. Delete pending transfers for this receiver — prevents stale docs from a
+      //     previous session auto-navigating the receiver on next mailbox open.
+      final staleTransfers = await FirebaseFirestore.instance
+          .collection(FirebaseConstants.transfers)
+          .where('receiverId', isEqualTo: uid)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      if (staleTransfers.docs.isNotEmpty) {
+        final batchTransfers = FirebaseFirestore.instance.batch();
+        for (final doc in staleTransfers.docs) {
+          batchTransfers.delete(doc.reference);
+        }
+        await batchTransfers.commit();
+      }
+
+      // 5. Delete session-related notifications from this user's inbox (best-effort).
       final notifications = await FirebaseFirestore.instance
           .collection(FirebaseConstants.users)
           .doc(uid)
           .collection(FirebaseConstants.notifications)
-          .where('type', isEqualTo: 'rsa_key_received')
+          .where('type', whereIn: ['rsa_key_received', 'connection_request'])
           .get();
 
       if (notifications.docs.isNotEmpty) {
@@ -339,8 +369,8 @@ class EncryptionService {
   ///                          EncryptionService.closeReceiverSession()
   ///                             ├── Firestore: delete publicKey + selectedSenderUid
   ///                             ├── SecureStorage: delete private key
-  ///                             ├── Batch-delete handshakes
-  ///                             └── Batch-delete notifications
+  ///                             ├── Batch-delete handshakes (receiver-side + sender-side)
+  ///                             └── Batch-delete notifications (rsa_key_received + connection_request)
   /// ```
   ///
   /// Call [unbindSession] when the receiver mailbox closes normally (toggle-off)
@@ -348,10 +378,24 @@ class EncryptionService {
   static StreamSubscription<SessionState>? _sessionSub;
 
   static void bindSession(Stream<SessionState> stateStream, String uid) {
+    if (_sessionSub != null) {
+      // Defensive: a subscription already exists. This means bindSession() was called
+      // twice without an intervening unbindSession(). Cancel the old one but warn —
+      // the previous kill-switch binding is being overwritten.
+      if (kDebugMode) {
+        debugPrint('[EncryptionService] WARNING: bindSession called with existing binding — '
+            'previous kill-switch subscription overwritten. Ensure only one ReceiverScreen is active.');
+      }
+      assert(false, 'EncryptionService.bindSession: double-bind detected — '
+          'unbindSession() was not called before re-binding.');
+    }
     _sessionSub?.cancel();
     _sessionSub = stateStream.listen((state) {
       if (state == SessionState.terminated) {
-        closeReceiverSession(uid).catchError((_) {});
+        closeReceiverSession(uid).catchError((e) {
+          if (kDebugMode) debugPrint('[EncryptionService] kill-switch cleanup failed: $e');
+          _logSecurityEvent('kill_switch_cleanup_FAILED', uid, e.toString());
+        });
         _sessionSub?.cancel();
         _sessionSub = null;
       }
@@ -378,7 +422,7 @@ class EncryptionService {
     String details,
   ) {
     final timestamp = DateTime.now().toIso8601String();
-    debugPrint('🛡️ [$timestamp] $event | $details');
+    if (kDebugMode) debugPrint('🛡️ [$timestamp] $event | $details');
 
     FirebaseFirestore.instance
         .collection('security_audit_log')
