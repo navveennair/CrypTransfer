@@ -70,6 +70,10 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   // same sender without manual re-selection.
   UserModel? _lastConnectedSender;
 
+  // Set when the mailbox opens — used to reject stale transfer docs from
+  // previous sessions that were never cleaned up.
+  DateTime? _sessionStartedAt;
+
   bool get _step1Done => _hasPrivateKey && _hasPublicKey;
   bool get _step2Done => _isReadyToReceive;
   bool get _step3Done =>
@@ -257,6 +261,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       }
 
       if (value) {
+        _sessionStartedAt = DateTime.now();
         await EncryptionService.setupReceiverSession(uid);
         EncryptionService.bindSession(_sessionManager.stateStream, uid);
         // Signal readiness: receiver's mailbox is now open, authorizing any sender
@@ -459,6 +464,18 @@ Future<void> _onSenderSelected(UserModel sender) async {
   Future<void> _handleIncomingTransfer(
       String transferId, Map<String, dynamic> data) async {
     if (_sessionLocked) return;
+
+    // Reject transfers created before this session opened — stale docs from a
+    // previous session that survived cleanup. 30 s buffer covers server/client
+    // clock drift; anything older than that is definitively from a past session.
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    if (_sessionStartedAt != null &&
+        createdAt != null &&
+        createdAt.isBefore(
+            _sessionStartedAt!.subtract(const Duration(seconds: 30)))) {
+      return;
+    }
+
     final fileName = data['fileName'] as String? ?? 'file';
     final senderId = data['senderId'] as String?;
 
@@ -634,18 +651,6 @@ Future<void> _onSenderSelected(UserModel sender) async {
                     ],
                   ),
                 ),
-                if (_sessionManager.state == SessionState.open)
-                  Tooltip(
-                    message: 'Change sender',
-                    child: IconButton(
-                      icon: const Icon(Icons.sync_alt_rounded, size: 20),
-                      onPressed: () => setState(() {
-                        _sessionManager.clearSender();
-                        _transferStream = null;
-                        _handshakeDone = false;
-                      }),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -944,21 +949,6 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
     });
   }
 
-  Future<void> _connect(String uid, UserModel user) async {
-    setState(() => _statusCache[uid] = 'connecting');
-    try {
-      await widget.service.sendConnectionRequest(uid);
-      if (mounted) {
-        setState(() {
-          _statusCache[uid] = 'accepted';
-          if (!_connectedList.any((u) => u.uid == uid)) _connectedList.add(user);
-        });
-        widget.onConnectionMade();
-      }
-    } catch (e) {
-      if (mounted) setState(() => _statusCache[uid] = 'none');
-    }
-  }
 
   Future<void> _sendKey(UserModel user) async {
     setState(() => _sendingKey[user.uid] = true);
@@ -1049,7 +1039,10 @@ class _FindSenderSheetState extends State<_FindSenderSheet> {
                                     ),
                             ],
                           )
-                        : CrypButton(label: const Text('Connect'), onPressed: () => _connect(u.uid, u), color: cs.primary, height: 40),
+                        : Tooltip(
+                            message: 'Establish connection in Find Friends',
+                            child: Text('Not connected', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                          ),
                     ),
                   )),
                 ],
@@ -1118,7 +1111,10 @@ class _KeyManagerSheetState extends State<_KeyManagerSheet> {
                 _OwnKeyStatusCard(hasPrivateKey: widget.hasPrivateKey, hasPublicKey: widget.hasPublicKey),
                 const SizedBox(height: 24),
                 Text('Shared Keys', style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                ..._sentKeys.map((k) => ListTile(title: Text(k['toUsername'] ?? 'User'), subtitle: Text('Access Granted', style: TextStyle(color: cs.secondary)))),
+                ..._sentKeys.map((k) => Material(
+                      type: MaterialType.transparency,
+                      child: ListTile(title: Text(k['toUsername'] ?? 'User'), subtitle: Text('Access Granted', style: TextStyle(color: cs.secondary))),
+                    )),
               ],
             ),
           ),

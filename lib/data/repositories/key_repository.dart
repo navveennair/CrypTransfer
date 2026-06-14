@@ -64,64 +64,6 @@ class KeyRepository {
     }
   }
 
-  Future<void> sendConnectionRequest(String targetUserId) async {
-    try {
-      final status = await getConnectionStatus(targetUserId);
-      if (status != null) return;
-
-      final results = await Future.wait([
-        _db.collection(FirebaseConstants.users).doc(_uid).get(),
-        _db.collection(FirebaseConstants.users).doc(targetUserId).get(),
-      ]);
-      final myData = results[0].data() ?? {};
-      final targetData = results[1].data() ?? {};
-
-      final myUsername = myData['username'] as String? ?? 'Unknown';
-      final myEmail = myData['email'] as String? ?? '';
-      final targetUsername = targetData['username'] as String? ?? 'Unknown';
-      final targetEmail = targetData['email'] as String? ?? '';
-
-      final batch = _db.batch();
-
-      batch.set(_friendshipsOf(_uid).doc(targetUserId), {
-        'uid': targetUserId,
-        'username': targetUsername,
-        'email': targetEmail,
-        'status': 'accepted',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      batch.set(_friendshipsOf(targetUserId).doc(_uid), {
-        'uid': _uid,
-        'username': myUsername,
-        'email': myEmail,
-        'status': 'accepted',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
-
-      await _db
-          .collection(FirebaseConstants.users)
-          .doc(targetUserId)
-          .collection(FirebaseConstants.notifications)
-          .add({
-        'toUserId': targetUserId,
-        'fromUsername': myUsername,
-        'type': 'friend_request',
-        'message': '👋 $myUsername wants to connect with you.',
-        'createdAt': FieldValue.serverTimestamp(),
-        'read': false,
-      });
-    } on FirebaseException catch (e) {
-      throw NetworkException(
-          'Connection request failed: ${e.message ?? e.code}');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getPendingRequests() async => [];
-
-  Future<void> acceptConnectionRequest(String docId, String senderId) async {}
 
   Future<List<UserModel>> getConnectedFriends() async {
     try {
