@@ -39,7 +39,7 @@ class KeyRepository {
       final result = await _db
           .collection(FirebaseConstants.users)
           .where('username', isGreaterThanOrEqualTo: q)
-          .where('username', isLessThanOrEqualTo: q)
+          .where('username', isLessThanOrEqualTo: '$q￿')
           .limit(10)
           .get();
       return result.docs
@@ -205,19 +205,6 @@ class KeyRepository {
         fromUsername: fromUsername,
         status: isHandshake ? 'handshake_complete' : 'pending',
       );
-
-      await _db
-          .collection(FirebaseConstants.users)
-          .doc(toUserId)
-          .collection(FirebaseConstants.notifications)
-          .add({
-        'toUserId': toUserId,
-        'fromUsername': fromUsername,
-        'type': 'rsa_key_received',
-        'message': '🔑 $fromUsername sent you their RSA Public Key',
-        'createdAt': FieldValue.serverTimestamp(),
-        'read': false,
-      });
     } on KeyNotFoundException {
       rethrow;
     } on FirebaseException catch (e) {
