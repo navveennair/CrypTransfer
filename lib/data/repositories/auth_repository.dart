@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -20,6 +21,8 @@ class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _db;
   final FlutterSecureStorage _secure;
+
+  Completer<void>? _anonAuthCompleter;
 
   AuthRepository({
     FirebaseAuth? auth,
@@ -224,8 +227,21 @@ class AuthRepository {
   // The anonymous session is silently superseded when the user later signs in
   // with email/password or Google.
   Future<void> _ensureAuthenticated() async {
-    if (_auth.currentUser == null) {
+    if (_auth.currentUser != null) return;
+    if (_anonAuthCompleter != null) {
+      await _anonAuthCompleter!.future;
+      return;
+    }
+    final completer = Completer<void>();
+    _anonAuthCompleter = completer;
+    try {
       await _auth.signInAnonymously();
+      completer.complete();
+    } on FirebaseAuthException catch (e) {
+      completer.completeError(e);
+      throw NetworkException('Could not establish connection: ${e.message ?? e.code}');
+    } finally {
+      _anonAuthCompleter = null;
     }
   }
 
