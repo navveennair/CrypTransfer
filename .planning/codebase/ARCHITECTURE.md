@@ -1,262 +1,207 @@
-# Architecture — CrypTransfer
+# Architecture
+_Last updated: 2026-06-15_
 
-**Mapped:** 2026-05-28
-**Type:** Mobile (Flutter / Android focus) + Firebase (Firestore / Auth / Storage)
+## Pattern
 
----
+**Layered Clean Architecture with Reactive Session State Machine**
 
-## 1. High-Level Pattern
-
-**Three-layer clean architecture** with reactive state management:
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Presentation  (lib/presentation/)                           │
-│  Screens + widgets — Material 3, StatefulWidgets,            │
-│  StreamBuilders backed by stable State-field streams.        │
-└────────────────────────┬─────────────────────────────────────┘
-                         │
-┌────────────────────────▼─────────────────────────────────────┐
-│  Data  (lib/data/)                                           │
-│  Repositories (Firestore I/O) + Services (crypto, chunked    │
-│  file I/O, transfer-log fan-out).                            │
-└────────────────────────┬─────────────────────────────────────┘
-                         │
-┌────────────────────────▼─────────────────────────────────────┐
-│  Core  (lib/core/)                                           │
-│  Cross-cutting: SessionManager state machine,                │
-│  SecurityLifecycleMixin (buffer wipe), constants, errors.    │
-└──────────────────────────────────────────────────────────────┘
-                         │
-┌────────────────────────▼─────────────────────────────────────┐
-│  Native bridge  (android/.../MainActivity.kt)                │
-│  FLAG_SECURE, clearSession via MethodChannel.                │
-└──────────────────────────────────────────────────────────────┘
-```
-
-Cross-layer reactivity is the key trick: `SessionManager` exposes a broadcast `Stream<SessionState>`; the data layer (`EncryptionService.bindSession`) and the presentation layer (`CrypButton.sessionState`, `ReceiverTransferScreen` listener) both subscribe — no manual orchestration from screens to trigger crypto cleanup.
+CrypTransfer is a Flutter mobile application that follows a strict three-layer architecture: `core` (cross-cutting utilities), `data` (repositories + services), and `presentation` (screens + widgets). The security design enforces a reactive kill-switch pattern where the session state machine (`SessionManager`) drives cryptographic cleanup (`EncryptionService`) via a broadcast stream rather than direct imperative calls. All heavy crypto runs in background isolates via `compute()`.
 
 ---
 
-## 2. Entry Points
+## Layers
 
-| Entry | File | Role |
-|-------|------|------|
-| Dart `main()` | `lib/main.dart` | Firebase init, theme bootstrap, `MaterialApp` mount |
-| Theme | `lib/app_theme.dart` | GitHub Dark + custom gold/purple ColorScheme |
-| Firebase config | `lib/firebase_options.dart` | Generated `DefaultFirebaseOptions` |
-| Android | `android/app/src/main/kotlin/com/example/cryptransfer/MainActivity.kt` | `FlutterActivity`, sets `FLAG_SECURE` in `onCreate`, registers `com.example.cryptransfer/security` MethodChannel |
-| First route (logged out) | `lib/presentation/auth/splash_screen.dart` → onboarding/login |
-| First route (logged in) | `lib/presentation/home/home_screen.dart` |
+### Core Layer (`lib/core/`)
+
+**Purpose:** Cross-cutting utilities that have no dependency on `data` or `presentation`. No business logic — only contracts, constants, and lifecycle tools.
+
+**Contains:**
+- `constants/firebase_constants.dart` — single source of truth for all Firestore collection names, Storage paths, and secure-storage key names
+- `errors/app_exceptions.dart` — typed exception hierarchy (`AuthException`, `TransferException`, `CryptoException`, `NetworkException`, `KeyNotFoundException`, `RoleConflictException`)
+- `utils/session_state.dart` — `SessionState` enum (`open`, `locked`, `decrypting`, `terminated`) in its own file to prevent circular imports
+- `utils/session_manager.dart` — owns `SessionState` transitions; exposes `stateNotifier` (ValueNotifier) and `stateStream` (broadcast Stream); orchestrates kill-switch handshake
+- `utils/security_lifecycle_mixin.dart` — `SecurityLifecycleMixin<T>` mixin; manages a `_radioactiveBuffers` registry; zeroes all `Uint8List` buffers on `dispose()` or `wipeAll()`; calls Kotlin `isFlagSecureActive` and `clearSession` via MethodChannel `cryptransfer/security`
+- `utils/biometric_helper.dart` — local_auth 3.0.1 wrapper for Face ID / fingerprint gates
+- `utils/theme_service.dart` — `ChangeNotifier` persisting `ThemeMode` to SharedPreferences
+- `utils/notification_service.dart` — Firestore notification stream helpers
+- `utils/transfer_status_utils.dart` — display-name mapping for transfer status strings
+- `utils/file_utils.dart` — file extension / MIME helpers
+- `utils/tofu_service.dart` — Trust-On-First-Use public key verification helper
+
+**Depends on:** Nothing in `data` or `presentation`.
 
 ---
 
-## 3. Layers in Detail
+### Data Layer (`lib/data/`)
 
-### 3.1 Core (`lib/core/`)
+**Purpose:** All Firebase I/O, cryptographic operations, and domain models. Never imports from `presentation`.
 
-Cross-cutting concerns. No Flutter widget code; pure Dart + Firebase SDK.
-
-| File | Purpose |
-|------|---------|
-| `core/constants/firebase_constants.dart` | Centralised collection names (`users`, `handshakes`, `transfers`, `transfer_logs`, `neutral_handshakes`) |
-| `core/errors/app_exceptions.dart` | Typed exceptions (e.g. `KeyNotFoundException`) |
-| `core/services/auth_method_service.dart` | Auth-method bookkeeping (which providers a user has linked) |
-| `core/utils/biometric_helper.dart` | `local_auth` 3.0.1 wrapper — `persistAcrossBackgrounding: true`; no `options:` wrapper |
-| `core/utils/file_utils.dart` | Path / filename helpers |
-| `core/utils/notification_service.dart` | In-app notification orchestration (`notifications` Firestore subcollection) |
-| `core/utils/security_lifecycle_mixin.dart` | **God node.** `registerBuffer` / `unregisterBuffer` / `wipeAll`; queries `isFlagSecureActive` via MethodChannel; static `requestNativeClear()` invokes `clearSession`. Applied to every screen that touches key material. |
-| `core/utils/session_manager.dart` | `SessionState` machine + `Stream<SessionState>` broadcast; `selectSender`, `clearSender`, `lock`, `setDecrypting`, `reset`, `wipeSession`, `handleLifecycleState` |
-| `core/utils/session_state.dart` | Standalone `SessionState` enum (extracted to break circular import between `SessionManager` and `EncryptionService`) |
-| `core/utils/theme_service.dart` | Theme mode persistence + switching |
-| `core/utils/tofu_service.dart` | Trust-on-first-use key-pinning helpers |
-
-### 3.2 Data — Repositories (`lib/data/repositories/`)
-
-Pure Firestore I/O. No widget references. All `Future<T>` / `Stream<T>` returning.
+**Repositories** (`lib/data/repositories/`) — Each repository is instantiated directly by screens (no DI container). Constructor injection accepted for testing (all Firebase singletons are overridable).
 
 | Repository | Responsibility |
-|------------|----------------|
-| `auth_repository.dart` | Email/password + provider auth, user profile bootstrap |
-| `user_repository.dart` | `users/{uid}` reads/writes (publicKey, isReadyToReceive, selectedSenderUid, sessionActive, isAdmin) |
-| `key_repository.dart` | RSA public key publishing + receiver-authorized handshake. **`selectSenderHandshake()`** uses atomic `WriteBatch`: writes `selectedSenderUid` on user doc + upserts `handshakes/{receiverId}_{senderId}` in one commit. Streams: `streamHandshakesForSender()`, `isHandshake` flag stamps `handshake_complete`. |
-| `handshake_repository.dart` | Friend-connection layer on `neutral_handshakes`. `sendProposal`, `acceptProposal` (uses `runTransaction` for TOCTOU safety), `disconnectFromUser` (`WriteBatch` removes both directions), `streamHandshakeWithUser` (merges deterministic `${a}_${b}` + `${b}_${a}` doc streams via single-subscription `StreamController.broadcast()`) |
-| `transfer_repository.dart` | `transfers/{id}` lifecycle: create, `updateReceiverStatus`, `writeAuditLog` (writes to `transfer_logs` with `participants` array) |
-| `cleanup_repository.dart` | End-of-session deletion: transfer doc, storage object, audit log |
-| `admin_repository.dart` | Admin-only reads across all transfer logs / users |
+|---|---|
+| `auth_repository.dart` | Firebase Auth sign-in/register/Google, RSA keypair generation on register, user Firestore doc creation |
+| `key_repository.dart` | RSA public key sharing, user search, connection management (`friendships` sub-collection), atomic sender-selection handshake (`selectSenderHandshake` WriteBatch), role assignment, session cleanup |
+| `transfer_repository.dart` | Upload encrypted file to Storage, create/update/delete `transfers` docs, audit logs (per-user `audit_logs` sub-collection), synchronized turn-based cleanup protocol |
+| `handshake_repository.dart` | Neutral connection proposals (`neutral_handshakes`), accept/reject flows, stream helpers for incoming/outgoing proposals |
+| `user_repository.dart` | User profile reads and admin flag checks |
+| `admin_repository.dart` | Admin-only queries: all active transfers, user management, audit log aggregation |
+| `cleanup_repository.dart` | End-of-session Firestore cleanup operations |
 
-### 3.3 Data — Services (`lib/data/services/`)
-
-Stateful or compute-heavy logic. Pure Dart (no Flutter widgets).
+**Services** (`lib/data/services/`) — Pure computational services with no direct Firebase UI dependencies.
 
 | Service | Responsibility |
-|---------|----------------|
-| `encryption_service.dart` | Hybrid RSA + AES via PointyCastle. All crypto inside `compute()` isolates (was `Isolate.run()`; migrated to silence guardian WARNING). Key methods: `generateAndStoreKeyPair`, `encryptFile`, `decryptFile`, `closeReceiverSession`, `bindSession(stateStream, uid)` → subscribes to `SessionManager.stateStream` and auto-fires `closeReceiverSession` on `terminated`, `unbindSession()` |
-| `transfer_service.dart` | `kChunkSize = 64 KB`; `readFile()` chunks via `File.openRead()`; `resolve()` picks chunked path-read on mobile/desktop, falls back to `bytes` on web. Used by `SenderScreen._encryptFile` for memory-stable large-file handling. |
-| `transfer_log_service.dart` | Wraps audit-log writes with consistent `participants` array shape |
+|---|---|
+| `encryption_service.dart` | RSA-2048 key generation (`compute(_generateRsaKeyPairIsolate)`), AES-256-GCM encrypt/decrypt (both via `compute()`), RSA-OAEP encrypt/decrypt, `setupReceiverSession()` (publish public key to Firestore), `closeReceiverSession()` (kill-switch: 7-step Firestore wipe + SecureStorage delete + audit log), `bindSession()` / `unbindSession()` (reactive stream subscription to `SessionManager.stateStream`) |
+| `transfer_service.dart` | Memory-stable file reads (`kChunkSize = 64 KB`); `resolve()` picks path-based chunked read on mobile/desktop, falls back to bytes on web |
 
-### 3.4 Presentation (`lib/presentation/`)
+**Models** (`lib/data/models/`):
 
-Grouped by feature area, not by widget type.
+| Model | Fields |
+|---|---|
+| `user_model.dart` | `uid`, `username`, `email`, `phone`, `publicKey`, `isAdmin`, `isActive`, `isFirstTime`, `createdAt` |
+| `transfer_model.dart` | Transfer document fields including `encryptedAESKey`, `iv`, `status`, `receiverStatus` |
+| `notification_model.dart` | Typed notification with `NotificationType` enum |
 
-| Area | Top-level files |
-|------|-----------------|
-| `auth/` | splash → onboarding → login/register |
-| `home/` | `home_screen.dart` (entry), `find_friends_screen.dart` (search + connect, `_SearchResultTile` streams per-user handshake status), `sidebar_drawer.dart`, `notifications_screen.dart` |
-| `receiver/` | `receiver_screen.dart` (owns SessionManager), `receiver_transfer_screen.dart` (now receives `SessionManager` via constructor + listener), `decrypt_screen.dart` (Save & Suicide), `receiver_end_session_screen.dart` |
-| `sender/` | `sender_screen.dart` (uses `TransferService.resolve`, FLAG_SECURE pre-flight), `transfer_progress_screen.dart` (non-repudiation listener + reactive cleanup-sync), `sender_session_ended_screen.dart` |
-| `session/` | `end_session_screen.dart` (legacy / shared end-session flow) |
-| `admin/` | `admin_dashboard.dart`, `admin_dashboard_screen.dart`, + widgets: `connection_node_map.dart`, `security_pulse_feed.dart`, `transfer_volume_chart.dart`, `user_management_list.dart` |
-| `vault/` | `rsa_key_manager_screen.dart` |
+---
+
+### Presentation Layer (`lib/presentation/`)
+
+**Purpose:** Flutter widgets and screens. May instantiate repositories directly. Uses `SecurityLifecycleMixin` to zero sensitive buffers on dispose.
+
+**Screens by feature module:**
+
+| Module | Screens |
+|---|---|
+| `auth/` | `splash_screen.dart`, `login_screen.dart`, `register_screen.dart`, `onboarding_screen.dart` |
+| `home/` | `home_screen.dart`, `find_friends_screen.dart`, `notifications_screen.dart`, `sidebar_drawer.dart`, `transfer_summary_screen.dart` |
+| `sender/` | `sender_screen.dart`, `sender_transfer_screen.dart`, `sender_session_end_screen.dart` |
+| `receiver/` | `receiver_screen.dart`, `receiver_transfer_screen.dart`, `decrypt_screen.dart`, `receiver_end_session_screen.dart` |
 | `settings/` | `settings_screen.dart` |
-| `widgets/` | `shared_widgets.dart` — `CrypButton` (3D glassmorphic; replaces `GlassButton`; reacts to `SessionState`), other shared atoms |
+| `vault/` | `rsa_key_manager_screen.dart` |
+| `admin/` | `admin_dashboard.dart`, `admin_guard.dart`, widgets: `connection_node_map.dart`, `security_pulse_feed.dart`, `transfer_volume_chart.dart`, `user_management_list.dart` |
+| `widgets/` | `shared_widgets.dart` — global `GlassContainer`, `CrypButton` (3D session-state-aware button), `GlassButton` |
 
 ---
 
-## 4. Key Data Flows
+## Entry Points
 
-### 4.1 Receiver-Authorized Handshake (the new connection model)
+### App Bootstrap (`lib/main.dart`)
+1. `WidgetsFlutterBinding.ensureInitialized()`
+2. `Firebase.initializeApp()` with platform-specific `firebase_options.dart`
+3. `FirestoreMigration.initializeCollections()` — ensures `handshakes` and `neutral_handshakes` collections exist
+4. `runApp()` wraps `CrypTransferApp` in `ChangeNotifierProvider<ThemeService>`
+5. `MaterialApp` routes to `SplashScreen` as `home`; named route `/admin-dashboard` guarded by `AdminGuard`
+
+### Splash Screen (`lib/presentation/auth/splash_screen.dart`)
+- Checks `AuthRepository.authStateChanges` for existing session
+- If authenticated: calls `KeyRepository().wipeAllSessionKeys(uid)` before navigating to `HomeScreen` (startup session hygiene)
+- If unauthenticated: navigates to `LoginScreen`
+
+---
+
+## Data Flow
+
+### Sender File Transfer Flow
+
+1. **SenderScreen** — user selects a file; `FilePicker` returns `PlatformFile`
+2. Receiver selected from active handshake stream (`KeyRepository.streamHandshakesForSender()`)
+3. `SecurityLifecycleMixin.isFlagSecureActive()` — MethodChannel pre-flight to Kotlin; aborts if `FLAG_SECURE` not active
+4. `TransferService.resolve(filePath, fallbackBytes)` — 64 KB chunked read into `Uint8List`; buffer registered with `registerBuffer(plaintext)`
+5. `EncryptionService.encryptAesGcm(plaintext)` — AES-256-GCM via `compute()` background isolate; returns `AesEncryptResult`
+6. Plaintext zeroed: `plaintext.fillRange(0, len, 0)` + `unregisterBuffer(plaintext)`
+7. `EncryptionService.rsaEncrypt(receiverPublicKey, aesKey)` — RSA-OAEP wraps the AES key (via `compute()`)
+8. `TransferRepository.uploadAndCreate()` — streams upload progress; writes `transfers` doc with `encryptedAESKey` (base64), `iv` (base64), `encryptedFileUrl`, `status: pending`
+9. Navigation to **SenderTransferScreen** / **TransferProgressScreen** — Firestore listener watches `receiverStatus` and `cleanup_initiated` fields reactively
+
+### Receiver Decrypt Flow
+
+1. **ReceiverScreen** — `EncryptionService.setupReceiverSession(uid)` generates RSA-2048 keypair in isolate; private key → `FlutterSecureStorage`; public key → Firestore `users/{uid}.publicKey`
+2. Receiver selects sender via `FindFriendsSenderSheet`; `KeyRepository.selectSenderHandshake()` atomic `WriteBatch`: sets `selectedSenderUid` on user doc + publishes receiver public key to `handshakes` collection
+3. `_transferStream` (`StreamBuilder` on `transfers WHERE receiverId==uid AND senderId==senderUid AND status==pending`) fires on incoming transfer
+4. `SessionManager.lock()` → `SessionState.locked`; auto-navigate to **ReceiverTransferScreen**
+5. **DecryptScreen** — `FlutterSecureStorage` reads private key; `compute(_decryptAesKeyIsolate)` RSA-OAEP decrypts AES key; `EncryptionService.decryptAesGcm()` decrypts ciphertext
+6. File saved via `path_provider`; `TransferRepository.updateReceiverStatus()` signals sender
+7. `EncryptionService.closeReceiverSession(uid)` — 7-step kill switch; then `ReceiverEndSessionScreen`
+
+### Kill-Switch (Reactive Termination)
 
 ```
-Receiver: opens mailbox (toggle ON)
-   ↓
-SessionManager.reset() → state=open
-   ↓
-Receiver searches/selects a sender (FindFriendsScreen or ReceiverScreen sender picker)
-   ↓
-KeyRepository.selectSenderHandshake() — atomic WriteBatch:
-   • users/{receiverId}.selectedSenderUid = senderId
-   • handshakes/{receiverId}_{senderId} = { receiverId, senderId, publicKey, status: 'handshake_complete' }
-   ↓
-Sender's stream (KeyRepository.streamHandshakesForSender) emits → _ConnectedBadge shown
-   ↓
-Sender picks file → SenderScreen._encryptFile:
-   • SecurityLifecycleMixin.isFlagSecureActive() ?  (else abort)
-   • TransferService.resolve(file)  →  Uint8List plaintext  (chunked 64KB on mobile/desktop)
-   • registerBuffer(plaintext)
-   • compute(encryptFile, {plaintext, receiverPublicKey})  →  {key, iv, ciphertext, encryptedAESKey}
-   • plaintext.fillRange(0, …, 0); unregisterBuffer(plaintext)
-   • Upload ciphertext to Firebase Storage, write transfers/{id} doc, write audit log
-   ↓
-Receiver's transfers stream emits  →  ReceiverScreen._handleIncomingTransfer:
-   • SessionManager.lock()  →  state=locked  (CrypButton goes amber+lock; UI blocks)
-   • SessionManager.setDecrypting()  →  state=decrypting
-   ↓
-Navigator.push to ReceiverTransferScreen (passes sessionManager)
-   • Downloads ciphertext, runs decrypt in compute(), updates receiverStatus at each phase
-   • Save & Suicide: write file, wipe buffers, set receiverStatus='saved'
-   ↓
-Sender's transfer_progress_screen listener sees receiverStatus='saved' → "Waiting for secure session close"
-   ↓
-Receiver closes (toggle, back-nav, app paused/detached, or explicit "Save & Suicide"):
-   • SessionManager.wipeSession() OR handleLifecycleState(paused/detached)
-   • SessionManager state → terminated   →  stateStream emits
-   ↓
-EncryptionService (bound via bindSession on mailbox open) reacts:
-   • closeReceiverSession(uid):
-       – delete users/{uid}.publicKey, set isReadyToReceive=false, clear selectedSenderUid
-       – delete FlutterSecureStorage private key
-       – batch-delete handshakes WHERE receiverId==uid
-       – batch-delete notifications (rsa_key_received, type)
-       – write transfer_logs entry { status: 'kill_switch', participants }
-       – set cleanup_initiated=true on transfer doc  →  sender sees "Keys destroyed"
-       – delete transfer doc + storage object via CleanupRepository
-       – SecurityLifecycleMixin.requestNativeClear()  →  MethodChannel clearSession  →  System.gc()
-   • SecurityLifecycleMixin.wipeAll() — fillRange(0) every registered buffer
-   ↓
-Sender's listener sees doc deletion  →  navigates to SenderSessionEndedScreen
+Any trigger (lifecycle pause, back-nav, toggle-off):
+    │
+    ▼
+SessionManager.wipeSession()  or  handleLifecycleState()
+    ├── _set(SessionState.terminated) → stateStream.add(terminated)
+    │       └── EncryptionService._sessionSub fires:
+    │               └── closeReceiverSession(uid)
+    │                     ├── Firestore: delete publicKey, isReadyToReceive=false, selectedSenderUid deleted
+    │                     ├── FlutterSecureStorage: delete private key
+    │                     ├── Batch-delete handshakes (receiver-side + sender-side)
+    │                     ├── Batch-delete pending transfers
+    │                     ├── Batch-delete notifications (rsa_key_received, connection_request)
+    │                     └── Write kill_switch audit log
+    └── onBuffersWipe() → SecurityLifecycleMixin.wipeAll()
+            └── Uint8List.fillRange(0) for every registered buffer
 ```
 
-### 4.2 Bidirectional Friend Connection (proposals on `neutral_handshakes`)
+---
 
-```
-A sends proposal  →  handshake_repository.sendProposal()
-   doc id = ${A}_${B},  status = 'pending'
-B accepts          →  handshake_repository.acceptProposal()  (runTransaction — TOCTOU safe)
-   status = 'connected',  connections sub-collections updated for both users
-Disconnect         →  handshake_repository.disconnectFromUser(B)  (WriteBatch — atomic both sides)
-```
+## Key Abstractions
 
-Per-user search-result tile (`FindFriendsScreen._SearchResultTile`) subscribes to `streamHandshakeWithUser(partnerUid)` and renders Pending → Connected without re-search.
+### Repository Pattern
+Repositories are plain Dart classes with optional constructor injection for Firebase singletons (enabling unit testing with fakes). No global service locator — screens instantiate repositories directly in `State` fields. Example: `final _connService = KeyRepository();`.
 
-### 4.3 Kill-Switch Dispatch Matrix
+### SessionManager State Machine
+`lib/core/utils/session_manager.dart` — one instance per `ReceiverScreen` session. Exposes:
+- `ValueNotifier<SessionState> stateNotifier` — drives `CrypButton` visual state
+- `Stream<SessionState> stateStream` (broadcast) — `EncryptionService.bindSession()` subscribes here for reactive crypto cleanup
+- Transitions: `lock()`, `setDecrypting()`, `reset()`, `wipeSession()`
 
-| Trigger | Method called | Resulting `SessionState` |
-|---------|---------------|--------------------------|
-| Toggle switch off | `_onToggleReady(false)` → `SessionManager.reset()` | `open` (clean) |
-| Incoming transfer detected | `_handleIncomingTransfer` → `SessionManager.lock()` | `locked` |
-| Decryption starts | `SessionManager.setDecrypting()` | `decrypting` |
-| Back navigation (`PopScope`) | `SessionManager.wipeSession()` | `terminated` |
-| App backgrounded/killed | `SessionManager.handleLifecycleState(paused/detached)` | `terminated` |
-| Screen `dispose()` | `SecurityLifecycleMixin.wipeAll()` | (buffers only) |
+### SecurityLifecycleMixin
+`lib/core/utils/security_lifecycle_mixin.dart` — applied to all screens handling crypto buffers: `SenderScreen`, `ReceiverScreen`, `TransferProgressScreen`, `DecryptScreen`, `ReceiverEndSessionScreen`, `SenderSessionEndScreen`. Overrides `dispose()` to call `wipeAll()`. Provides `registerBuffer()` / `unregisterBuffer()` for explicit buffer lifecycle management.
+
+### EncryptionService (Static)
+`lib/data/services/encryption_service.dart` — all methods are `static`. The reactive session binding is managed via a static `StreamSubscription? _sessionSub`. `bindSession(stateStream, uid)` subscribes; `unbindSession()` cancels.
+
+### Two-Layer Handshake Model
+- **Connection layer** (`neutral_handshakes`) — symmetric proposals between equal peers; deterministic doc ID `${proposerId}_${partnerId}`; manages `pending` → `connected`/`rejected` lifecycle
+- **Session layer** (`handshakes`) — asymmetric RSA key exchange per transfer session; auto-ID docs; receiver publishes public key to sender via atomic `WriteBatch` in `selectSenderHandshake()`
+
+### CrypButton (Session-State Widget)
+`lib/presentation/widgets/shared_widgets.dart` — `StatefulWidget` with `SessionState sessionState` parameter. Visual state table:
+
+| SessionState | Color | Icon | Interaction |
+|---|---|---|---|
+| `open` | primary | — | enabled |
+| `locked` | amber | lock | blocked |
+| `decrypting` | primary | spinner | blocked |
+| `terminated` | error red | block | blocked |
 
 ---
 
-## 5. Abstractions Worth Knowing
+## State Management
 
-### 5.1 `SecurityLifecycleMixin`
-- Mixed into every screen handling key material: `SenderScreen`, `ReceiverScreen`, `TransferProgressScreen`, `DownloadConfirmScreen`/`DecryptScreen`, `EndSessionScreen`, `ReceiverTransferScreen`.
-- API: `registerBuffer(Uint8List)`, `unregisterBuffer(Uint8List)`, `wipeAll()`, static `isFlagSecureActive()`, static `requestNativeClear()`.
-- Auto-wipes on `dispose()`.
+**Global state:** `ThemeService extends ChangeNotifier` provided via `ChangeNotifierProvider` in `main.dart`. Only manages light/dark/system theme mode.
 
-### 5.2 `SessionManager`
-- Owns the active sender selection + session state for one receiver session.
-- Broadcast `Stream<SessionState>` enables reactive binding without screen-level wiring.
-- Stored field on the screen (NOT `InheritedWidget`-distributed) — explicit constructor propagation for screens that need it (`ReceiverTransferScreen`).
+**Per-screen state:** Standard `StatefulWidget` + `setState`. No Redux, BLoC, or Riverpod.
 
-### 5.3 `CrypButton`
-- 3D glassmorphic button system; replaces the older `GlassButton`.
-- Reads `sessionState` and overrides face colour + content:
-  - `locked` → amber + lock icon, interaction blocked
-  - `decrypting` → primary + spinner, interaction blocked
-  - `terminated` → error red + block icon, interaction blocked
-- `StatefulWidget` with `_isPressed`, `HapticFeedback.lightImpact()`, `transformAlignment: Alignment.center` on the scale `AnimatedContainer`, `Matrix4.diagonal3Values` replacing deprecated `..scale()`.
+**Session state:** `SessionManager.stateNotifier` (ValueNotifier) consumed by `CrypButton` via `ValueListenableBuilder`. `SessionManager.stateStream` (broadcast Stream) consumed by `EncryptionService`.
 
-### 5.4 Atomic Firestore patterns
-- `runTransaction` — `acceptProposal` (TOCTOU window between read and write).
-- `WriteBatch` — `selectSenderHandshake`, `disconnectFromUser`, kill-switch delete-handshakes, kill-switch delete-notifications.
-- Deterministic doc IDs — `${receiverId}_${senderId}` (handshakes), `${proposerId}_${partnerId}` (neutral_handshakes). Idempotent re-sends, no duplicates.
-
-### 5.5 Stable-stream rule
-- StreamBuilders MUST be backed by a `Stream` field stored on `State`, assigned in `initState()` or once-only setters (e.g. `_onSenderSelected`).
-- **Never** construct `Stream` inline in `build()` — caused the receiver double-subscription bug; root-caused and fixed.
+**Real-time Firestore:** `StreamBuilder` widgets on stable `Stream` fields initialized once in `initState` (not inline on `build`). Key streams:
+- `_transferStream` in `ReceiverScreen` — watches `transfers` for incoming files
+- `_handshakeSub` in `SenderScreen` — watches `handshakes` for receiver authorization events
+- `_recentTransfersStream` in `HomeScreen` — watches user's `audit_logs` sub-collection
 
 ---
 
-## 6. Native Bridge
+## Error Handling
 
-### 6.1 MethodChannel: `com.example.cryptransfer/security`
+**Typed exceptions:** All repository and service methods throw subclasses of `AppException` (`AuthException`, `TransferException`, `CryptoException`, `NetworkException`, `KeyNotFoundException`, `RoleConflictException`). Callers catch at the screen level and surface errors as `SnackBar` messages.
 
-| Method | Kotlin (MainActivity) | Dart |
-|--------|------------------------|------|
-| `isFlagSecureActive` | returns `(window.attributes.flags & FLAG_SECURE) != 0` | `SecurityLifecycleMixin.isFlagSecureActive()` — queried before each 64 KB chunk read in `SenderScreen._encryptFile` |
-| `clearSession` | `System.gc()` — best-effort heap-release hint (no key material is held natively) | `SecurityLifecycleMixin.requestNativeClear()` — final step of `EncryptionService.closeReceiverSession` |
+**Firebase errors:** `on FirebaseException catch (e)` blocks in every repository method; wrapped into the appropriate `AppException` subclass before re-throwing.
 
-### 6.2 Window flag
-- `MainActivity.onCreate()` calls `window.addFlags(FLAG_SECURE)` — blocks screenshots and task-switcher thumbnails app-wide, no per-screen Flutter changes required.
+**Crypto errors:** `compute()` isolate failures throw `CryptoException`. Screens catch and show error UI.
 
----
+**Security failures:** `isFlagSecureActive()` returns `true` on failure (safe fallback); `requestNativeClear()` swallows errors silently (non-critical GC hint).
 
-## 7. Cluster Map (from `graphify-out/graph.json`)
-
-| Cluster | Members |
-|---------|---------|
-| **Encryption Engine** | `encryption_service.dart`, `pointycastle`, `flutter_secure_storage`, `compute()` |
-| **Kill Switch & Wipe Lifecycle** | `SecurityLifecycleMixin`, `SessionManager`, `closeReceiverSession`, `wipeAll`, `requestNativeClear` |
-| **Session State Machine** | `SessionManager`, `SessionState`, `stateStream`, `EncryptionService.bindSession` |
-| **Receiver-Authorized Handshake** | `key_repository.selectSenderHandshake`, `streamHandshakesForSender`, `handshakes/` collection, `_WaitingForConnectionWidget`, `_ConnectedBadge` |
-| **Native Bridge** | `MainActivity.kt`, `com.example.cryptransfer/security` channel, `FLAG_SECURE`, `clearSession` |
-| **DevOps & Tooling** | `android/app/build.gradle.kts`, `proguard-rules.pro`, `scripts/silent_guardian.ps1`, `scripts/update_status.ps1`, Obsidian vault writers |
-
-`SecurityLifecycleMixin` is a god node (10 edges) bridging Security Screen Lifecycle ↔ Receiver Kill Switch ↔ Encryption Engine.
-
----
-
-## 8. Out-of-Process Components
-
-| Component | Where | Purpose |
-|-----------|-------|---------|
-| **Firebase Project `cryptransfer-96e9f`** | cloud | Auth + Firestore + Storage + security rules |
-| **Obsidian Vault** | `C:\Users\navve\ObsidianVault\CrypTransfer\` | Daily report + Security audit destination (`scripts/write_obsidian_report.dart`, `scripts/security_audit_report.dart`) |
-| **Silent Guardian** | `scripts/silent_guardian.ps1` (via `launch_guardian.bat`, Task Scheduler) | Headless scanner — runs CLAUDE.md scanner rules against `lib/`, writes audit Markdown to vault |
-| **Status updater** | `scripts/update_status.ps1` | Runs `flutter analyze`, syncs Known Open Issues ↔ Completed Features in `CLAUDE.md` |
+**Audit trail:** `EncryptionService._logSecurityEvent()` writes event names (never key material) to `security_audit_log` Firestore collection and `debugPrint`.

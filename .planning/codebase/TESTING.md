@@ -1,190 +1,206 @@
-# Testing — CrypTransfer
+# Testing
+_Last updated: 2026-06-15_
 
-**Mapped:** 2026-05-28
-**Framework:** `flutter_test` (+ `mockito`, `fake_cloud_firestore`, `firebase_auth_mocks`)
-**Static analysis:** `flutter analyze` → No issues found (2026-05-26)
-**Unit suite:** 29/29 passing (2026-05-26)
+## Framework
 
----
+**Runner:**
+- `flutter_test` (SDK built-in)
+- Config: none — uses Flutter's default test runner; no `jest.config.*` or `vitest.config.*`
 
-## 1. Test Tooling
+**Assertion Library:**
+- `flutter_test` matchers (`expect`, `isTrue`, `isFalse`, `isNull`, `isNotNull`, `isA<T>()`, `equals`, `isEmpty`, `isNotEmpty`, `throwsA`, `returnsNormally`, `completes`, `throwsException`)
 
-| Package | Role |
-|---------|------|
-| `flutter_test` | Unit + widget framework |
-| `mockito` | Repository / service mocking |
-| `fake_cloud_firestore` | In-memory Firestore — used for handshake, transfer, session tests |
-| `firebase_auth_mocks` | In-memory Auth — used for `module_tests/auth_test.dart` |
-| `flutter_lints` (via `analysis_options.yaml`) | Static analysis |
+**Mock / Fake Libraries:**
+- `fake_cloud_firestore: ^4.1.0+1` — in-memory Firestore for repository tests (no real Firebase app required)
+- `firebase_auth_mocks: ^0.15.1` — `MockFirebaseAuth` + `MockUser` for auth repository tests
+- `mockito: ^5.4.0` — `Mock` base class for stub implementations (e.g. `MockFirebaseStorage`)
+- `build_runner: ^2.4.0` — required for Mockito codegen if `@GenerateMocks` annotations are added
 
-Mock bootstrap helpers: `test/mocks/mock_firebase.dart`.
+**Run Commands:**
+```bash
+flutter test                              # Run all tests
+flutter test test/module_tests/           # Run module tests only
+flutter test test/security/               # Run security tests only
+flutter test test/path/to/file_test.dart --no-pub  # Run a single test file
+flutter test --coverage                   # Generate coverage report
+```
 
----
+## Structure
 
-## 2. Test Layout
+**Location:**
+- All tests live under `test/` (separate from `lib/`, not co-located with source)
 
+**Subdirectory Organization:**
 ```
 test/
 ├── mocks/
-│   └── mock_firebase.dart                    Shared fake Firestore + Auth bootstrap
-│
-├── module_tests/                             "Module-level" unit tests
-│   ├── auth_test.dart                        Login / register / logout / error mapping
-│   ├── encryption_test.dart                  AES-256-GCM + RSA-2048 (TC011–TC021)
-│   ├── session_test.dart                     SessionManager state transitions + stateStream emissions
-│   └── transfer_test.dart                    TransferRepository lifecycle, updateReceiverStatus, writeAuditLog (participants)
-│
-├── security/                                 Security-critical regression suite
-│   ├── session_wipe_test.dart                TC-WIPE-001 .. TC-WIPE-006 — the kill-switch suite
-│   ├── session_termination_test.dart         Lifecycle-driven termination (paused/detached)
-│   ├── mem_safety_test.dart                  registerBuffer / unregisterBuffer / wipeAll invariants
-│   └── key_storage_audit_test.dart           FlutterSecureStorage delete semantics
-│
+│   └── mock_firebase.dart           # Shared fakes: MockFirebaseSetup, MockFirebaseStorage, FakeSecureStorage
+├── admin/
+│   ├── admin_guard_test.dart        # AdminGuard widget stubs (TODO — not yet implemented)
+│   ├── admin_repository_test.dart   # AdminRepository unit tests
+│   └── chart_aggregation_test.dart  # Chart data aggregation logic
 ├── handshake/
-│   ├── handshake_repository_test.dart        sendProposal / acceptProposal (runTransaction) / disconnect (WriteBatch)
-│   ├── receiver_prefill_test.dart            Role picker prefill — _pendingPrefilledSender defers selectSender (fix 05-07)
-│   └── sender_prefill_test.dart              Mirror tests for sender side
-│
+│   ├── handshake_repository_test.dart  # HandshakeRepository CRUD + stream tests
+│   ├── receiver_prefill_test.dart      # Receiver prefill deferred sender selection
+│   └── sender_prefill_test.dart        # Sender prefill path
+├── module_tests/
+│   ├── auth_test.dart               # AuthRepository registration/login/logout (TC001–TC010)
+│   ├── encryption_test.dart         # AES-GCM + RSA-OAEP crypto primitives (TC011–TC021)
+│   ├── session_test.dart            # Session lifecycle via Firestore (TC031–TC038)
+│   └── transfer_test.dart           # Transfer Firestore doc lifecycle (TC022–TC030)
 ├── role_assignment/
-│   └── role_conflict_test.dart               Receiver/sender conflict guards
-│
+│   └── role_conflict_test.dart      # Dual-role conflict detection
+├── security/
+│   ├── key_storage_audit_test.dart  # SecureStorage key lifecycle auditing
+│   ├── mem_safety_test.dart         # Memory safety: null-path guard, buffer wipe (TC-MEM-001)
+│   ├── navigation_guard_test.dart   # canPop logic, session-lock guard (GAP1-xx stubs)
+│   ├── session_termination_test.dart # Kill-switch + cleanup ordering (TC-TERM-001–008)
+│   └── session_wipe_test.dart       # Session wipe state machine (TC-WIPE-001–009)
 ├── sender/
-│   └── transfer_progress_timeout_test.dart   300s safety timeout — sender doesn't hang forever if receiver never completes cleanup
-│
+│   ├── stale_key_test.dart          # Stale AES key invalidation logic (GAP2/GAP3 stubs)
+│   └── transfer_progress_timeout_test.dart  # 300s sender safety timeout
 └── vault/
-    ├── key_lifecycle_test.dart               RSA key generate / publish / delete
-    ├── profile_init_test.dart                user doc bootstrap
-    ├── receiver_banner_test.dart             Status banner state machine
-    └── vault_gate_test.dart                  Gate before key-vault screen access
+    ├── key_lifecycle_test.dart      # RSA key regenerate/delete ordering + fingerprinting
+    ├── profile_init_test.dart       # Profile doc initialization
+    ├── receiver_banner_test.dart    # Receiver notification banner
+    └── vault_gate_test.dart         # Biometric vault gate logic
 ```
 
-Total: **18 test files**.
+## Test Types
 
----
+**Unit Tests (primary):**
+- Repository logic tested against `FakeFirebaseFirestore` — no real Firebase required
+- Crypto primitives (`runAesGcmEncrypt`, `runAesGcmDecrypt`, `rsaEncrypt`, `rsaDecrypt`) called directly (synchronous top-level functions) to avoid `compute()` Flutter binding dependency
+- Pure logic tests mirror production guards verbatim (e.g. `PopScope` guard, `!done || sessionEnded` navigation guard)
+- `SessionManager` state machine tested directly without widget environment
 
-## 3. Security Test Cases — Required Coverage
+**Widget Tests (limited/stub):**
+- `admin_guard_test.dart` contains `testWidgets` stubs with TODO bodies — not yet implemented
+- Widget tests that need platform channels call `TestWidgetsFlutterBinding.ensureInitialized()` in `setUpAll`
 
-Documented in CLAUDE.md → Completed Features → "Session hijack prevention tested" and "TC-WIPE-001 to TC-WIPE-006 all passing".
+**Integration / E2E Tests:**
+- Not present in the test suite — integration covered by manual UAT documented in `.planning/phases/*/HUMAN-UAT.md`
 
-| Case ID | Covered behavior |
-|---------|-------------------|
-| **TC-WIPE-001** | Toggle-off → public key deleted from Firestore, private key wiped from device |
-| **TC-WIPE-002** | Back navigation (`PopScope`) wipes session, batch-deletes handshakes |
-| **TC-WIPE-003** | App backgrounded / detached → lifecycle observer fires wipe |
-| **TC-WIPE-004** | Active transfer locks toggle; close blocked during `locked`/`decrypting` |
-| **TC-WIPE-005** | Kill-switch audit log written with `status: 'kill_switch'` + `participants` |
-| **TC-WIPE-006** | `selectedSenderUid` deletion propagates → sender stream emits empty → sender `_revertToWaiting()` |
+## Mocking
 
-These live in `test/security/session_wipe_test.dart`.
-
-**Encryption suite** (`test/module_tests/encryption_test.dart`):
-- **TC011–TC021** — AES-256-GCM encrypt/decrypt round-trip, RSA-2048 wrap/unwrap of AES key, IV handling, ciphertext integrity.
-
----
-
-## 4. Test Patterns
-
-### 4.1 Repository tests with `fake_cloud_firestore`
+**Shared mocks — always import from `test/mocks/mock_firebase.dart`:**
 
 ```dart
-final fake = FakeFirebaseFirestore();
-final repo = KeyRepository(firestore: fake);
-await repo.selectSenderHandshake(receiverId: 'R', senderId: 'S', publicKey: pk);
-final batch = await fake.collection('handshakes').doc('R_S').get();
-expect(batch.exists, isTrue);
-expect(batch.data()!['status'], equals('handshake_complete'));
+import '../mocks/mock_firebase.dart';
+
+// In-memory Firestore (no Firebase app init needed)
+final fakeDb = FakeFirebaseFirestore();
+
+// Mock auth with a pre-signed-in user
+final mockAuth = MockFirebaseAuth(
+  signedIn: true,
+  mockUser: MockUser(uid: 'sender-uid', email: 'sender@test.com'),
+);
+
+// In-memory FlutterSecureStorage (Map-backed, overrides all channel calls)
+final fakeStorage = FakeSecureStorage();
+
+// Mockito stub for FirebaseStorage (only needed so constructor doesn't hit instance)
+class MockFirebaseStorage extends Mock implements FirebaseStorage {}
 ```
 
-### 4.2 Session state tests
-
-`test/module_tests/session_test.dart` verifies:
-- Every transition emits exactly once on `stateStream`.
-- Broadcast stream allows multiple subscribers.
-- `wipeSession()` ends in `terminated`.
-- `handleLifecycleState(paused)` ends in `terminated`.
-
-### 4.3 Listener regression tests
-
-`test/sender/transfer_progress_timeout_test.dart` is the regression test for the **300 s safety timeout** (Phase 07): sender must not hang indefinitely if the receiver never sets `receiverStatus='saved'` or `cleanup_initiated=true`.
-
-### 4.4 Mocking patterns
-- Repositories take their Firestore handle via constructor injection.
-- Services (`EncryptionService`, `SessionManager`) are constructed with optional dependencies for tests.
-- Native MethodChannel calls are stubbed via `setMockMethodCallHandler` on the `com.example.cryptransfer/security` channel for tests that exercise `isFlagSecureActive` / `clearSession`.
-
----
-
-## 5. Manual UAT (referenced but not automated)
-
-Some flows have manual UAT signed off in commit messages or CLAUDE.md — automation would require a real device.
-
-| Flow | Status | Source |
-|------|--------|--------|
-| Sender Step 3 biometric (Face ID / fingerprint) | Manual UAT pending → confirmed by commits `17d8c40`, `1459ad8` | CLAUDE.md Completed Features |
-| Phase 07 reactive cleanup sync | UAT 3/3 passed | CLAUDE.md Completed Features |
-| Home screen UAT gap fixes (05-06) | Manual flows tested | CLAUDE.md |
-| Bidirectional disconnect | Manual UAT | CLAUDE.md |
-
----
-
-## 6. Static Analysis & Lint Rules
-
-- **`flutter analyze` is the gate.** Must return **No issues found** before non-WIP commit.
-- Common fixes that established the rules:
-  - `use_build_context_synchronously` → use State's `mounted`, not `context.mounted`.
-  - `unnecessary_underscores` → single `_` in throwaway callback params.
-  - Deprecation warnings → fix immediately (e.g. `Switch.activeColor` → `activeThumbColor`).
-- Lint config: `analysis_options.yaml` with `flutter_lints`.
-
----
-
-## 7. Silent Guardian — Rule-Based Scanner
-
-`scripts/silent_guardian.ps1` runs the **scanner rules** in CLAUDE.md against `lib/`. This is not a test runner — it's a static-rule auditor that writes a Markdown report to the Obsidian vault.
-
-Each rule maps source pattern → severity:
-
-| Severity | Trigger examples |
-|----------|------------------|
-| **VERIFIED** | `SecurityLifecycleMixin` present, `compute()` for crypto, `closeReceiverSession` in receiver_screen, `bindSession`/`unbindSession` wired, `kChunkSize` in `transfer_service.dart`, etc. |
-| **SECURE** | File contains `compute()` for crypto (positive marker) |
-| **WARNING** | `Isolate.run()` for crypto (should be `compute()`); `_encryptFile` missing `registerBuffer` |
-| **ISSUE** | Raw `FirebaseFirestore` calls in a screen |
-| **CRITICAL** | `debugPrint` with key data |
-
-Run cadence: scheduled via Windows Task Scheduler → `scripts/launch_guardian.bat` → headless PowerShell.
-
-Output:
-- `C:\Users\navve\ObsidianVault\CrypTransfer\Security\` — audit report
-- `C:\Users\navve\ObsidianVault\CrypTransfer\DailyReports\` — daily summary
-- `C:\Users\navve\projects\cryptransfer\report_error.log` — errors
-
-The full rule list lives in **CLAUDE.md → "State Scanner Rules"** and is the canonical source.
-
----
-
-## 8. Coverage Gaps (known)
-
-These are tracked in CONCERNS.md but worth listing here too:
-
-1. **`compute()` isolate ciphertext** — cannot be `fillRange(0)`'d from the main isolate. Accepted limitation; no test possible.
-2. **Broadcast stream race** — if `EncryptionService.bindSession` subscribes *after* a `terminated` event fires, it misses the signal. Worth a future unit test on `SessionManager.stateStream` ordering guarantees.
-3. **Native package-name coupling** — no test cross-checks `applicationId` ↔ Kotlin package ↔ MethodChannel namespace ↔ `google-services.json`. Manual.
-4. **Phase 2 accessibility items** — no automated touch-target / focus-state tests yet.
-
----
-
-## 9. Running Tests
-
-```powershell
-flutter test                              # full suite
-flutter test test/security/               # security suite only
-flutter test test/security/session_wipe_test.dart   # single file
-flutter analyze                           # static analysis
+**Injecting into repositories:**
+```dart
+final repo = TransferRepository(db: fakeDb, storage: MockFirebaseStorage());
+final keyRepo = KeyRepository(db: fakeDb, auth: mockAuth, secure: fakeStorage);
 ```
 
-For coverage:
-```powershell
+**Custom test-local fakes:**
+- `_EmailInUseAuth extends MockFirebaseAuth` — overrides `createUserWithEmailAndPassword` to throw `FirebaseAuthException(code: 'email-already-in-use')`
+- `_WrongPasswordAuth extends MockFirebaseAuth` — overrides `signInWithEmailAndPassword` to throw wrong-password
+- `_ThrowingBatchFirestore extends FakeFirebaseFirestore` — overrides `batch()` to return a `_ThrowingWriteBatch` that throws on `commit()` (ordering tests)
+- `_ThrowingWriteBatch extends Fake implements WriteBatch` — no-op mutations, throws on `commit()`
+
+**MethodChannel stubs (for tests involving platform channels):**
+```dart
+setUpAll(() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/google_sign_in'),
+    (_) async => null,
+  );
+});
+```
+
+**What to mock:**
+- All Firebase services (Firestore, Auth, Storage) — always use fakes/mocks
+- `FlutterSecureStorage` — use `FakeSecureStorage` from `test/mocks/mock_firebase.dart`
+- Platform channels (GoogleSignIn, security MethodChannel) — use `setMockMethodCallHandler`
+
+**What NOT to mock:**
+- `EncryptionService` crypto primitives — call top-level functions directly (`runAesGcmEncrypt`, `runAesGcmDecrypt`, `EncryptionService.rsaEncrypt`, `EncryptionService.rsaDecrypt`)
+- `SessionManager` — instantiate directly; it has no external dependencies
+- `FirebaseConstants` — use the real class (it's pure constants)
+
+## Coverage
+
+**Requirements:** No enforced coverage target
+**Coverage generation:**
+```bash
 flutter test --coverage
-# generates coverage/lcov.info
+# Output: coverage/lcov.info
+```
+No CI coverage gate or threshold is configured.
+
+## Key Test Files
+
+| File | What it tests |
+|------|---------------|
+| `test/mocks/mock_firebase.dart` | Shared `FakeFirebaseFirestore`, `MockFirebaseStorage`, `FakeSecureStorage` fakes used by all tests |
+| `test/module_tests/auth_test.dart` | `AuthRepository` registration (TC001–TC003), login (TC004–TC007), logout (TC008–TC010); uses custom `_EmailInUseAuth` and `_WrongPasswordAuth` fakes |
+| `test/module_tests/encryption_test.dart` | AES-256-GCM encrypt/decrypt (TC011–TC015), RSA-2048 keypair + OAEP encrypt/decrypt (TC016–TC019), GCM tamper detection (TC020), memory wipe (TC021); calls top-level isolate functions directly |
+| `test/module_tests/transfer_test.dart` | Transfer Firestore doc creation/read/update (TC022–TC030); `notifyReceiver`, `markReceived`, `writeFinalAuditLog` |
+| `test/module_tests/session_test.dart` | Session lifecycle (TC031–TC038); `deleteTransfer`, `wipeAllSessionKeys`, `writeFinalAuditLog`; uses seeded Firestore docs |
+| `test/security/session_wipe_test.dart` | Kill-switch state machine (TC-WIPE-001–009); Firestore wipe, batch-delete, AES zero-fill, `SessionManager.wipeSession()` idempotency, `PopScope` guard logic |
+| `test/security/session_termination_test.dart` | Cleanup sequencing (TC-TERM-001–005, 008); audit-log-before-delete ordering, `object-not-found` swallow, `WriteBatch` atomicity, sender `!snapshot.exists` guard |
+| `test/security/mem_safety_test.dart` | `kIsWeb` platform gate (TC-MEM-001a/b), buffer registry wipe of 64KB plaintext + key + IV (TC-MEM-001c) |
+| `test/security/navigation_guard_test.dart` | `canPop` logic (GAP1-01), session-lock SnackBar guard (GAP1-02) — logic stubs, no widget pump |
+| `test/handshake/handshake_repository_test.dart` | `HandshakeRepository` CRUD: `sendProposal`, `acceptProposal`, `rejectProposal`, `cancelProposal`; stream tests for `streamIncomingPending`, `streamActiveConnectionsAsProposer/Partner`, `streamProposalOutcome` (TC-HAND-01 to 06c) |
+| `test/vault/key_lifecycle_test.dart` | `AuthRepository.computeFingerprint`, `regenerateKeyPair`, `deleteKeyPair` ordering with `_ThrowingBatchFirestore`, `updateLastVaultAccess` |
+| `test/sender/stale_key_test.dart` | Stale AES key wipe logic (GAP2-01/02/03), Change File wipe state model (GAP3-02) — pure logic stubs |
+| `test/admin/admin_guard_test.dart` | `AdminGuard` widget stubs — `testWidgets` with TODO bodies; not yet implemented (requires injectable `AuthRepository`) |
+
+## Test Naming Convention
+
+- Group names describe the feature/class: `'Session Lifecycle (TC031–TC038)'`, `'HANDSHAKE REPOSITORY TESTS'`
+- Test names always include the TC ID: `'TC031 - Session cancelled when sender deletes transfer'`
+- Security tests print a pass line using `// ignore: avoid_print` + `print('✅ TC-WIPE-001 PASSED: ...')` for CI log visibility
+
+## Setup Patterns
+
+**Standard setUp:**
+```dart
+setUp(() async {
+  fakeDb = FakeFirebaseFirestore();
+  mockAuth = MockFirebaseAuth(
+    signedIn: true,
+    mockUser: MockUser(uid: senderId, email: 'sender@test.com'),
+  );
+  fakeStorage = FakeSecureStorage();
+  repo = TransferRepository(db: fakeDb, storage: MockFirebaseStorage());
+  // Seed required Firestore docs inline
+  await fakeDb.collection('transfers').doc(transferId).set({...});
+});
+```
+
+**`setUpAll` for heavy operations:**
+```dart
+setUpAll(() {
+  // RSA key generation is synchronous but ~2–5s — generate once per group
+  final keyPair = EncryptionService.generateRsaKeyPairSync();
+  pubKey = keyPair.publicKey as RSAPublicKey;
+  privKey = keyPair.privateKey as RSAPrivateKey;
+});
+```
+
+**`setUpAll` for widget binding:**
+```dart
+setUpAll(() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+});
 ```
