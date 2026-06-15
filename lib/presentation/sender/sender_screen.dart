@@ -747,8 +747,6 @@ class _SenderScreenState extends State<SenderScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return PopScope(
       canPop: !_encrypting && !_encryptingKey,
       onPopInvokedWithResult: (didPop, _) {
@@ -819,208 +817,55 @@ class _SenderScreenState extends State<SenderScreen>
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Send File'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Welcome banner ────────────────────────────────
-            GlassContainer(
-              blur: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              borderRadius: 28,
-              color: cs.primary.withValues(alpha: 0.1),
-              borderColor: cs.primary.withValues(alpha: 0.2),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.send_rounded, color: cs.primary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Secure Inbox',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        Text(
-                          'Securely encrypt and transmit your data.',
-                          style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // ── Step 0: Receiver-Authorized Connection ──────────────────
-            StepCard(
-              step: 0,
-              title: 'Secure Connection',
-              done: _receiverSelected && _receiverReady,
-              currentStep: !(_receiverSelected && _receiverReady),
-              child: _receiverSelected
-                  ? (_receiverReady
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _ConnectedBadge(username: _receiverUsername!),
-                            if (_tofuStatus != null) ...[
-                              const SizedBox(height: 8),
-                              _TofuStatusBanner(
-                                status: _tofuStatus!,
-                                onVerify: _showVerifyDialog,
-                              ),
-                            ],
-                          ],
-                        )
-                      : _WaitingForReceiverWidget(secondsRemaining: _secondsRemaining, timerRunning: _readinessTimer != null))
-                  : const _WaitingForConnectionWidget(),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Steps 1-4: gated until receiver is ready (Phase 6) ─────
-            AnimatedOpacity(
-              opacity: _receiverReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: IgnorePointer(
-                ignoring: !_receiverReady,
-                child: Column(
-                  children: [
-                    // ── Step 1: Select File ───────────────────────────────
-                    AnimatedOpacity(
-                      opacity: (_receiverSelected && !_fileEncrypted) ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 300),
-                      child: IgnorePointer(
-                        ignoring: _fileEncrypted,
-                        child: StepCard(
-                          step: 1,
-                          title: 'Select File',
-                          done: _fileSelected,
-                          currentStep: _receiverReady && !_fileSelected,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              CrypButton(
-                                icon: const Icon(Icons.folder_open_rounded, size: 20),
-                                label: Text(_file == null ? 'Browse Files' : 'Change File'),
-                                onPressed: _receiverSelected ? _pickFile : null,
-                                color: cs.primary,
-                              ),
-                              if (_file != null) ...[
-                                const SizedBox(height: 16),
-                                _FileCard(file: _file!),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Step 2: Encrypt ───────────────────────────────────
-                    AnimatedOpacity(
-                      opacity: _fileSelected ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 300),
-                      child: StepCard(
-                        step: 2,
-                        title: 'AES-256-GCM Encryption',
-                        done: _fileEncrypted,
-                        currentStep: _fileSelected && !_fileEncrypted,
-                        child: _fileEncrypted
-                            ? _EncryptedBadge(
-                                keyBits: _aesKey!.length * 8,
-                                ivBytes: _iv!.length,
-                                ciphertextBytes: _encryptedBytes!.length,
-                              )
-                            : _encrypting
-                                ? _EncryptionProgressWidget(
-                                    progress: _encryptionProgress)
-                                : CrypButton(
-                                    icon: const Icon(Icons.lock_rounded, size: 20),
-                                    label: const Text('Encrypt with AES Key'),
-                                    onPressed: _fileSelected ? _encryptFile : null,
-                                    color: cs.tertiary,
-                                  ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Step 3: RSA Handshake ─────────────────────────────
-                    AnimatedOpacity(
-                      opacity: _fileEncrypted ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 300),
-                      child: StepCard(
-                        step: 3,
-                        title: 'RSA Key Handshake',
-                        done: _readyToSend,
-                        currentStep: _fileEncrypted && !_readyToSend,
-                        child: _readyToSend
-                            ? _ReceiverBadge(username: _receiverUsername!)
-                            : CrypButton(
-                                icon: _encryptingKey
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      )
-                                    : const Icon(Icons.security_rounded, size: 20),
-                                label: Text(_encryptingKey
-                                    ? 'Encrypting key…'
-                                    : 'Encrypt Key for @${_receiverUsername ?? "receiver"}'),
-                                onPressed: _fileEncrypted &&
-                                           !_encryptingKey &&
-                                           _tofuStatus != null &&
-                                           _tofuStatus != TofuStatus.keyChanged
-                                    ? _encryptAesKey
-                                    : null,
-                                color: cs.secondary,
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // ── Step 4: Send ──────────────────────────────────────
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      child: _readyToSend
-                          ? CrypButton(
-                              key: const ValueKey('send-btn'),
-                              icon: const Icon(Icons.send_rounded, size: 20),
-                              label: const Text('Send Encrypted File'),
-                              onPressed: _send,
-                              color: cs.secondary,
-                            )
-                          : const SizedBox.shrink(key: ValueKey('send-empty')),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        appBar: AppBar(
+          title: const Text('Send File'),
+          centerTitle: true,
         ),
-      ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _WelcomeBanner(),
+              const SizedBox(height: 32),
+              _Step0ConnectionStatus(
+                receiverSelected: _receiverSelected,
+                receiverReady: _receiverReady,
+                receiverUsername: _receiverUsername,
+                secondsRemaining: _secondsRemaining,
+                timerRunning: _readinessTimer != null,
+                tofuStatus: _tofuStatus,
+                onVerify: _showVerifyDialog,
+              ),
+              const SizedBox(height: 16),
+              _StepsBlock(
+                receiverReady: _receiverReady,
+                receiverSelected: _receiverSelected,
+                fileSelected: _fileSelected,
+                fileEncrypted: _fileEncrypted,
+                file: _file,
+                onPickFile: _receiverSelected ? _pickFile : null,
+                encrypting: _encrypting,
+                encryptionProgress: _encryptionProgress,
+                aesKey: _aesKey,
+                iv: _iv,
+                encryptedBytes: _encryptedBytes,
+                onEncryptFile: _fileSelected ? _encryptFile : null,
+                encryptingKey: _encryptingKey,
+                readyToSend: _readyToSend,
+                tofuStatus: _tofuStatus,
+                receiverUsername: _receiverUsername,
+                onEncryptKey: _fileEncrypted &&
+                              !_encryptingKey &&
+                              _tofuStatus != null &&
+                              _tofuStatus != TofuStatus.keyChanged
+                    ? _encryptAesKey
+                    : null,
+                onSend: _send,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1570,6 +1415,276 @@ class _TofuStatusBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Welcome banner ───────────────────────────────────────────────────────────
+
+class _WelcomeBanner extends StatelessWidget {
+  const _WelcomeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GlassContainer(
+      blur: 0,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      borderRadius: 28,
+      color: cs.primary.withValues(alpha: 0.1),
+      borderColor: cs.primary.withValues(alpha: 0.2),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.send_rounded, color: cs.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Secure Inbox',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                Text(
+                  'Securely encrypt and transmit your data.',
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Step 0: connection status ────────────────────────────────────────────────
+
+class _Step0ConnectionStatus extends StatelessWidget {
+  final bool receiverSelected;
+  final bool receiverReady;
+  final String? receiverUsername;
+  final int secondsRemaining;
+  final bool timerRunning;
+  final TofuStatus? tofuStatus;
+  final VoidCallback onVerify;
+
+  const _Step0ConnectionStatus({
+    required this.receiverSelected,
+    required this.receiverReady,
+    required this.receiverUsername,
+    required this.secondsRemaining,
+    required this.timerRunning,
+    required this.tofuStatus,
+    required this.onVerify,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StepCard(
+      step: 0,
+      title: 'Secure Connection',
+      done: receiverSelected && receiverReady,
+      currentStep: !(receiverSelected && receiverReady),
+      child: receiverSelected
+          ? (receiverReady
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ConnectedBadge(username: receiverUsername!),
+                    if (tofuStatus != null) ...[
+                      const SizedBox(height: 8),
+                      _TofuStatusBanner(
+                        status: tofuStatus!,
+                        onVerify: onVerify,
+                      ),
+                    ],
+                  ],
+                )
+              : _WaitingForReceiverWidget(
+                  secondsRemaining: secondsRemaining,
+                  timerRunning: timerRunning,
+                ))
+          : const _WaitingForConnectionWidget(),
+    );
+  }
+}
+
+// ─── Steps 1-4 block ─────────────────────────────────────────────────────────
+
+class _StepsBlock extends StatelessWidget {
+  // Receiver state
+  final bool receiverReady;
+  // Step 1
+  final bool receiverSelected;
+  final bool fileSelected;
+  final bool fileEncrypted;
+  final PlatformFile? file;
+  final VoidCallback? onPickFile;
+  // Step 2
+  final bool encrypting;
+  final double encryptionProgress;
+  final Uint8List? aesKey;
+  final Uint8List? iv;
+  final Uint8List? encryptedBytes;
+  final VoidCallback? onEncryptFile;
+  // Step 3
+  final bool encryptingKey;
+  final bool readyToSend;
+  final TofuStatus? tofuStatus;
+  final String? receiverUsername;
+  final VoidCallback? onEncryptKey;
+  // Step 4
+  final VoidCallback? onSend;
+
+  const _StepsBlock({
+    required this.receiverReady,
+    required this.receiverSelected,
+    required this.fileSelected,
+    required this.fileEncrypted,
+    required this.file,
+    required this.onPickFile,
+    required this.encrypting,
+    required this.encryptionProgress,
+    required this.aesKey,
+    required this.iv,
+    required this.encryptedBytes,
+    required this.onEncryptFile,
+    required this.encryptingKey,
+    required this.readyToSend,
+    required this.tofuStatus,
+    required this.receiverUsername,
+    required this.onEncryptKey,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedOpacity(
+      opacity: receiverReady ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: IgnorePointer(
+        ignoring: !receiverReady,
+        child: Column(
+          children: [
+            // ── Step 1: Select File ───────────────────────────────
+            AnimatedOpacity(
+              opacity: (receiverSelected && !fileEncrypted) ? 1.0 : 0.4,
+              duration: const Duration(milliseconds: 300),
+              child: IgnorePointer(
+                ignoring: fileEncrypted,
+                child: StepCard(
+                  step: 1,
+                  title: 'Select File',
+                  done: fileSelected,
+                  currentStep: receiverReady && !fileSelected,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CrypButton(
+                        icon: const Icon(Icons.folder_open_rounded, size: 20),
+                        label: Text(file == null ? 'Browse Files' : 'Change File'),
+                        onPressed: onPickFile,
+                        color: cs.primary,
+                      ),
+                      if (file != null) ...[
+                        const SizedBox(height: 16),
+                        _FileCard(file: file!),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Step 2: Encrypt ───────────────────────────────────
+            AnimatedOpacity(
+              opacity: fileSelected ? 1.0 : 0.4,
+              duration: const Duration(milliseconds: 300),
+              child: StepCard(
+                step: 2,
+                title: 'AES-256-GCM Encryption',
+                done: fileEncrypted,
+                currentStep: fileSelected && !fileEncrypted,
+                child: fileEncrypted
+                    ? _EncryptedBadge(
+                        keyBits: aesKey!.length * 8,
+                        ivBytes: iv!.length,
+                        ciphertextBytes: encryptedBytes!.length,
+                      )
+                    : encrypting
+                        ? _EncryptionProgressWidget(progress: encryptionProgress)
+                        : CrypButton(
+                            icon: const Icon(Icons.lock_rounded, size: 20),
+                            label: const Text('Encrypt with AES Key'),
+                            onPressed: onEncryptFile,
+                            color: cs.tertiary,
+                          ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Step 3: RSA Handshake ─────────────────────────────
+            AnimatedOpacity(
+              opacity: fileEncrypted ? 1.0 : 0.4,
+              duration: const Duration(milliseconds: 300),
+              child: StepCard(
+                step: 3,
+                title: 'RSA Key Handshake',
+                done: readyToSend,
+                currentStep: fileEncrypted && !readyToSend,
+                child: readyToSend
+                    ? _ReceiverBadge(username: receiverUsername!)
+                    : CrypButton(
+                        icon: encryptingKey
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.security_rounded, size: 20),
+                        label: Text(encryptingKey
+                            ? 'Encrypting key…'
+                            : 'Encrypt Key for @${receiverUsername ?? "receiver"}'),
+                        onPressed: onEncryptKey,
+                        color: cs.secondary,
+                      ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Step 4: Send ──────────────────────────────────────
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: readyToSend
+                  ? CrypButton(
+                      key: const ValueKey('send-btn'),
+                      icon: const Icon(Icons.send_rounded, size: 20),
+                      label: const Text('Send Encrypted File'),
+                      onPressed: onSend,
+                      color: cs.secondary,
+                    )
+                  : const SizedBox.shrink(key: ValueKey('send-empty')),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
