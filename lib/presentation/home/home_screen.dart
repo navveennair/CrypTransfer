@@ -11,6 +11,7 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
+import '../../data/repositories/user_repository.dart';
 import '../widgets/shared_widgets.dart';
 import 'find_friends_screen.dart';
 import 'transfer_summary_screen.dart';
@@ -26,16 +27,21 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with TickerProviderStateMixin {
   StreamSubscription<Map<String, dynamic>?>? _notifSub;
   OverlayEntry? _bannerEntry;          // rsa_key_received / file_received
   OverlayEntry? _outcomeEntry;         // connection accepted/declined (separate slot)
   String? _lastBannerDocId;
 
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
   final _connService = KeyRepository();
   final _handshakeRepo = HandshakeRepository();
   final _transferRepo = TransferRepository();
   final _authRepo = AuthRepository();
+  final _userRepo = UserRepository();
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _recentTransfersStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _activeAsProposerStream;
@@ -52,6 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _activeAsProposerStream = _handshakeRepo.streamActiveConnectionsAsProposer();
     _activeAsPartnerStream = _handshakeRepo.streamActiveConnectionsAsPartner();
     _outgoingPendingStream = _handshakeRepo.streamOutgoingPending();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startNotifListener();
       _startOutcomeListener();
@@ -60,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _pulseCtrl.dispose();
     _notifSub?.cancel();
     _bannerEntry?.remove();
     _outcomeEntry?.remove();
@@ -84,7 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showInfoSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      ),
     );
   }
 
@@ -285,6 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
         partnerUsername: partnerUsername,
         currentUserUid: _authRepo.currentUid ?? '',
         keyRepository: _connService,
+        userRepo: _userRepo,
         onSendFile: () async {
           try {
             final handshakeDocId = await _connService.assignTransferRole(
@@ -439,6 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onConnectionTap: _openRolePicker,
               onCancelTap: _cancelProposal,
               onAddPressed: _openAddConnectionSheet,
+              pulseAnim: MediaQuery.of(context).disableAnimations ? null : _pulseAnim,
             ),
             const SizedBox(height: 32),
 
@@ -559,11 +576,9 @@ class _NotifBellButton extends StatelessWidget {
         return Stack(
           alignment: Alignment.center,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(12),
-              ),
+            GlassContainer(
+              blur: 0,
+              borderRadius: 12,
               child: IconButton(
                 icon: const Icon(Icons.notifications_none_rounded, size: 22),
                 onPressed: () => Navigator.push(
@@ -700,6 +715,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
   final void Function({required String docId, required String partnerUsername})
       onCancelTap;
   final VoidCallback onAddPressed;
+  final Animation<double>? pulseAnim;
 
   const _ActiveConnectionsSection({
     required this.activeAsProposerStream,
@@ -709,6 +725,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
     required this.onConnectionTap,
     required this.onCancelTap,
     required this.onAddPressed,
+    this.pulseAnim,
   });
 
   @override
@@ -754,6 +771,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
                       docId: doc.id,
                       onConnectionTap: onConnectionTap,
                       onCancelTap: onCancelTap,
+                      pulseAnim: pulseAnim,
                     ));
                   }
                 }
@@ -770,6 +788,7 @@ class _ActiveConnectionsSection extends StatelessWidget {
                       docId: doc.id,
                       onConnectionTap: onConnectionTap,
                       onCancelTap: onCancelTap,
+                      pulseAnim: pulseAnim,
                     ));
                   }
                 }
@@ -824,6 +843,7 @@ class _ActiveConnectionRow extends StatelessWidget {
       onConnectionTap;
   final void Function({required String docId, required String partnerUsername})
       onCancelTap;
+  final Animation<double>? pulseAnim;
 
   const _ActiveConnectionRow({
     required this.username,
@@ -832,11 +852,13 @@ class _ActiveConnectionRow extends StatelessWidget {
     required this.docId,
     required this.onConnectionTap,
     required this.onCancelTap,
+    this.pulseAnim,
   });
 
   @override
   Widget build(BuildContext context) {
-    final row = GlassContainer(
+    final cs = Theme.of(context).colorScheme;
+    final card = GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
@@ -856,7 +878,7 @@ class _ActiveConnectionRow extends StatelessWidget {
           _StatusBadge(isConnected: isConnected),
           if (!isConnected)
             IconButton(
-              icon: Icon(Icons.cancel_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              icon: Icon(Icons.cancel_outlined, color: cs.onSurfaceVariant),
               tooltip: 'Cancel connection request',
               onPressed: () =>
                   onCancelTap(docId: docId, partnerUsername: username),
@@ -866,14 +888,57 @@ class _ActiveConnectionRow extends StatelessWidget {
     );
 
     if (isConnected) {
-      return InkWell(
+      // Wrap connected rows with a pulsing border to guide the user to tap.
+      final anim = pulseAnim;
+      final tappable = InkWell(
         onTap: () =>
             onConnectionTap(partnerUid: partnerUid, partnerUsername: username),
         borderRadius: BorderRadius.circular(16),
-        child: row,
+        child: card,
+      );
+      if (anim == null) {
+        // Reduced-motion or animation disabled: static highlight border.
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.5), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: cs.primary.withValues(alpha: 0.12),
+                blurRadius: 10,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: tappable,
+        );
+      }
+      return AnimatedBuilder(
+        animation: anim,
+        builder: (context, child) {
+          final t = anim.value;
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: cs.primary.withValues(alpha: 0.3 + 0.5 * t),
+                width: 1.0 + 1.0 * t,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.primary.withValues(alpha: 0.08 + 0.12 * t),
+                  blurRadius: 8 + 8 * t,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: tappable,
       );
     } else {
-      return row;
+      return card;
     }
   }
 }
@@ -925,6 +990,7 @@ class _RolePickerSheet extends StatefulWidget {
   final String partnerUsername;
   final String currentUserUid;
   final KeyRepository keyRepository;
+  final UserRepository userRepo;
   final Future<void> Function() onSendFile;
   final Future<void> Function() onReceiveFile;
 
@@ -933,6 +999,7 @@ class _RolePickerSheet extends StatefulWidget {
     required this.partnerUsername,
     required this.currentUserUid,
     required this.keyRepository,
+    required this.userRepo,
     required this.onSendFile,
     required this.onReceiveFile,
   });
@@ -995,10 +1062,7 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
                 ),
                 const SizedBox(height: 16),
                 StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection(FirebaseConstants.users)
-                      .doc(widget.partnerUid)
-                      .snapshots(),
+                  stream: widget.userRepo.streamUser(widget.partnerUid),
                   builder: (context, snap) {
                     final data = snap.data?.data() ?? {};
                     // Partner claimed Sender toward me → I cannot also be Sender.

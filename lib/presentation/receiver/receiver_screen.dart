@@ -12,6 +12,7 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
+import '../../data/repositories/user_repository.dart';
 import '../../data/services/encryption_service.dart';
 import '../vault/rsa_key_manager_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -38,6 +39,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   final _authService = AuthRepository();
   final _connService = KeyRepository();
   final _transferRepo = TransferRepository();
+  final _userRepo = UserRepository();
   final _sessionManager = SessionManager();
 
   bool _hasPrivateKey = false;
@@ -398,8 +400,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
       // Role validation: if roles are assigned, verify the handshake doc names us as receiver.
       if (docId.isNotEmpty && mounted) {
         try {
-          final handshakeDoc =
-              await FirebaseFirestore.instance.collection(FirebaseConstants.handshakes).doc(docId).get();
+          final handshakeDoc = await _connService.getHandshake(docId);
           final handshakeReceiverUid = handshakeDoc.data()?['receiverUid'] as String?;
           if (handshakeReceiverUid != null && handshakeReceiverUid.isNotEmpty && handshakeReceiverUid != receiverUid) {
             if (mounted) {
@@ -433,11 +434,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
   void _startSenderPresenceWatch(String senderUid, String receiverUid) {
     _senderPresenceSub?.cancel();
     _senderPresenceConfirmed = false;
-    _senderPresenceSub = FirebaseFirestore.instance
-        .collection(FirebaseConstants.users)
-        .doc(senderUid)
-        .snapshots()
-        .listen((snap) {
+    _senderPresenceSub = _userRepo.streamUser(senderUid).listen((snap) {
       if (!mounted || _sessionLocked || _incomingHandled) return;
       final field = snap.data()?[FirebaseConstants.pendingSenderFor] as String?;
       if (field == receiverUid) {
@@ -455,7 +452,10 @@ Future<void> _onSenderSelected(UserModel sender) async {
           _handshakeDocId = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sender left the session.')),
+          SnackBar(
+            content: const Text('Sender left the session.'),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+          ),
         );
       }
     });
@@ -568,14 +568,13 @@ Future<void> _onSenderSelected(UserModel sender) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
+        GlassContainer(
+          blur: 0,
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cs.tertiary.withValues(alpha: 0.1),
-            border: Border.all(color: cs.tertiary.withValues(alpha: 0.4)),
-            borderRadius: BorderRadius.circular(12),
-          ),
+          borderRadius: 12,
+          color: cs.tertiary.withValues(alpha: 0.1),
+          borderColor: cs.tertiary.withValues(alpha: 0.4),
           child: GestureDetector(
             onTap: () => Navigator.push(
               context,
