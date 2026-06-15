@@ -28,22 +28,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<Map<String, dynamic>?>? _notifSub;
-  OverlayEntry? _bannerEntry;          // general notifications
-  OverlayEntry? _proposalBannerEntry;  // connection request proposals (separate slot)
+  OverlayEntry? _bannerEntry;          // rsa_key_received / file_received
+  OverlayEntry? _outcomeEntry;         // connection accepted/declined (separate slot)
   String? _lastBannerDocId;
 
   final _connService = KeyRepository();
   final _handshakeRepo = HandshakeRepository();
   final _transferRepo = TransferRepository();
   final _authRepo = AuthRepository();
-  StreamSubscription<QuerySnapshot>? _pendingProposalSub;
   StreamSubscription<QuerySnapshot>? _outcomePendingSub;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _recentTransfersStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _activeAsProposerStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _activeAsPartnerStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _outgoingPendingStream;
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _incomingPendingStream;
-  String? _lastSeenProposalId; // deduplication — mirrors _lastBannerDocId
   // ignore: prefer_final_fields
   Map<String, StreamSubscription> _outcomeSubs = {};
 
@@ -55,10 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _activeAsProposerStream = _handshakeRepo.streamActiveConnectionsAsProposer();
     _activeAsPartnerStream = _handshakeRepo.streamActiveConnectionsAsPartner();
     _outgoingPendingStream = _handshakeRepo.streamOutgoingPending();
-    _incomingPendingStream = _handshakeRepo.streamIncomingPending();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startNotifListener();
-      _startHandshakeListener();
       _startOutcomeListener();
     });
   }
@@ -67,8 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _notifSub?.cancel();
     _bannerEntry?.remove();
-    _proposalBannerEntry?.remove();
-    _pendingProposalSub?.cancel();
+    _outcomeEntry?.remove();
     _outcomePendingSub?.cancel();
     for (final sub in _outcomeSubs.values) {
       sub.cancel();
@@ -142,24 +136,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _notifSub =
         NotificationService.latestUnreadStream(uid).listen((notif) {
       if (!mounted || notif == null) return;
+      // Connection requests intentionally do NOT pop a transient banner — they
+      // surface as the bell badge + an entry in NotificationsScreen. The user
+      // marks the notification read, returns Home, taps "+ View" and acts on the
+      // request in the FindFriends "Incoming Requests" list. (friend_request is
+      // skipped for the same reason.)
+      final type = notif['type'] as String? ?? '';
+      // connection_request / friend_request surface as bell badge + FindFriends list only.
+      // transfer_completed / transfer_aborted are shown live in the transfer screens —
+      // popping a banner when the user returns to Home is redundant noise.
+      if (type == 'connection_request' ||
+          type == 'friend_request' ||
+          type == 'transfer_completed' ||
+          type == 'transfer_aborted') {
+        return;
+      }
       final docId = notif['docId'] as String;
       if (docId == _lastBannerDocId) return;
       _lastBannerDocId = docId;
       _showNotifBanner(notif);
-    });
-  }
-
-  void _startHandshakeListener() {
-    _pendingProposalSub = _incomingPendingStream.listen((snap) {
-      if (!mounted) return;
-      for (final change in snap.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          final docId = change.doc.id;
-          if (docId == _lastSeenProposalId) continue; // deduplication
-          _lastSeenProposalId = docId;
-          _showProposalBanner(change.doc);
-        }
-      }
     });
   }
 
@@ -185,11 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final message = status == 'connected'
                   ? 'Connection accepted by @$partnerUsername'
                   : 'Connection request declined';
-              _showNotifBanner({
-                'type': 'outcome',
-                'message': message,
-                'docId': docId,
-              });
+              _showOutcomeBanner(message);
               // Cancel and remove this per-doc sub — outcome is final
               _outcomeSubs[docId]?.cancel();
               _outcomeSubs.remove(docId);
@@ -212,69 +203,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
     late OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => _NotifBanner(
-        message: message,
-        onDismiss: () {
-          entry.remove();
-          if (_bannerEntry == entry) _bannerEntry = null;
-          // Do NOT markRead on auto-dismiss — notification must persist in
-          // NotificationsScreen until the user explicitly acknowledges it.
-        },
-        onTap: () {
-          entry.remove();
-          if (_bannerEntry == entry) _bannerEntry = null;
-          if (type != 'outcome') {
+      builder: (ctx) => Positioned(
+        top: MediaQuery.of(ctx).padding.top + kToolbarHeight + 8,
+        left: 16,
+        right: 16,
+        child: _NotifBanner(
+          message: message,
+          onDismiss: () {
+            entry.remove();
+            if (_bannerEntry == entry) _bannerEntry = null;
+            // Do NOT markRead on auto-dismiss — notification must persist in
+            // NotificationsScreen until the user explicitly acknowledges it.
+          },
+          onTap: () {
+            entry.remove();
+            if (_bannerEntry == entry) _bannerEntry = null;
             final uid = _authRepo.currentUid;
             if (uid != null) NotificationService.markRead(uid, docId);
-          }
-          if (!mounted) return;
-          if (type == 'rsa_key_received') {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SenderScreen()));
-          } else if (type == 'file_received') {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const ReceiverScreen()));
-          }
-        },
+            if (!mounted) return;
+            if (type == 'rsa_key_received') {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SenderScreen()));
+            } else if (type == 'file_received') {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ReceiverScreen()));
+            }
+          },
+        ),
       ),
     );
     _bannerEntry = entry;
     Overlay.of(context).insert(entry);
   }
 
-  void _showProposalBanner(DocumentSnapshot<Map<String, dynamic>> doc) {
-    _proposalBannerEntry?.remove();
-    final data = doc.data() ?? {};
-    final proposerUsername = data['proposerUsername'] as String? ?? 'Someone';
-    final docId = doc.id;
-    final proposerId = data['proposerId'] as String? ?? '';
-
+  // Outcome banners (connection accepted/declined) use a separate slot so they
+  // never remove a live rsa_key_received / file_received notification banner.
+  // They pin to the bottom of the screen to visually separate from top banners.
+  void _showOutcomeBanner(String message) {
+    _outcomeEntry?.remove();
     late OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => _ProposalBanner(
-        message: '@$proposerUsername wants to connect',
-        onAccept: () {
-          entry.remove();
-          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
-          _handshakeRepo.acceptProposal(docId, proposerId).catchError((e) {
-            _showErrorSnackBar("Couldn't accept request. Try again.");
-          });
-        },
-        onReject: () {
-          entry.remove();
-          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
-          _handshakeRepo.rejectProposal(docId).catchError((e) {
-            _showErrorSnackBar("Couldn't decline request. Try again.");
-          });
-        },
-        onDismiss: () {
-          entry.remove();
-          if (_proposalBannerEntry == entry) _proposalBannerEntry = null;
-          // No action — proposal stays pending per D-03
-        },
+      builder: (ctx) => Positioned(
+        bottom: MediaQuery.of(ctx).padding.bottom + 16,
+        left: 16,
+        right: 16,
+        child: _NotifBanner(
+          message: message,
+          onDismiss: () {
+            entry.remove();
+            if (_outcomeEntry == entry) _outcomeEntry = null;
+          },
+          onTap: () {
+            entry.remove();
+            if (_outcomeEntry == entry) _outcomeEntry = null;
+          },
+        ),
       ),
     );
-    _proposalBannerEntry = entry;
+    _outcomeEntry = entry;
     Overlay.of(context).insert(entry);
   }
 
@@ -420,51 +406,13 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [_NotifBellButton(authRepo: _authRepo), const SizedBox(width: 8)],
       ),
       drawer: const SidebarDrawer(),
-body: SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Welcome banner ────────────────────────────────
-            GlassContainer(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              borderRadius: 28,
-              color: cs.primary.withValues(alpha: 0.1),
-              borderColor: cs.primary.withValues(alpha: 0.2),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.waving_hand_rounded, color: cs.primary, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hello, $username!',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        Text(
-                          'Welcome back to secure transfers.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _WelcomeBanner(username: username),
             const SizedBox(height: 32),
 
             // ── Active Connections ─────────────────────────────────────────────
@@ -494,154 +442,13 @@ body: SingleChildScrollView(
             ),
             const SizedBox(height: 32),
 
-            // ── Recent transfers section ─────────
-            Row(
-              children: [
-                Icon(Icons.history_rounded, color: cs.primary, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  'Recent Transfers',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const Spacer(),
-                _SectionButton(
-                  label: '+ View',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const TransferSummaryScreen(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            StreamBuilder<QuerySnapshot>(
-              stream: _recentTransfersStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                final docs = snapshot.data?.docs ?? [];
-                if (docs.isEmpty) {
-                  return GlassContainer(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.inbox_outlined,
-                              size: 40, color: cs.onSurfaceVariant),
-                          const SizedBox(height: 12),
-                          Text('No transfers yet',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-                final uid = _authRepo.currentUid ?? '';
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: docs.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final cs = Theme.of(context).colorScheme;
-                    final data =
-                        docs[i].data() as Map<String, dynamic>;
-                    final isSender = data['senderId'] == uid;
-                    final fileName =
-                        data['fileName'] as String? ?? 'file';
-                    final ts = data['loggedAt'] as Timestamp?;
-                    final dt = ts?.toDate().toLocal();
-                    final date = dt != null
-                        ? '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}'
-                        : '';
-                    final time = dt != null
-                        ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
-                        : '';
-                    final senderUsername =
-                        data['senderUsername'] as String?;
-                    final receiverUsername =
-                        data['receiverUsername'] as String?;
-                    final peer =
-                        isSender ? receiverUsername : senderUsername;
-                    return GlassContainer(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: (_isFailedStatus(data['status'] as String? ?? '')
-                                      ? cs.error
-                                      : isSender
-                                          ? cs.primary
-                                          : cs.tertiary)
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              _isFailedStatus(data['status'] as String? ?? '')
-                                  ? Icons.cancel_outlined
-                                  : isSender
-                                      ? Icons.upload_rounded
-                                      : Icons.download_rounded,
-                              size: 20,
-                              color: _isFailedStatus(data['status'] as String? ?? '')
-                                  ? cs.error
-                                  : isSender
-                                      ? cs.primary
-                                      : cs.tertiary,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  fileName,
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                if (peer != null)
-                                  Text(
-                                    '${isSender ? "→" : "←"} @$peer',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: cs.onSurfaceVariant),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (date.isNotEmpty)
-                                  Text(
-                                    '$date • $time',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: cs.onSurfaceVariant),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _transferStatusBadge(
-                              context,
-                              data['status'] as String? ?? '',
-                              isSender),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
+            // ── Recent Transfers ──────────────────────────────
+            _RecentTransfersSection(
+              transfersStream: _recentTransfersStream,
+              currentUid: _authRepo.currentUid ?? '',
+              onViewAll: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TransferSummaryScreen()),
+              ),
             ),
           ],
         ),
@@ -836,189 +643,42 @@ class _NotifBannerState extends State<_NotifBanner> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + kToolbarHeight + 8,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: GlassContainer(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: cs.tertiary.withValues(alpha: 0.2),
-            borderColor: cs.tertiary.withValues(alpha: 0.3),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: cs.tertiary.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.notifications_active_rounded,
-                      color: cs.onSurface, size: 18),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    widget.message,
-                    style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: Icon(Icons.close, color: cs.onSurfaceVariant, size: 20),
-                  onPressed: widget.onDismiss,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Proposal Banner (Accept / Reject) ─────────────────────────────────────
-// Used for incoming neutral handshake proposals. Distinct from _NotifBanner
-// which handles RSA key and file-received notifications.
-
-class _ProposalBanner extends StatefulWidget {
-  final String message;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-  final VoidCallback onDismiss;
-
-  const _ProposalBanner({
-    required this.message,
-    required this.onAccept,
-    required this.onReject,
-    required this.onDismiss,
-  });
-
-  @override
-  State<_ProposalBanner> createState() => _ProposalBannerState();
-}
-
-class _ProposalBannerState extends State<_ProposalBanner> {
-  bool _accepting = false;
-  bool _rejecting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // No auto-dismiss — user must explicitly accept, reject, or close.
-    // Connection requests require a conscious decision; 5s is too short.
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final top = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
-    return Positioned(
-      top: top,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: cs.tertiary.withValues(alpha: 0.4),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.2),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // NOTE: positioning is owned by the OverlayEntry builder (Positioned root).
+    // This widget must return a normally-sized subtree — returning a Positioned
+    // here produces a zero-size render box and a per-frame hit-test exception storm.
+    return Material(
+      color: Colors.transparent,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: GlassContainer(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          color: cs.tertiary.withValues(alpha: 0.2),
+          borderColor: cs.tertiary.withValues(alpha: 0.3),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: cs.tertiary.withValues(alpha: 0.3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.person_add_rounded,
-                        size: 16, color: cs.onSurface),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.message,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        size: 18, color: cs.onSurfaceVariant),
-                    onPressed: widget.onDismiss,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Dismiss',
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.tertiary.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.notifications_active_rounded,
+                    color: cs.onSurface, size: 18),
               ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  CrypButton(
-                    label: _accepting
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Accept Request'),
-                    onPressed: (_accepting || _rejecting)
-                        ? null
-                        : () {
-                            setState(() => _accepting = true);
-                            widget.onAccept();
-                            Future.delayed(const Duration(milliseconds: 500), () {
-                              if (mounted) setState(() => _accepting = false);
-                            });
-                          },
-                    color: cs.secondary,
-                    height: 44,
-                  ),
-                  const SizedBox(width: 4),
-                  CrypButton(
-                    label: _rejecting
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Decline Request'),
-                    onPressed: (_accepting || _rejecting)
-                        ? null
-                        : () {
-                            setState(() => _rejecting = true);
-                            widget.onReject();
-                            Future.delayed(const Duration(milliseconds: 500), () {
-                              if (mounted) setState(() => _rejecting = false);
-                            });
-                          },
-                    color: cs.error,
-                    height: 44,
-                  ),
-                ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  widget.message,
+                  style: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: Icon(Icons.close, color: cs.onSurfaceVariant, size: 20),
+                onPressed: widget.onDismiss,
               ),
             ],
           ),
@@ -1503,5 +1163,206 @@ class _StatusBadge extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+// ─── Welcome Banner ────────────────────────────────────────────────────────────
+
+class _WelcomeBanner extends StatelessWidget {
+  final String username;
+
+  const _WelcomeBanner({required this.username});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      borderRadius: 28,
+      color: cs.primary.withValues(alpha: 0.1),
+      borderColor: cs.primary.withValues(alpha: 0.2),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.waving_hand_rounded, color: cs.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello, $username!',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                Text(
+                  'Welcome back to secure transfers.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Recent Transfers Section ──────────────────────────────────────────────────
+
+class _RecentTransfersSection extends StatelessWidget {
+  final Stream<QuerySnapshot<Map<String, dynamic>>> transfersStream;
+  final String currentUid;
+  final VoidCallback onViewAll;
+
+  const _RecentTransfersSection({
+    required this.transfersStream,
+    required this.currentUid,
+    required this.onViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.history_rounded, color: cs.primary, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              'Recent Transfers',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const Spacer(),
+            _SectionButton(label: '+ View', onTap: onViewAll),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<QuerySnapshot>(
+          stream: transfersStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final docs = snapshot.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return GlassContainer(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 40, color: cs.onSurfaceVariant),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No transfers yet',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final cs = Theme.of(context).colorScheme;
+                final data = docs[i].data() as Map<String, dynamic>;
+                final isSender = data['senderId'] == currentUid;
+                final fileName = data['fileName'] as String? ?? 'file';
+                final ts = data['loggedAt'] as Timestamp?;
+                final dt = ts?.toDate().toLocal();
+                final date = dt != null
+                    ? '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}'
+                    : '';
+                final time = dt != null
+                    ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+                    : '';
+                final senderUsername = data['senderUsername'] as String?;
+                final receiverUsername = data['receiverUsername'] as String?;
+                final peer = isSender ? receiverUsername : senderUsername;
+                return GlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (_isFailedStatus(data['status'] as String? ?? '')
+                                  ? cs.error
+                                  : isSender
+                                      ? cs.primary
+                                      : cs.tertiary)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          _isFailedStatus(data['status'] as String? ?? '')
+                              ? Icons.cancel_outlined
+                              : isSender
+                                  ? Icons.upload_rounded
+                                  : Icons.download_rounded,
+                          size: 20,
+                          color: _isFailedStatus(data['status'] as String? ?? '')
+                              ? cs.error
+                              : isSender
+                                  ? cs.primary
+                                  : cs.tertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fileName,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            if (peer != null)
+                              Text(
+                                '${isSender ? "→" : "←"} @$peer',
+                                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            if (date.isNotEmpty)
+                              Text(
+                                '$date • $time',
+                                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _transferStatusBadge(context, data['status'] as String? ?? '', isSender),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
   }
 }
