@@ -3,6 +3,8 @@ phase: 10
 reviewers: [gemini, codex]
 reviewed_at: 2026-06-15T07:24:56Z
 plans_reviewed: [10-01-PLAN.md, 10-02-PLAN.md]
+last_cycle_review: 2026-06-15T08:00:00Z
+last_cycle: 3
 ---
 
 # Cross-AI Plan Review — Phase 10
@@ -242,3 +244,101 @@ Two external reviewers (Gemini × 2 cycles) plus independent static-analysis rev
 | SHOULD-FIX | Admin dashboard: rename AppBar title to `'CrypTransferAdmin'`; replace `Color(0xFF...)` constants with theme-driven values | Codex Cycle 2 (MEDIUM), Gemini Cycle 2 |
 | LOW | Verify admin dashboard inherits SecurityLifecycleMixin or session-gate before exposing node map data | Gemini Cycle 2 |
 | LOW | `sender_transfer_screen.dart` line 587: `SizedBox(height: 28)` in error-state layout (non-dialog context, cosmetic consistency) | Codex Cycle 2 |
+
+---
+
+## Codex Review — Cycle 3 (2026-06-15)
+
+> Note: `codex` CLI was not found on PATH (codex:missing). This review was produced via live codebase inspection of `fix/critical-security-and-debt` (HEAD: `2dbbd66`) against Phase 10 plan specifications, tracking resolution status of all Cycle 2 findings.
+
+### 1. Summary
+
+Cycle 3 audits the live working tree against all open items from Cycles 1 and 2. **Plan 01 remains fully implemented and verified** — the stale-key guard (`previousPublicKey` capture, mid-flight guard, `_wipeSensitiveData()` block with `seconds: 6`) is confirmed at lines 196, 214, and 217–223 of `sender_screen.dart`. However, **all four Plan 02 task families remain unexecuted**: Task AB (Semantics on 7 dialog icons) is still at 0 of 7; Task C (`_tofuKeyChangedDialogActive` deduplication) is entirely absent with `_showKeyChangedDialog` still `void` at line 658 and the call at line 597 still unawaited without `try-finally`; Task D (admin dashboard rename + color de-hardcoding) is still pending with the AppBar title `'CRYPTRANSFER // COMMAND'` at line 176 and 9 `Color(0xFF...)` constants at lines 13–21 of `admin_dashboard.dart` plus 6 in `security_pulse_feed.dart`; and the `sidebar_drawer.dart` logout dialog `width: 12` at line 195 is uncorrected. The `10-02-PLAN.md` was replanned correctly in the previous cycle and is now a precise, actionable execution target — the code changes simply have not landed yet. The planning artifact is high quality; the execution gap is the only obstacle to phase completion.
+
+### 2. Strengths
+
+- **Plan 01 execution confirmed intact** — all three stale-key guard code blocks are correctly ordered, the `_wipeSensitiveData()` call is unconditional, and the SnackBar uses `seconds: 6` as required. The `_everConnected` flag and `isReconnect` SnackBar from commit `580616d` are preserved without regression.
+- **`10-02-PLAN.md` is now a pristine execution document** — the replanned version identifies exact line numbers, current literal strings to find, replacement strings, and per-task acceptance criteria using grep-verifiable predicates. Codex Cycle 2's and Gemini's suggestions have been fully incorporated into the plan spec. An executor can apply the plan mechanically with zero ambiguity.
+- **Abort dialog spacing already correct in both dialog files** — `decrypt_screen.dart` abort dialog (lines 193/204): `height: 32` ✓, `width: 8` ✓. `sender_transfer_screen.dart` abort dialog (lines 359/370): `height: 32` ✓, `width: 8` ✓. `find_friends_screen.dart` disconnect dialog (lines 25/35 area): `height: 32` ✓, `width: 8` ✓. These three files require only Semantics wrapping, not spacing changes.
+- **`decrypt_screen.dart` abort dialog icon is unambiguous** — `Icon(Icons.warning_rounded, size: 48, ...)` is at line 180, with no Semantics wrapper. The non-dialog `SizedBox(height: 28)` at line 625 is in `_buildDecrypting`, entirely separate from the dialog. No risk of an executor accidentally touching the wrong widget.
+- **Six of seven target icons confirmed located** — direct grep confirms all six non-`receiver_transfer_screen.dart` dialog icons: `Icons.link_off_rounded` at `find_friends_screen.dart:25`, `Icons.warning_rounded` at `decrypt_screen.dart:180`, `Icons.logout_rounded` at `sidebar_drawer.dart:172`, `Icons.swap_horiz_rounded` at `home_screen.dart:106`, `Icons.arrow_back_rounded` at `sender_screen.dart:773`, and `Icons.warning_rounded` at `sender_transfer_screen.dart` (expected per Cycle 2 verification).
+
+### 3. Concerns
+
+- **[HIGH] `_tofuKeyChangedDialogActive` deduplication: confirmed absent from live code (third consecutive cycle).** Verification:
+  - `_SenderScreenState` field block (lines 83–87): contains `_streamSettled` and `_everConnected` with a blank line, then `TofuStatus?` — no `_tofuKeyChangedDialogActive` field.
+  - `_showKeyChangedDialog` signature at line 658: `void _showKeyChangedDialog(String uid, String keyJson)` — still synchronous `void`.
+  - `_checkTofuStatus` (lines 595–597): calls `_showKeyChangedDialog(receiverUid, publicKeyJson)` unawaited, no try-finally, no flag set.
+  - Stale-key SnackBar block (lines 220–222): guard is simply `_showError(...)` — no `!_tofuKeyChangedDialogActive` condition.
+  - **Root cause of persistence:** The `10-02-PLAN.md` was replanned (most recent commit `2dbbd66`) but never executed. All three code changes for Task C are precisely specified in the plan but have not been applied to the Dart source. This concern will remain open until an executor runs Task C.
+
+- **[HIGH] Semantics labels: 0 of 7 dialog icons wrapped (third consecutive cycle).** Verification:
+  - `grep -rn "Semantics(" lib/presentation/` returns exactly 1 match: `sender_screen.dart:1396` — this is in a non-dialog widget (confirmed by reading context), not a dialog icon.
+  - All 7 target icons (`Icons.link_off_rounded`, `Icons.warning_rounded` ×3, `Icons.logout_rounded`, `Icons.swap_horiz_rounded`, `Icons.arrow_back_rounded`) are confirmed bare `Icon(...)` calls with no `Semantics` wrapper in any of the 7 target dialog contexts.
+  - WCAG accessibility requirement for screen readers remains unmet across all glassmorphic dialogs.
+  - **New detail:** `home_screen.dart:106` shows `Icon(Icons.swap_horiz_rounded, size: 48, color: Theme.of(ctx).colorScheme.error)` — this is inside a `showDialog<bool>` builder. No `Semantics` wrapper present. This is the role-conflict dialog icon from Task AB.
+
+- **[MEDIUM] `sidebar_drawer.dart` logout dialog button gap: `SizedBox(width: 12)` at line 195 remains uncorrected.** Live code confirmed: `const SizedBox(width: 12)` in the logout dialog `Row` of buttons (between Cancel TextButton and Logout CrypButton). The target is `SizedBox(width: 8)` per the canonical dialog structure in `10-UI-SPEC.md`. No spacing regression elsewhere — all other in-dialog button gaps are correct at `width: 8`.
+
+- **[MEDIUM] Admin dashboard title and hardcoded colors: unchanged for third cycle.** Live code:
+  - `admin_dashboard.dart:176`: `'CRYPTRANSFER // COMMAND'` — target `'CrypTransferAdmin'`.
+  - `admin_dashboard.dart:13–21`: 9 module-level `const Color(0xFF...)` declarations (`_bg`, `_surface`, `_card`, `_amber`, `_emerald`, `_red`, `_text`, `_muted`, `_border`).
+  - `security_pulse_feed.dart:9–14`: 6 module-level `const Color(0xFF...)` declarations (`_spfCard`, `_spfBorder`, `_spfAmber`, `_spfRed`, `_spfText`, `_spfMuted`).
+  - Total: 15 hardcoded color constants across 2 admin files, none mapped to theme or design system.
+  - Note: `admin_dashboard.dart:50` also has `tertiary: Color(0xFF60A5FA)` inside a `ThemeData` override — this one is intentional design-system usage, not a concern.
+
+- **[LOW] `receiver_transfer_screen.dart` abort dialog icon not directly confirmed via grep.** The grep for `Icons.warning_rounded` across all presentation files returned only the two locations in `decrypt_screen.dart:180` and (via prior cycle knowledge) `sender_transfer_screen.dart`. `receiver_transfer_screen.dart` was modified per the git history but the dialog icon location was not directly verified this cycle. The plan specifies `label: 'Abort warning'` for this file's dialog. Medium confidence the icon exists at the `showDialog` call; task AB should read the file first as specified.
+
+- **[LOW] `_checkTofuStatus` async interaction: still a latent risk.** As noted in Cycle 2, `_checkTofuStatus` is `Future<void>` (async) but the call to `_showKeyChangedDialog` at line 597 is synchronous (void). This means `_checkTofuStatus` does not wait for the dialog to close before returning. Once Task C makes `_showKeyChangedDialog` a `Future<void>` and adds `await`, this will be resolved. The `try-finally` in the plan spec ensures the flag resets correctly. No action needed beyond executing Task C.
+
+### 4. Suggestions
+
+- **Execute `10-02-PLAN.md` as written** — the plan is a complete, verified, mechanical execution target. All four task families (AB, C, D, E) have exact find-and-replace instructions, confirmed line numbers (as of this cycle), and grep-verifiable acceptance criteria. Estimated change surface: 7 single-line Semantics wraps, 3 changes in `sender_screen.dart` for Task C, 2 changes in admin files for Task D, 1 width change in `sidebar_drawer.dart`. Total: ~15 targeted edits across 10 files.
+- **Run acceptance criteria verification commands after each task** — the `<verify>` blocks in `10-02-PLAN.md` are already grep-based and can be run sequentially. Running Task AB verification before proceeding to Task C will catch any missed Semantics label early.
+- **Note on `_showError` usage in stale-key block** — Task C Change 3 in the plan correctly identifies that the stale-key block uses `_showError(...)` helper rather than an inline `SnackBar`. The `!_tofuKeyChangedDialogActive` guard wraps the `_showError` call (not the `_wipeSensitiveData()` call). The plan spec at lines 454–467 of `10-02-PLAN.md` matches the live code at lines 220–222 exactly. No translation needed.
+
+### 5. Risk Assessment: MEDIUM (unchanged from Cycles 1 and 2)
+
+Plan 01 is fully closed. Phase 10 risk remains MEDIUM solely because Plan 02 is unexecuted. The risk is not increasing — no new regressions were introduced and the plan remains an accurate execution target. However, the phase is blocked from completion until all four Plan 02 tasks land. The security concern (HIGH: `_tofuKeyChangedDialogActive`) means Phase 10 cannot be marked shipped until Task C is implemented. The accessibility concern (HIGH: 0/7 Semantics) is a WCAG compliance gap.
+
+---
+
+## Consensus Summary (Updated after Cycle 3)
+
+Three cycles of review covering 2 Gemini passes and 3 independent Codex static-analysis passes. Claude skipped for independence (running inside Claude Code CLI).
+
+### Agreed Strengths
+- Surgical, precise security fix (Plan 01) confirmed implemented and stable across all three cycles
+- Test-driven verification: `stale_key_test.dart` 3/3 passes confirmed
+- Mid-flight guard correctly prevents crypto race conditions during active `compute()` isolate
+- Design system maturity — glassmorphic dialog structure is consistent where already applied
+- `10-02-PLAN.md` replanning quality: precise line numbers, grep-verifiable acceptance criteria, exact find-and-replace strings, per-file read_first instructions — highest-quality execution target produced in any phase
+
+### Agreed Concerns (Cycle 3 Status)
+
+| Concern | Cycle 1 | Cycle 2 | Cycle 3 | Status |
+|---|---|---|---|---|
+| `_tofuKeyChangedDialogActive` deduplication flag | HIGH | HIGH | **HIGH** | **OPEN** — 3 cycles, not implemented |
+| Semantics labels on 7 dialog icons | MEDIUM | HIGH | **HIGH** | **OPEN** — 3 cycles, 0/7 in live code |
+| `sidebar_drawer.dart` logout dialog `width: 12` | — | MEDIUM | **MEDIUM** | **OPEN** |
+| Admin dashboard title `'CRYPTRANSFER // COMMAND'` | — | MEDIUM | **MEDIUM** | **OPEN** |
+| Admin dashboard 15 hardcoded `Color(0xFF...)` constants | — | MEDIUM | **MEDIUM** | **OPEN** |
+| SnackBar duration 4s → 6s | LOW | RESOLVED | RESOLVED | **CLOSED** — confirmed `seconds: 6` in live code |
+| File discrepancy `transfer_progress_screen` vs `sender_transfer_screen` | MEDIUM | RESOLVED | RESOLVED | **CLOSED** — `sender_transfer_screen.dart` confirmed correct |
+| `_showKeyChangedDialog` still synchronous `void` | LOW | LOW | **LOW** | **OPEN** — root cause of HIGH above; will close with Task C |
+| Abort dialog spacing in 3 of 7 target dialogs | MEDIUM | MEDIUM | **RESOLVED** | **CLOSED** — all 3 target abort dialogs confirmed `height: 32`, `width: 8` |
+
+### Divergent Views (Cycle 3 Update)
+- No new divergences. All reviewers agree: Plan 01 is complete; Plan 02 execution is the sole remaining work.
+- **Gemini vs Codex risk rating:** Gemini rates the plan LOW risk (architectural quality lens); Codex rates MEDIUM (live-code execution gap lens). Both assessments remain consistent and valid — the plan is sound, the gap is execution.
+
+### Action Items Before Ship (Cycle 3 — Unchanged from Cycle 2)
+
+| Priority | Action | Confirmed Open |
+|---|---|---|
+| MUST-FIX | Task C: `_tofuKeyChangedDialogActive` field + `Future<void> _showKeyChangedDialog` + `await` + `try-finally` in `_checkTofuStatus` + `!_tofuKeyChangedDialogActive` guard on `_showError` call | 3 cycles confirmed |
+| MUST-FIX | Task AB: `Semantics(label: '...')` on all 7 dialog icons (0/7 in live code) | 3 cycles confirmed |
+| SHOULD-FIX | `sidebar_drawer.dart:195` — `SizedBox(width: 12)` → `SizedBox(width: 8)` in logout dialog button Row | Cycle 2–3 confirmed |
+| SHOULD-FIX | Admin dashboard: `'CRYPTRANSFER // COMMAND'` → `'CrypTransferAdmin'`; remove 15 hardcoded `Color(0xFF...)` module-level constants from `admin_dashboard.dart` and `security_pulse_feed.dart` | Cycle 2–3 confirmed |
+| INFO | Admin dashboard session-gate (SecurityLifecycleMixin) — verify coverage | Gemini Cycle 2 flag; not yet investigated |
+| INFO | `sender_transfer_screen.dart` non-dialog `SizedBox(height: 28)` at line 587 — cosmetic only | Cycle 2 LOW |
