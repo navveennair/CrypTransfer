@@ -30,9 +30,21 @@ class HandshakeRepository {
   /// Creates a new connection proposal from the current user to [partnerUid].
   ///
   /// Uses a deterministic doc ID `${_uid}_${partnerUid}` so re-sends are
-  /// idempotent. A transaction protects `createdAt` — it is written only when
-  /// the document does not yet exist, preserving the original proposal timestamp
-  /// on subsequent re-sends (WR-01 fix).
+  /// idempotent. A plain get() + WriteBatch approach is used (not runTransaction)
+  /// to avoid the Firestore Mobile SDK transaction retry loop that can hang
+  /// indefinitely when the receiver simultaneously accepts the proposal (WR-01 fix
+  /// preserved: createdAt is only written when the document does not yet exist).
+  ///
+  /// TWO records with clearly separated roles (R1 design):
+  ///   1. The `neutral_handshakes` doc is the SOURCE OF TRUTH for the request's
+  ///      lifecycle (pending → connected/rejected). It drives the FindFriends
+  ///      "Incoming Requests" action surface (Accept/Decline) via
+  ///      [streamIncomingPending]. There is NO live `_ProposalBanner` overlay.
+  ///   2. A `connection_request` doc in the partner's `notifications` inbox is a
+  ///      read-only AWARENESS ping so the bell badge + NotificationsScreen tell
+  ///      the user "someone wants to connect". The user marks it read, returns
+  ///      Home, taps "+ View" and acts in FindFriends. Written only for NEW
+  ///      proposals (not re-sends) to avoid duplicate inbox entries.
   ///
   /// Throws [AuthException] if [partnerUid] is empty or the caller has no username.
   /// Throws [NetworkException] on Firestore failure.
@@ -53,34 +65,39 @@ class HandshakeRepository {
           .collection(FirebaseConstants.neutralHandshakes)
           .doc('${_uid}_$partnerUid');
 
-      bool isNew = false;
-      await _db.runTransaction((tx) async {
-        final snap = await tx.get(docRef);
-        isNew = !snap.exists;
-        if (!snap.exists) {
-          tx.set(docRef, {
-            'proposerId': _uid,
-            'proposerUsername': currentUsername,
-            'partnerId': partnerUid,
-            'partnerUsername': partnerUsername,
-            'status': 'pending',
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          tx.update(docRef, {
-            'proposerUsername': currentUsername,
-            'partnerUsername': partnerUsername,
-            'status': 'pending',
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        }
-      });
+      // Read the doc outside the batch — same pattern as acceptProposal() to
+      // avoid the transaction retry loop that causes indefinite hangs when the
+      // receiver simultaneously accepts the proposal (concurrent write contention).
+      final snap = await docRef.get();
+      final isNew = !snap.exists;
 
-      // Write a notification to the partner's inbox so it persists in
-      // NotificationsScreen even after the in-app banner auto-dismisses.
-      // Best-effort: failure here does not roll back the proposal write.
-      // Only written for new proposals to avoid duplicate inbox entries on re-send.
+      final batch = _db.batch();
+      if (!snap.exists) {
+        // New proposal — write full document including createdAt (WR-01: idempotent).
+        batch.set(docRef, {
+          'proposerId': _uid,
+          'proposerUsername': currentUsername,
+          'partnerId': partnerUid,
+          'partnerUsername': partnerUsername,
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Re-send — refresh usernames and reset status; preserve original createdAt.
+        batch.update(docRef, {
+          'proposerUsername': currentUsername,
+          'partnerUsername': partnerUsername,
+          'status': 'pending',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+
+      // Awareness ping → partner's bell badge + NotificationsScreen (record #2,
+      // see method doc). Read-only heads-up; the user clears it by marking read.
+      // Best-effort: a failure here does not roll back the proposal. New
+      // proposals only — re-sends must not stack duplicate inbox entries.
       if (isNew) {
         try {
           await _db
@@ -97,7 +114,8 @@ class HandshakeRepository {
             'createdAt': FieldValue.serverTimestamp(),
           });
         } catch (_) {
-          // Non-fatal — partner will still see the banner via streamIncomingPending
+          // best-effort — non-critical: the request still exists in neutral_handshakes
+          // and is actionable from the FindFriends "Incoming Requests" list.
         }
       }
     } on FirebaseException catch (e) {
@@ -260,6 +278,30 @@ class HandshakeRepository {
     } on FirebaseException catch (e) {
       throw NetworkException(
           'Failed to reject proposal: ${e.message ?? e.code}');
+    }
+  }
+
+  /// Marks all `connection_request` notifications from [fromUid] in the
+  /// current user's inbox as read. Called after accept/decline so the bell
+  /// badge clears without requiring the user to manually open the inbox.
+  /// Best-effort — failure is swallowed so it never blocks the caller.
+  Future<void> clearConnectionRequestNotif(String fromUid) async {
+    try {
+      final snap = await _db
+          .collection(FirebaseConstants.users)
+          .doc(_uid)
+          .collection(FirebaseConstants.notifications)
+          .where('type', isEqualTo: 'connection_request')
+          .where('fromUid', isEqualTo: fromUid)
+          .get();
+      if (snap.docs.isEmpty) return;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {'read': true});
+      }
+      await batch.commit();
+    } catch (_) {
+      // best-effort — non-critical
     }
   }
 

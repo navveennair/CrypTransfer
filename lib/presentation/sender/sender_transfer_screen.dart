@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
@@ -144,7 +144,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         _sessionEnded = true;
         try {
           await _transferRepo.deleteStorageFile(widget.transferId);
-        } catch (_) {}
+        } catch (e) {
+          if (kDebugMode) debugPrint('[SenderTransferScreen] deleteStorageFile failed (receiver-abort path): $e');
+        }
         try {
           await _transferRepo.writeConnectionLostAuditLog(
             senderId: widget.senderId,
@@ -153,7 +155,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
             fileName: widget.fileName,
             fileSize: widget.fileSize,
           );
-        } catch (_) {}
+        } catch (_) {
+          // best-effort — non-critical
+        }
         wipeAll();
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -181,8 +185,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         try {
           await _transferRepo.senderWipeAESKey(widget.transferId);
         } catch (e) {
-          // Remote AES key erasure failed — local wipe still runs below.
-          // Log so the failure is visible in security review (no key material logged).
+          if (kDebugMode) debugPrint('[SenderTransferScreen] senderWipeAESKey failed (Turn 2 AES wipe): $e');
         }
         wipeAll(); // zeros widget.encryptedBytes + widget.aesKey registered in initState
         if (mounted) {
@@ -251,10 +254,14 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     _uploadTask?.cancel();
     try {
       await _transferRepo.markTransferInterrupted(widget.transferId, wipeAesKey: true);
-    } catch (_) {}
+    } catch (_) {
+      // best-effort — non-critical
+    }
     try {
       await _transferRepo.deleteStorageFile(widget.transferId);
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) debugPrint('[SenderTransferScreen] deleteStorageFile failed (watchdog path): $e');
+    }
     try {
       await _transferRepo.writeConnectionLostAuditLog(
         senderId: widget.senderId,
@@ -263,7 +270,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         fileName: widget.fileName,
         fileSize: widget.fileSize,
       );
-    } catch (_) {}
+    } catch (_) {
+      // best-effort — non-critical
+    }
     wipeAll();
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -387,11 +396,13 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     try {
       await _transferRepo.markTransferInterrupted(widget.transferId, wipeAesKey: true);
     } catch (_) {
-      // Doc may not exist yet if upload hadn't started — wipe proceeds regardless.
+      // best-effort — doc may not exist yet if upload hadn't started; wipe proceeds regardless.
     }
     try {
       await _transferRepo.deleteStorageFile(widget.transferId);
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) debugPrint('[SenderTransferScreen] deleteStorageFile failed (user-abort path): $e');
+    }
     try {
       await _transferRepo.writeConnectionLostAuditLog(
         senderId: widget.senderId,
@@ -400,7 +411,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         fileName: widget.fileName,
         fileSize: widget.fileSize,
       );
-    } catch (_) {}
+    } catch (_) {
+      // best-effort — non-critical
+    }
     wipeAll();
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -457,7 +470,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
           senderUsername: senderUsername,
           transferId: widget.transferId,
         );
-      } catch (_) {}
+      } catch (_) {
+        // best-effort — non-critical
+      }
 
       if (mounted) {
         setState(() {

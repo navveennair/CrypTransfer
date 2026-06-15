@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
@@ -129,7 +130,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
         if (uid != null) {
           try {
             await EncryptionService.closeReceiverSession(uid);
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('[ReceiverTransferScreen] closeReceiverSession failed (status=failed path): $e');
+          }
         }
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -227,7 +230,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     _cancelled = true;
     try {
       await _repo.markTransferInterrupted(widget.transferId);
-    } catch (_) {}
+    } catch (_) {
+      // best-effort — non-critical
+    }
     final uid = _auth.currentUid;
     if (uid != null && _senderId.isNotEmpty) {
       try {
@@ -238,13 +243,17 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
           fileName: widget.fileName,
           fileSize: _fileSize,
         );
-      } catch (_) {}
+      } catch (_) {
+        // best-effort — non-critical
+      }
     }
     wipeAll();
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) debugPrint('[ReceiverTransferScreen] closeReceiverSession failed (abort path): $e');
+      }
     }
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -284,7 +293,9 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     if (uid != null && _senderId.isNotEmpty) {
       try {
         await _repo.markTransferInterrupted(widget.transferId);
-      } catch (_) {}
+      } catch (_) {
+        // best-effort — non-critical
+      }
       try {
         await _repo.writeConnectionLostAuditLog(
           senderId: _senderId,
@@ -293,12 +304,16 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
           fileName: widget.fileName,
           fileSize: _fileSize,
         );
-      } catch (_) {}
+      } catch (_) {
+        // best-effort — non-critical
+      }
     }
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) debugPrint('[ReceiverTransferScreen] closeReceiverSession failed (watchdog path): $e');
+      }
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context)
