@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../core/utils/session_manager.dart';
 import '../widgets/shared_widgets.dart';
 import '../../data/models/transfer_model.dart';
 import '../../data/models/user_model.dart';
@@ -40,8 +41,13 @@ enum _Phase { loading, ready, decrypting, done, error }
 
 class DecryptScreen extends StatefulWidget {
   final String transferId;
+  final SessionManager sessionManager;
 
-  const DecryptScreen({super.key, required this.transferId});
+  const DecryptScreen({
+    super.key,
+    required this.transferId,
+    required this.sessionManager,
+  });
 
   @override
   State<DecryptScreen> createState() => _DecryptScreenState();
@@ -57,7 +63,7 @@ class _DecryptScreenState extends State<DecryptScreen>
   _Phase _phase = _Phase.loading;
   String? _error;
 
-  late TransferModel _transfer;
+  TransferModel? _transfer; // nullable to safely handle cases where _loadTransfer() throws before assignment (WR-006 fix)
   String _senderUsername = '';
 
   // Radioactive buffer — zeroed by SecurityLifecycleMixin on dispose.
@@ -77,6 +83,7 @@ class _DecryptScreenState extends State<DecryptScreen>
   @override
   void initState() {
     super.initState();
+    widget.sessionManager.stateNotifier.addListener(_onSessionTerminated);
     _watchTransferStatus();
     _loadTransfer();
     _resetWatchdog();
@@ -84,9 +91,25 @@ class _DecryptScreenState extends State<DecryptScreen>
 
   @override
   void dispose() {
+    widget.sessionManager.stateNotifier.removeListener(_onSessionTerminated);
     _watchdogTimer?.cancel();
     _failedStatusSub?.cancel();
     super.dispose();
+  }
+
+  void _onSessionTerminated() {
+    if (widget.sessionManager.state == SessionState.terminated && mounted) {
+      _aborting = true;
+      wipeAll();
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: const Text('Session terminated — decrypt buffers wiped'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 4),
+        ));
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   // Zero remanence: delete temp file whenever buffers are wiped.
@@ -108,7 +131,11 @@ class _DecryptScreenState extends State<DecryptScreen>
           wipeAll();
           final uid = _auth.currentUid;
           if (uid != null) {
-            try { await EncryptionService.closeReceiverSession(uid); } catch (_) {}
+            try {
+              await EncryptionService.closeReceiverSession(uid);
+            } catch (e) {
+              if (kDebugMode) debugPrint('[DecryptScreen] closeReceiverSession failed (doc-deleted path): $e');
+            }
           }
           if (!mounted) return;
           ScaffoldMessenger.of(context)
@@ -134,7 +161,9 @@ class _DecryptScreenState extends State<DecryptScreen>
         if (uid != null) {
           try {
             await EncryptionService.closeReceiverSession(uid);
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('[DecryptScreen] closeReceiverSession failed (status=failed path): $e');
+          }
         }
         if (!mounted) return;
         ScaffoldMessenger.of(context)
@@ -220,24 +249,30 @@ class _DecryptScreenState extends State<DecryptScreen>
     _aborting = true;
     try {
       await _repo.markTransferInterrupted(widget.transferId);
-    } catch (_) {}
+    } catch (_) {
+      // Best-effort — transfer doc may already be gone; wipe proceeds regardless.
+    }
     final uid = _auth.currentUid;
     if (uid != null && _phase != _Phase.loading) {
       try {
         await _repo.writeConnectionLostAuditLog(
-          senderId: _transfer.senderId,
-          receiverId: _transfer.receiverId,
+          senderId: _transfer?.senderId ?? '',
+          receiverId: _transfer?.receiverId ?? '',
           senderUsername: _senderUsername,
-          fileName: _transfer.fileName,
-          fileSize: _transfer.fileSize,
+          fileName: _transfer?.fileName ?? '',
+          fileSize: _transfer?.fileSize ?? 0,
         );
-      } catch (_) {}
+      } catch (_) {
+        // Best-effort — audit log write failure does not block wipe.
+      }
     }
     wipeAll();
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) debugPrint('[DecryptScreen] closeReceiverSession failed (abort path): $e');
+      }
     }
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -278,21 +313,27 @@ class _DecryptScreenState extends State<DecryptScreen>
     if (uid != null && _phase != _Phase.loading) {
       try {
         await _repo.markTransferInterrupted(widget.transferId);
-      } catch (_) {}
+      } catch (_) {
+        // Best-effort — transfer doc may already be gone; wipe proceeds regardless.
+      }
       try {
         await _repo.writeConnectionLostAuditLog(
-          senderId: _transfer.senderId,
-          receiverId: _transfer.receiverId,
+          senderId: _transfer?.senderId ?? '',
+          receiverId: _transfer?.receiverId ?? '',
           senderUsername: _senderUsername,
-          fileName: _transfer.fileName,
-          fileSize: _transfer.fileSize,
+          fileName: _transfer?.fileName ?? '',
+          fileSize: _transfer?.fileSize ?? 0,
         );
-      } catch (_) {}
+      } catch (_) {
+        // Best-effort — audit log write failure does not block wipe.
+      }
     }
     if (uid != null) {
       try {
         await EncryptionService.closeReceiverSession(uid);
-      } catch (_) {}
+      } catch (e) {
+        if (kDebugMode) debugPrint('[DecryptScreen] closeReceiverSession failed (watchdog path): $e');
+      }
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -356,7 +397,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         throw Exception('Private RSA key not found on this device');
       }
 
-      final encryptedAESKeyBytes = base64Decode(_transfer.encryptedAESKey);
+      final encryptedAESKeyBytes = base64Decode(_transfer!.encryptedAESKey);
       final aesKey = await compute(
         _decryptAesKeyIsolate,
         [privateKeyJson, encryptedAESKeyBytes],
@@ -365,7 +406,7 @@ class _DecryptScreenState extends State<DecryptScreen>
 
       await _repo.updateReceiverStatus(widget.transferId, 'decrypting');
 
-      final ivBuffer = Uint8List.fromList(base64Decode(_transfer.iv));
+      final ivBuffer = Uint8List.fromList(base64Decode(_transfer!.iv));
       registerBuffer(ivBuffer);
 
       final decryptedBytes = await EncryptionService.decryptAesGcm(
@@ -381,7 +422,7 @@ class _DecryptScreenState extends State<DecryptScreen>
 
       // Write to temp dir so the file is available for preview immediately.
       final tempDir = await getTemporaryDirectory();
-      _tempFilePath = '${tempDir.path}/${_transfer.fileName}';
+      _tempFilePath = '${tempDir.path}/${_transfer!.fileName}';
       await File(_tempFilePath!).writeAsBytes(_decryptedBytes!);
 
       if (mounted) {
@@ -426,7 +467,7 @@ class _DecryptScreenState extends State<DecryptScreen>
       // Native channel writes to public Downloads via MediaStore (Android 10+)
       // or direct FileOutputStream (Android <10).
       await _fileChannel.invokeMethod<String>('saveToDownloads', {
-        'fileName': _transfer.fileName,
+        'fileName': _transfer!.fileName,
         'bytes': _decryptedBytes!,
       });
 
@@ -451,11 +492,11 @@ class _DecryptScreenState extends State<DecryptScreen>
           MaterialPageRoute(
             builder: (_) => ReceiverEndSessionScreen(
               transferId: widget.transferId,
-              fileName: _transfer.fileName,
-              fileSize: _transfer.fileSize,
+              fileName: _transfer!.fileName,
+              fileSize: _transfer!.fileSize,
               senderUsername: _senderUsername,
-              senderId: _transfer.senderId,
-              receiverId: _transfer.receiverId,
+              senderId: _transfer!.senderId,
+              receiverId: _transfer!.receiverId,
               transferredAt: DateTime.now(),
             ),
           ),
@@ -536,7 +577,7 @@ class _DecryptScreenState extends State<DecryptScreen>
               Icon(Icons.lock_rounded, size: 44, color: cs.primary),
               const SizedBox(height: 12),
               Text(
-                _transfer.fileName,
+                _transfer!.fileName,
                 style: Theme.of(context).textTheme.titleSmall,
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -544,7 +585,7 @@ class _DecryptScreenState extends State<DecryptScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                _fmtSize(_transfer.fileSize),
+                _fmtSize(_transfer!.fileSize),
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -647,7 +688,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          _transfer.fileName,
+          _transfer!.fileName,
           style: Theme.of(context).textTheme.bodyMedium,
           textAlign: TextAlign.center,
           maxLines: 2,
@@ -655,7 +696,7 @@ class _DecryptScreenState extends State<DecryptScreen>
         ),
         const SizedBox(height: 4),
         Text(
-          _fmtSize(_transfer.fileSize),
+          _fmtSize(_transfer!.fileSize),
           style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
           textAlign: TextAlign.center,
         ),
