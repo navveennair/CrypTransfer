@@ -170,6 +170,19 @@ class KeyRepository {
     }
   }
 
+  /// Fetches a single handshake document by ID.
+  Future<DocumentSnapshot<Map<String, dynamic>>> getHandshake(String docId) async {
+    try {
+      return await _db
+          .collection(FirebaseConstants.handshakes)
+          .doc(docId)
+          .get();
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not fetch handshake: ${e.message ?? e.code}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getSentKeyTransfers() async {
     try {
       final snapshot = await _db
@@ -177,18 +190,18 @@ class KeyRepository {
           .where('receiverId', isEqualTo: _uid)
           .get();
 
-      final transfers = <Map<String, dynamic>>[];
-      for (final doc in snapshot.docs) {
+      final transfers = await Future.wait(snapshot.docs.map((doc) async {
         final data = doc.data();
-        final senderId = data['senderId'] as String;
-        final userDoc =
-            await _db.collection(FirebaseConstants.users).doc(senderId).get();
-        transfers.add({
-          'docId': doc.id,
-          ...data,
-          'toUsername': userDoc.data()?['username'] ?? 'Unknown',
-        });
-      }
+        final cached = data['senderUsername'] as String?;
+        final toUsername = (cached != null && cached.isNotEmpty)
+            ? cached
+            : await _db
+                .collection(FirebaseConstants.users)
+                .doc(data['senderId'] as String)
+                .get()
+                .then((d) => d.data()?['username'] as String? ?? 'Unknown');
+        return <String, dynamic>{'docId': doc.id, ...data, 'toUsername': toUsername};
+      }));
       transfers.sort((a, b) {
         final aTs = a['sentAt'] as Timestamp?;
         final bTs = b['sentAt'] as Timestamp?;
@@ -211,20 +224,16 @@ class KeyRepository {
           .where('senderId', isEqualTo: _uid)
           .get();
 
-      final keys = <Map<String, dynamic>>[];
-      for (final doc in snapshot.docs) {
+      final keys = snapshot.docs.map((doc) {
         final data = doc.data();
-        final receiverId = data['receiverId'] as String;
-        final userDoc = await _db
-            .collection(FirebaseConstants.users)
-            .doc(receiverId)
-            .get();
-        keys.add({
+        // 'fromUsername' is written by the receiver into the handshake doc at
+        // creation time — no extra user-doc fetch needed.
+        return <String, dynamic>{
           'docId': doc.id,
           ...data,
-          'fromUsername': userDoc.data()?['username'] ?? 'Unknown',
-        });
-      }
+          'fromUsername': data['fromUsername'] as String? ?? 'Unknown',
+        };
+      }).toList();
       keys.sort((a, b) {
         final aTs = a['sentAt'] as Timestamp?;
         final bTs = b['sentAt'] as Timestamp?;
@@ -292,29 +301,21 @@ class KeyRepository {
     String? fromUsername,
     String status = 'pending',
   }) async {
-    final existing = await _db
-        .collection(FirebaseConstants.handshakes)
-        .where('receiverId', isEqualTo: _uid)
-        .where('senderId', isEqualTo: senderId)
-        .limit(1)
-        .get();
-
-    final update = <String, dynamic>{
-      'publicKey': publicKey,
-      'sentAt': FieldValue.serverTimestamp(),
-      'fromUsername': fromUsername,
-      'status': status,
-    };
-
-    if (existing.docs.isNotEmpty) {
-      await existing.docs.first.reference.update(update);
-    } else {
-      await _db.collection(FirebaseConstants.handshakes).add({
+    // Use a deterministic doc ID (receiverId_senderId) instead of auto-ID + get().
+    // This eliminates the TOCTOU race where two concurrent calls could both observe
+    // docs.isEmpty and both call add(), creating duplicate handshake docs (WR-002 fix).
+    final docId = '${_uid}_$senderId';
+    await _db.collection(FirebaseConstants.handshakes).doc(docId).set(
+      {
         'receiverId': _uid,
         'senderId': senderId,
-        ...update,
-      });
-    }
+        'publicKey': publicKey,
+        'sentAt': FieldValue.serverTimestamp(),
+        'fromUsername': fromUsername,
+        'status': status,
+      },
+      SetOptions(merge: true),
+    );
   }
 
   // ─── Session key management ───────────────────────────────────────────────
@@ -328,27 +329,27 @@ class KeyRepository {
           .where('senderId', isEqualTo: _uid)
           .get();
 
-      final receivers = <UserModel>[];
-      for (final doc in snapshot.docs) {
+      final results = await Future.wait(snapshot.docs.map((doc) async {
         final data = doc.data();
         final receiverId = data['receiverId'] as String;
         final publicKey = data['publicKey'] as String?;
-        if (publicKey == null || publicKey.isEmpty) continue;
+        if (publicKey == null || publicKey.isEmpty) return null;
         final userDoc = await _db
             .collection(FirebaseConstants.users)
             .doc(receiverId)
             .get();
-        if (!userDoc.exists) continue;
+        if (!userDoc.exists) return null;
         final userData = userDoc.data()!;
-        receivers.add(UserModel(
+        return UserModel(
           uid: receiverId,
           username: userData['username'] as String? ?? 'Unknown',
           email: userData['email'] as String? ?? '',
           phone: userData['phone'] as String? ?? '',
           publicKey: publicKey,
           isAdmin: userData['isAdmin'] as bool? ?? false,
-        ));
-      }
+        );
+      }));
+      final receivers = results.whereType<UserModel>().toList();
       return receivers;
     } on FirebaseException catch (e) {
       throw NetworkException(
@@ -409,6 +410,8 @@ class KeyRepository {
         // 'receiverUsername' is the canonical field read by SenderScreen.
         // 'fromUsername' is kept for backward compatibility.
         'receiverUsername': fromUsername,
+        // 'senderUsername' allows getSentKeyTransfers() to avoid a user-doc fetch.
+        'senderUsername': senderUsername,
         'status': 'handshake_complete',
         'receiverReady': true,
       };
