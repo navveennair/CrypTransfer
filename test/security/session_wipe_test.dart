@@ -310,7 +310,68 @@ void main() {
       },
     );
 
-    // ─── TC-WIPE-008 ──────────────────────────────────────────────────────────
+    // ─── TC-WIPE-008 ─────────────────────────────────────────────────────────
+    //
+    // Verifies that stateNotifier.addListener() callbacks fire when
+    // wipeSession() transitions to terminated.  This mirrors the exact
+    // listener pattern used by ReceiverTransferScreen (line 99) and
+    // DecryptScreen (line 86) — if this mechanism regresses, both screens
+    // lose their kill-switch reaction.
+    test(
+      'TC-WIPE-008: stateNotifier.addListener callback fires on wipeSession() '
+      'and is silent after removeListener (screens listener pattern)',
+      () {
+        final manager = SessionManager();
+
+        // Mirror what ReceiverTransferScreen.initState() does:
+        //   widget.sessionManager.stateNotifier.addListener(_onSessionStateChanged)
+        SessionState? receivedState;
+        void listener() => receivedState = manager.stateNotifier.value;
+
+        manager.stateNotifier.addListener(listener);
+
+        // Call wipeSession() — this is what ReceiverScreen.PopScope triggers.
+        manager.wipeSession(onBuffersWipe: () {});
+
+        expect(
+          receivedState,
+          SessionState.terminated,
+          reason:
+              'TC-WIPE-008: stateNotifier listener must receive terminated '
+              'when wipeSession() is called (ReceiverTransferScreen/DecryptScreen '
+              'kill-switch path)',
+        );
+
+        // Mirror what ReceiverTransferScreen.dispose() does:
+        //   widget.sessionManager.stateNotifier.removeListener(_onSessionStateChanged)
+        // After removeListener, a second transition must NOT fire the callback.
+        receivedState = null;
+        manager.stateNotifier.removeListener(listener);
+
+        // Create a fresh manager so we can call wipeSession again.
+        final manager2 = SessionManager();
+        manager2.stateNotifier.addListener(listener);
+        manager2.stateNotifier.removeListener(listener); // immediately remove
+        manager2.wipeSession(onBuffersWipe: () {});
+
+        expect(
+          receivedState,
+          isNull,
+          reason:
+              'TC-WIPE-008: listener must NOT fire after removeListener() — '
+              'dispose() teardown is clean',
+        );
+
+        manager2.dispose();
+        manager.dispose();
+
+        // ignore: avoid_print
+        print('✅ TC-WIPE-008 PASSED: stateNotifier listener fires on wipeSession(); '
+            'removeListener() cleanly prevents further callbacks');
+      },
+    );
+
+    // ─── TC-WIPE-009 ──────────────────────────────────────────────────────────
     // Requirement WIPE-03: SecurityLifecycleMixin.wipeAll() is safe with zero
     // registered buffers (defensive application in ReceiverTransferScreen).
     // The mixin is a Flutter State mixin and cannot be instantiated standalone.
@@ -318,7 +379,7 @@ void main() {
     // → call onBuffersWiped(). We verify the equivalent logic directly.
 
     test(
-      'TC-WIPE-008: wipeAll() with empty buffer registry does not throw '
+      'TC-WIPE-009: wipeAll() with empty buffer registry does not throw '
       'and clears cleanly (defensive mixin application)',
       () {
         // Mirror the exact logic from SecurityLifecycleMixin.wipeAll():
@@ -347,17 +408,17 @@ void main() {
             reason: 'onBuffersWiped() hook must be called even with zero buffers');
 
         // ignore: avoid_print
-        print('✅ TC-WIPE-008 PASSED: wipeAll() safe with empty buffer registry');
+        print('✅ TC-WIPE-009 PASSED: wipeAll() safe with empty buffer registry');
       },
     );
 
-    // ─── TC-WIPE-009 ──────────────────────────────────────────────────────────
+    // ─── TC-WIPE-010 ──────────────────────────────────────────────────────────
     // Requirement WIPE-04: PopScope.onPopInvokedWithResult calls wipeAll() only
     // when didPop == true. The canPop gate is _allStepsDone, so wipeAll() is
     // only reachable after all steps finish. We test the boolean guard logic.
 
     test(
-      'TC-WIPE-009: PopScope wipe guard — wipeAll() called only when '
+      'TC-WIPE-010: PopScope wipe guard — wipeAll() called only when '
       'didPop is true; skipped when didPop is false',
       () {
         // Reproduce the exact guard from ReceiverTransferScreen.build():
@@ -394,7 +455,7 @@ void main() {
             reason: 'Each successful pop must trigger exactly one wipeAll()');
 
         // ignore: avoid_print
-        print('✅ TC-WIPE-009 PASSED: PopScope guard — wipeAll() gated on '
+        print('✅ TC-WIPE-010 PASSED: PopScope guard — wipeAll() gated on '
             'didPop == true');
       },
     );
