@@ -55,7 +55,18 @@ class AuthMethodService {
   static Future<bool> verifyPin(String pin) async {
     final stored = await _storage.read(key: _pinHashKey);
     if (stored == null) return false;
-    return _sha256(pin) == stored;
+    return _constantTimeEqual(_sha256(pin), stored);
+  }
+
+  /// Compares two strings in constant time to prevent timing side-channel
+  /// attacks that could leak information about the stored PIN hash (WR-005 fix).
+  static bool _constantTimeEqual(String a, String b) {
+    if (a.length != b.length) return false;
+    int result = 0;
+    for (int i = 0; i < a.length; i++) {
+      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return result == 0;
   }
 
   static Future<void> clearPin() async {
