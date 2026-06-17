@@ -1,10 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
-import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../home/home_screen.dart';
@@ -52,7 +50,6 @@ class _SenderScreenState extends State<SenderScreen>
     _controller.onInfo = _showInfo;
     _controller.onEject = _ejectToHomeScreen;
     _controller.onAbortNavigate = _navigateHomeAfterAbort;
-    _controller.onKeyChanged = _showKeyChangedDialog;
     _controller.onBuffersWipe = wipeAll;
     _controller.onRegisterBuffer = registerBuffer;
     _controller.onUnregisterBuffer = unregisterBuffer;
@@ -147,146 +144,6 @@ class _SenderScreenState extends State<SenderScreen>
         ),
         transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
-      ),
-    );
-  }
-
-  // ─── TOFU dialogs ─────────────────────────────────────────────────────────
-
-  void _showVerifyDialog() {
-    final receiverId = _controller.state.receiverId;
-    final fp = _controller.state.receiverFingerprint;
-    if (receiverId == null || fp == null) return;
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Verify Receiver Identity'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Compare this fingerprint with your receiver out-of-band (call, in person):',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                fp,
-                style: GoogleFonts.robotoMono(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          CrypButton(
-            label: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            height: 44,
-          ),
-          CrypButton(
-            label: const Text('It Matches'),
-            onPressed: () async {
-              await TofuService.markVerified(receiverId);
-              if (!mounted) return;
-              _controller.onTofuVerified();
-              Navigator.pop(context);
-            },
-            color: Theme.of(context).colorScheme.tertiary,
-            height: 48,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showKeyChangedDialog(String uid, String keyJson) {
-    final fp = TofuService.displayFingerprint(keyJson);
-    final cs = Theme.of(context).colorScheme;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning_rounded, color: cs.error),
-            const SizedBox(width: 8),
-            Text('Key Changed!', style: TextStyle(color: cs.error)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This receiver\'s public key has changed since your last session. '
-              'This may indicate a man-in-the-middle attack.',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Call or meet your receiver and confirm the new fingerprint matches '
-              'exactly before proceeding:',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: cs.errorContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                fp,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.robotoMono(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  letterSpacing: 2,
-                  color: cs.onErrorContainer,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Only tap "It Matches" after confirming out-of-band.',
-              style: TextStyle(
-                fontSize: 11,
-                color: cs.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          CrypButton(
-            label: const Text('Cancel'),
-            onPressed: () {
-              Navigator.pop(context);
-              _controller.revertToWaiting();
-            },
-            color: cs.onSurfaceVariant,
-            height: 44,
-          ),
-          CrypButton(
-            label: const Text('It Matches — Trust New Key'),
-            onPressed: () async {
-              // Repin AND mark verified in one step — no unverified trust path.
-              await TofuService.repin(uid, keyJson);
-              await TofuService.markVerified(uid);
-              if (!mounted) return;
-              _controller.onTofuKeyConfirmed(fp);
-              Navigator.pop(context);
-            },
-            color: cs.error,
-            height: 48,
-          ),
-        ],
       ),
     );
   }
@@ -392,8 +249,6 @@ class _SenderScreenState extends State<SenderScreen>
                 receiverUsername: s.receiverUsername,
                 secondsRemaining: s.secondsRemaining,
                 timerRunning: s.timerRunning,
-                tofuStatus: s.tofuStatus,
-                onVerify: _showVerifyDialog,
               ),
               const SizedBox(height: 16),
               _StepsBlock(
@@ -411,12 +266,8 @@ class _SenderScreenState extends State<SenderScreen>
                 onEncryptFile: s.fileSelected ? _controller.encryptFile : null,
                 encryptingKey: s.encryptingKey,
                 readyToSend: s.readyToSend,
-                tofuStatus: s.tofuStatus,
                 receiverUsername: s.receiverUsername,
-                onEncryptKey: s.fileEncrypted &&
-                        !s.encryptingKey &&
-                        s.tofuStatus != null &&
-                        s.tofuStatus != TofuStatus.keyChanged
+                onEncryptKey: s.fileEncrypted && !s.encryptingKey
                     ? () => _controller.encryptAesKey(BiometricHelper.authenticate)
                     : null,
                 onSend: _send,
@@ -918,82 +769,6 @@ class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
   }
 }
 
-// ─── TOFU status banner ──────────────────────────────────────────────────────
-
-class _TofuStatusBanner extends StatelessWidget {
-  final TofuStatus status;
-  final VoidCallback onVerify;
-
-  const _TofuStatusBanner({required this.status, required this.onVerify});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    if (status == TofuStatus.verified) {
-      return GlassContainer(
-        blur: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        color: cs.secondary.withValues(alpha: 0.08),
-        borderColor: cs.secondary.withValues(alpha: 0.2),
-        child: Row(
-          children: [
-            Icon(Icons.verified_rounded, color: cs.secondary, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'Identity verified',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: cs.secondary,
-                  fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      );
-    }
-    // firstContact or trusted — tertiary nudge, transfer allowed
-    return GlassContainer(
-      blur: 0,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      color: cs.tertiary.withValues(alpha: 0.08),
-      borderColor: cs.tertiary.withValues(alpha: 0.2),
-      child: Row(
-        children: [
-          Icon(Icons.fingerprint_rounded, color: cs.tertiary, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Identity not verified',
-              style: TextStyle(fontSize: 12, color: cs.tertiary),
-            ),
-          ),
-          Semantics(
-            label: 'Verify receiver identity',
-            button: true,
-            child: InkWell(
-              onTap: onVerify,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Text(
-                  'Verify',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.primary,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
-                    decorationColor: cs.primary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Welcome banner ───────────────────────────────────────────────────────────
 
 class _WelcomeBanner extends StatelessWidget {
@@ -1054,8 +829,6 @@ class _Step0ConnectionStatus extends StatelessWidget {
   final String? receiverUsername;
   final int secondsRemaining;
   final bool timerRunning;
-  final TofuStatus? tofuStatus;
-  final VoidCallback onVerify;
 
   const _Step0ConnectionStatus({
     required this.receiverSelected,
@@ -1063,8 +836,6 @@ class _Step0ConnectionStatus extends StatelessWidget {
     required this.receiverUsername,
     required this.secondsRemaining,
     required this.timerRunning,
-    required this.tofuStatus,
-    required this.onVerify,
   });
 
   @override
@@ -1076,19 +847,7 @@ class _Step0ConnectionStatus extends StatelessWidget {
       currentStep: !(receiverSelected && receiverReady),
       child: receiverSelected
           ? (receiverReady
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _ConnectedBadge(username: receiverUsername!),
-                    if (tofuStatus != null) ...[
-                      const SizedBox(height: 8),
-                      _TofuStatusBanner(
-                        status: tofuStatus!,
-                        onVerify: onVerify,
-                      ),
-                    ],
-                  ],
-                )
+              ? _ConnectedBadge(username: receiverUsername!)
               : _WaitingForReceiverWidget(
                   secondsRemaining: secondsRemaining,
                   timerRunning: timerRunning,
@@ -1119,7 +878,6 @@ class _StepsBlock extends StatelessWidget {
   // Step 3
   final bool encryptingKey;
   final bool readyToSend;
-  final TofuStatus? tofuStatus;
   final String? receiverUsername;
   final VoidCallback? onEncryptKey;
   // Step 4
@@ -1140,7 +898,6 @@ class _StepsBlock extends StatelessWidget {
     required this.onEncryptFile,
     required this.encryptingKey,
     required this.readyToSend,
-    required this.tofuStatus,
     required this.receiverUsername,
     required this.onEncryptKey,
     required this.onSend,

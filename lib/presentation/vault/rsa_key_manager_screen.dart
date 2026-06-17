@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/biometric_helper.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
-import '../../core/utils/tofu_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../widgets/shared_widgets.dart';
@@ -48,10 +47,19 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
     }
   }
 
-  // Uses TofuService.displayFingerprint() so Key Vault and sender Verify dialog
-  // show the same grouped format ("AB12 CD34 EF56 7890") for side-by-side comparison.
-  String _fingerprint(String publicKeyJson) =>
-      TofuService.displayFingerprint(publicKeyJson);
+  // SHA-256 fingerprint displayed as 4 groups of 4 uppercase hex chars ("AB12 CD34 EF56 7890").
+  // Delegates to AuthRepository.computeFingerprint — same hash used everywhere.
+  String _fingerprint(String publicKeyJson) {
+    final hex = AuthRepository.computeFingerprint(publicKeyJson)
+        .substring(0, 16)
+        .toUpperCase();
+    return [
+      hex.substring(0, 4),
+      hex.substring(4, 8),
+      hex.substring(8, 12),
+      hex.substring(12, 16),
+    ].join(' ');
+  }
 
   Future<void> _onRegenerate({required bool hasKey}) async {
     final uid = _authRepo.currentUid;
@@ -77,51 +85,35 @@ class _RsaKeyManagerScreenState extends State<RsaKeyManagerScreen>
 
     setState(() => _regenerating = true);
 
-    // Track if the progress dialog was shown (for safe cleanup)
-    bool dialogShown = false;
-
-    try {
-      // Schedule the dialog to show
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Show dialog after rebuild, then do the work inside the callback so the
+    // dialog is guaranteed to be on the navigator stack before regeneration
+    // starts — eliminating the race where compute() finished before the
+    // addPostFrameCallback fired and Navigator.pop() was skipped.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _showProgressDialog('Generating RSA-2048 keypair…');
+      try {
+        await _authRepo.regenerateKeyPair(uid);
         if (mounted) {
-          _showProgressDialog('Generating RSA-2048 keypair…');
-          dialogShown = true;
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('RSA keys regenerated successfully.'),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+            ),
+          );
+          await Future.delayed(const Duration(milliseconds: 300));
+          if (mounted && Navigator.canPop(context)) Navigator.pop(context);
         }
-      });
-
-      // Do the actual work
-      await _authRepo.regenerateKeyPair(uid);
-
-      if (mounted) {
-        // Only dismiss the dialog if it was actually shown
-        if (dialogShown && Navigator.canPop(context)) {
-          Navigator.pop(context);
+      } catch (e) {
+        if (mounted) {
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          _showError(e.toString());
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('RSA keys regenerated successfully.'),
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-          ),
-        );
-
-        // Give the snackbar time to display before closing
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        if (mounted && Navigator.canPop(context)) {
-          Navigator.pop(context); // close RsaKeyManagerScreen to return to ReceiverScreen
-        }
+      } finally {
+        if (mounted) setState(() => _regenerating = false);
       }
-    } catch (e) {
-      if (mounted) {
-        if (dialogShown && Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
-        _showError(e.toString());
-      }
-    } finally {
-      if (mounted) setState(() => _regenerating = false);
-    }
+    });
   }
 
   Future<void> _onDelete() async {

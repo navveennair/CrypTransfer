@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
-import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../../data/services/encryption_service.dart';
@@ -39,8 +38,6 @@ class SenderState {
   final bool receiverReady;
   final int secondsRemaining;
   final bool timerRunning;
-  final TofuStatus? tofuStatus;
-  final String? receiverFingerprint;
 
   const SenderState({
     this.file,
@@ -56,8 +53,6 @@ class SenderState {
     this.receiverReady = false,
     this.secondsRemaining = 60,
     this.timerRunning = false,
-    this.tofuStatus,
-    this.receiverFingerprint,
   });
 
   bool get receiverSelected => receiverId != null;
@@ -79,8 +74,6 @@ class SenderState {
     bool? receiverReady,
     int? secondsRemaining,
     bool? timerRunning,
-    Object? tofuStatus = _sentinel,
-    Object? receiverFingerprint = _sentinel,
   }) {
     return SenderState(
       file: file == _sentinel ? this.file : file as PlatformFile?,
@@ -96,8 +89,6 @@ class SenderState {
       receiverReady: receiverReady ?? this.receiverReady,
       secondsRemaining: secondsRemaining ?? this.secondsRemaining,
       timerRunning: timerRunning ?? this.timerRunning,
-      tofuStatus: tofuStatus == _sentinel ? this.tofuStatus : tofuStatus as TofuStatus?,
-      receiverFingerprint: receiverFingerprint == _sentinel ? this.receiverFingerprint : receiverFingerprint as String?,
     );
   }
 }
@@ -113,7 +104,6 @@ typedef SenderSuccessCallback = void Function(String msg);
 typedef SenderInfoCallback = void Function(String msg);
 typedef SenderEjectCallback = void Function();
 typedef SenderAbortNavigateCallback = void Function(String msg);
-typedef SenderKeyChangedCallback = void Function(String uid, String keyJson);
 
 // ─── SenderController ─────────────────────────────────────────────────────────
 
@@ -153,9 +143,6 @@ class SenderController {
   /// The controller has already written the abort audit log; the widget must
   /// show [msg] and then navigate.
   late SenderAbortNavigateCallback onAbortNavigate;
-
-  /// Called when TOFU detects a changed key — widget must show the warning dialog.
-  late SenderKeyChangedCallback onKeyChanged;
 
   // ─── Buffer wipe callback (SecurityLifecycleMixin stays on widget) ─────────
 
@@ -308,9 +295,6 @@ class SenderController {
         ));
         _streamSettled = true;
         _everConnected = true;
-        if (publicKey != previousPublicKey || s.tofuStatus == null) {
-          _checkTofuStatus(receiverId, publicKey);
-        }
 
         if (isReconnect) {
           onSuccess('Connection re-established with @$receiverUsername — new RSA key received.');
@@ -366,8 +350,6 @@ class SenderController {
       receiverReady: false,
       secondsRemaining: 60,
       timerRunning: false,
-      tofuStatus: null,
-      receiverFingerprint: null,
     ));
     // Only restart the timer if we have a known receiver to wait for.
     if (state.receiverId != null) {
@@ -655,37 +637,6 @@ class SenderController {
         // Best-effort — don't block navigation on a log write failure.
       }
     }
-  }
-
-  // ─── TOFU ─────────────────────────────────────────────────────────────────
-
-  Future<void> _checkTofuStatus(String receiverUid, String publicKeyJson) async {
-    final status = await TofuService.check(receiverUid, publicKeyJson);
-    if (status == TofuStatus.firstContact) {
-      await TofuService.pin(receiverUid, publicKeyJson);
-    }
-    if (_disposed) return;
-    if (status == TofuStatus.keyChanged) {
-      _update(state.copyWith(tofuStatus: TofuStatus.keyChanged));
-      onKeyChanged(receiverUid, publicKeyJson);
-    } else {
-      final fp = TofuService.displayFingerprint(publicKeyJson);
-      _update(state.copyWith(tofuStatus: status, receiverFingerprint: fp));
-    }
-  }
-
-  /// Called by the widget when the user confirms a changed TOFU key in the
-  /// dialog (both repin and markVerified have already been called by the widget).
-  void onTofuKeyConfirmed(String fingerprint) {
-    _update(state.copyWith(
-      tofuStatus: TofuStatus.verified,
-      receiverFingerprint: fingerprint,
-    ));
-  }
-
-  /// Called by the widget when the user confirms identity in the verify dialog.
-  void onTofuVerified() {
-    _update(state.copyWith(tofuStatus: TofuStatus.verified));
   }
 
   // ─── Dispose ──────────────────────────────────────────────────────────────
