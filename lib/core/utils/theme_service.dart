@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeService extends ChangeNotifier {
   static const String _key = 'theme_mode';
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs; // nullable to guard against calls before async load completes (WR-001)
   ThemeMode _themeMode = ThemeMode.system;
 
   ThemeService() {
@@ -14,7 +14,7 @@ class ThemeService extends ChangeNotifier {
 
   Future<void> _loadFromPrefs() async {
     _prefs = await SharedPreferences.getInstance();
-    final String? themeStr = _prefs.getString(_key);
+    final String? themeStr = _prefs!.getString(_key);
     if (themeStr == 'light') {
       _themeMode = ThemeMode.light;
     } else if (themeStr == 'dark') {
@@ -33,6 +33,10 @@ class ThemeService extends ChangeNotifier {
         : mode == ThemeMode.dark
             ? 'dark'
             : 'system';
-    await _prefs.setString(_key, themeStr);
+    // Use cached _prefs if available; otherwise await a fresh instance.
+    // This prevents a LateInitializationError if setThemeMode is called
+    // before _loadFromPrefs() completes (WR-001 fix).
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setString(_key, themeStr);
   }
 }
