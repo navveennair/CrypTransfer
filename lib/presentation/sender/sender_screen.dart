@@ -1,32 +1,16 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/firebase_constants.dart';
 import '../../core/utils/biometric_helper.dart';
+import '../../core/utils/security_lifecycle_mixin.dart';
 import '../../core/utils/tofu_service.dart';
 import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
-import '../../core/utils/security_lifecycle_mixin.dart';
-import '../../data/services/encryption_service.dart';
-import '../../data/services/transfer_service.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
+import 'sender_controller.dart';
 import 'sender_transfer_screen.dart';
-
-// ─── Isolate-safe RSA-OAEP encrypt ───────────────────────────────────────────
-
-Uint8List _rsaOaepEncryptIsolate(List<dynamic> args) {
-  final publicKeyJson = args[0] as String;
-  final data = args[1] as Uint8List;
-  final key = EncryptionService.decodePublicKey(publicKeyJson);
-  return EncryptionService.rsaEncrypt(key, data);
-}
 
 // ─── Widget ──────────────────────────────────────────────────────────────────
 
@@ -48,443 +32,46 @@ class SenderScreen extends StatefulWidget {
 
 class _SenderScreenState extends State<SenderScreen>
     with SecurityLifecycleMixin<SenderScreen> {
-  final _connService = KeyRepository();
-  final _transferRepo = TransferRepository();
-
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _handshakeSub;
-  String? _selectedReceiverPublicKeyJson;
-
-  PlatformFile? _file;
-
-  Uint8List? _encryptedBytes;
-  Uint8List? _aesKey;
-  Uint8List? _iv;
-
-  String? _receiverId;
-  String? _receiverUsername;
-  Uint8List? _encryptedAESKey;
-
-  bool _encrypting = false;
-  bool _encryptingKey = false;
-  double _encryptionProgress = 0.0;
-
-  // Broadcast stream so the progress indicator always gets the latest value.
-  final _progressCtrl = StreamController<double>.broadcast();
-  StreamSubscription<double>? _progressSub;
-
-  bool get _receiverSelected => _receiverId != null;
-  bool get _fileSelected => _file != null;
-  bool get _fileEncrypted => _encryptedBytes != null;
-  bool get _readyToSend => _encryptedAESKey != null;
-
-  // Phase 6 — receiver readiness gate
-  bool _receiverReady = false;
-  Timer? _readinessTimer;
-  int _secondsRemaining = 60;
-  bool _streamSettled = false;   // CR-01: suppress cold-start empty-snapshot eject
-  bool _everConnected = false;   // true after first successful handshake; used to detect reconnects
-
-  TofuStatus? _tofuStatus;
-  String? _receiverFingerprint;
-  String? _handshakeDocId;
+  late final SenderController _controller;
 
   @override
   void initState() {
     super.initState();
-    _handshakeDocId = widget.handshakeDocId;
-    _startHandshakeListener();
-    if (widget.preFilledPartnerUid != null) {
-      // Pre-fill from Active Connection role picker (D-13):
-      // partner UID is already known; skip _FindSenderSheet.
-      // The handshake stream still runs so the RSA key arrives
-      // reactively when the partner opens ReceiverScreen.
-      setState(() {
-        _receiverId = widget.preFilledPartnerUid;
-        _receiverUsername = widget.preFilledPartnerUsername ?? 'Partner';
-      });
-    }
-    _progressSub = _progressCtrl.stream.listen((p) {
-      if (mounted) setState(() => _encryptionProgress = p);
+    _controller = SenderController(
+      connService: KeyRepository(),
+      transferRepo: TransferRepository(),
+      preFilledPartnerUid: widget.preFilledPartnerUid,
+      preFilledPartnerUsername: widget.preFilledPartnerUsername,
+      initialHandshakeDocId: widget.handshakeDocId,
+    );
+
+    // Wire controller callbacks → widget UI actions
+    _controller.onError = (msg, {Duration? duration, bool clear = false}) =>
+        _showError(msg, duration: duration, clear: clear);
+    _controller.onSuccess = _showSuccess;
+    _controller.onInfo = _showInfo;
+    _controller.onEject = _ejectToHomeScreen;
+    _controller.onAbortNavigate = _navigateHomeAfterAbort;
+    _controller.onKeyChanged = _showKeyChangedDialog;
+    _controller.onBuffersWipe = wipeAll;
+    _controller.onRegisterBuffer = registerBuffer;
+    _controller.onUnregisterBuffer = unregisterBuffer;
+
+    // Rebuild widget whenever controller state changes
+    _controller.stateNotifier.addListener(() {
+      if (mounted) setState(() {});
     });
+
+    _controller.init();
   }
 
   @override
   void dispose() {
-    _handshakeSub?.cancel();
-    _progressSub?.cancel();
-    _progressCtrl.close();
-    _readinessTimer?.cancel();
-    // If sender leaves before a handshake was created, clearTransferRoles is never
-    // called — clear the Firestore claim directly so the partner's Send File unblocks.
-    if (_handshakeDocId == null) {
-      _connService.clearSenderClaim();
-    }
+    _controller.dispose();
     super.dispose();
   }
 
-  void _startHandshakeListener() {
-    _handshakeSub = _connService.streamHandshakesForSender().listen(
-      _onHandshakeUpdate,
-      onError: (error) {
-        _showError('Stream error: $error', duration: const Duration(seconds: 5));
-      },
-    );
-  }
-
-  void _onHandshakeUpdate(
-      QuerySnapshot<Map<String, dynamic>> snap) {
-    if (!mounted) return;
-
-    // Once paired with a specific receiver, only process their doc.
-    // Before pairing (discovery mode), accept the first doc in the snapshot.
-    // This prevents a stale or concurrent handshake doc from a different
-    // receiver being processed, and ensures TOFU checks target the right key.
-    final knownReceiverId = _receiverId ?? widget.preFilledPartnerUid;
-    final relevantDocs = knownReceiverId != null
-        ? snap.docs
-            .where((d) =>
-                (d.data()['receiverId'] as String?) == knownReceiverId)
-            .toList()
-        : snap.docs;
-
-    if (relevantDocs.isEmpty) {
-      // CR-01: skip the first empty snapshot (Firestore stream fires synchronously
-      // on subscription before any data has loaded — treat it as settled and return).
-      if (!_streamSettled) {
-        _streamSettled = true;
-        return;
-      }
-      // Don't wipe mid-encryption — let the compute() isolate finish so the
-      // user doesn't lose their progress silently.
-      if (_encrypting || _encryptingKey) return;
-      _readinessTimer?.cancel();
-      _readinessTimer = null;
-      _ejectToHomeScreen();
-      return;
-    } else {
-      final docId = relevantDocs.first.id;
-      final doc = relevantDocs.first.data();
-      final receiverId = doc['receiverId'] as String? ?? '';
-      // 'receiverUsername' is the canonical field (written by updated key_repository).
-      // Fall back to legacy 'fromUsername' for documents created before this fix.
-      final receiverUsername = doc['receiverUsername'] as String?
-          ?? doc['fromUsername'] as String?
-          ?? 'Unknown';
-      final publicKey = doc['publicKey'] as String?;
-      final status = doc['status'] as String? ?? '';
-
-      // Role validation: verify senderUid matches current user if assigned
-      final assignedSenderUid = doc['senderUid'] as String?;
-      if (assignedSenderUid != null && assignedSenderUid.isNotEmpty) {
-        final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        if (assignedSenderUid != currentUid) {
-          _revertToWaiting();
-          _showError('Role conflict — partner also chose Sender. Go back and pick again.');
-          return;
-        }
-      }
-
-      if (publicKey != null &&
-          publicKey.isNotEmpty &&
-          status == 'handshake_complete' &&
-          receiverId.isNotEmpty) {
-        // FIX 2: assignTransferRole() now returns empty string (no Firestore write).
-        // Accept the stream-discovered docId regardless of what we got from HomeScreen.
-        if (_handshakeDocId == null || _handshakeDocId!.isEmpty) {
-          _handshakeDocId = docId;
-        }
-        final previousPublicKey = _selectedReceiverPublicKeyJson;
-        final isReconnect = _everConnected && _selectedReceiverPublicKeyJson == null;
-        setState(() {
-          _receiverId = receiverId;
-          _receiverUsername = receiverUsername;
-          _selectedReceiverPublicKeyJson = publicKey;
-        });
-        _streamSettled = true;   // CR-01: stream has produced a non-empty doc; cold-start phase over
-        _everConnected = true;
-        if (publicKey != previousPublicKey || _tofuStatus == null) {
-          _checkTofuStatus(receiverId, publicKey);
-        }
-
-        if (isReconnect) {
-          _showSuccess('Connection re-established with @$receiverUsername — new RSA key received.');
-        }
-
-        // Skip stale-key check if encryption is already in flight.
-        if (_encrypting || _encryptingKey) return;
-
-        // Receiver's public key rotated after we already encrypted — wipe stale AES key.
-        if (previousPublicKey != null &&
-            publicKey != previousPublicKey &&
-            _encryptedAESKey != null) {
-          _wipeSensitiveData();
-          _showError('Receiver key changed — re-encrypt required.',
-              duration: const Duration(seconds: 6), clear: true);
-        }
-
-        // Parse receiverReady from handshake doc (set automatically if mailbox is open)
-        final receiverReady = doc['receiverReady'] as bool? ?? false;
-
-        if (_receiverSelected && !_receiverReady && _readinessTimer == null) {
-          _startReadinessTimer();
-        }
-
-        if (!_receiverReady && receiverReady) {
-          _onReceiverBecameReady();
-        } else if (_receiverReady != receiverReady) {
-          // Don't wipe mid-encryption — compute() is in flight.
-          if (_encrypting || _encryptingKey) return;
-          _revertToWaiting();
-          _showInfo('Receiver closed their mailbox — waiting for confirmation.');
-        }
-      }
-    }
-  }
-
-  void _revertToWaiting() {
-    _readinessTimer?.cancel();  // Phase 6 addition
-    _readinessTimer = null;     // Phase 6 addition
-    _wipeSensitiveData();
-    if (mounted) {
-      setState(() {
-        // Preserve pre-fill so the sender stays targeted at the intended partner
-        // after the receiver temporarily closes their session (WR-07 fix).
-        _receiverId = widget.preFilledPartnerUid;
-        _receiverUsername = widget.preFilledPartnerUsername ?? 'Partner';
-        _selectedReceiverPublicKeyJson = null;
-        _file = null;
-        _encryptedAESKey = null;
-        _encrypting = false;
-        _encryptingKey = false;
-        _receiverReady = false;     // Phase 6 addition
-        _secondsRemaining = 60;     // Phase 6 addition
-        _streamSettled = false;   // CR-01: allow next reconnect to re-settle
-        _tofuStatus = null;
-        _receiverFingerprint = null;
-      });
-      // Only restart the timer if we have a known receiver to wait for.
-      // In discovery mode (no pre-filled partner), don't start the timer.
-      if (_receiverId != null) {
-        _startReadinessTimer();
-      }
-    }
-  }
-
-  Future<void> _pickFile() async {
-    _wipeSensitiveData();
-    try {
-      final result = await FilePicker.pickFiles(withData: kIsWeb);
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.first;
-      if (file.size > FirebaseConstants.maxDownloadBytes) {
-        _showError(
-          'File too large — maximum is 100 MB '
-          '(${(file.size / (1024 * 1024)).toStringAsFixed(1)} MB selected)',
-        );
-        return;
-      }
-      if (!kIsWeb && file.path == null) {
-        _showError("This file type isn't supported — try saving it locally first.");
-        return;
-      }
-      setState(() {
-        _file = file;
-        _encryptedBytes = null;
-        _aesKey = null;
-        _iv = null;
-        _encryptedAESKey = null;
-      });
-    } catch (e) {
-      if (mounted) _showError('Could not open file picker: $e');
-    }
-  }
-
-  Future<void> _encryptFile() async {
-    final file = _file;
-    if (file == null) return;
-    setState(() {
-      _encrypting = true;
-      _encryptionProgress = 0.0;
-    });
-
-    if (!await SecurityLifecycleMixin.isFlagSecureActive()) {
-      if (mounted) {
-        setState(() => _encrypting = false);
-        _showError(
-          'Screen is not protected. Cannot process file on an unsecured window.',
-        );
-      }
-      return;
-    }
-
-    try {
-      // ── Phase 1: read file (0 → 70%) ────────────────────────────────
-      Uint8List plaintext;
-      if (!kIsWeb && file.path != null && file.path!.isNotEmpty) {
-        plaintext = await TransferService.readFileWithProgress(
-          file.path!,
-          (p) => _progressCtrl.add(p * 0.7), // 0 → 70%
-        );
-      } else {
-        plaintext = file.bytes ?? Uint8List(0);
-        _progressCtrl.add(0.7);
-      }
-      registerBuffer(plaintext);
-
-      // ── Phase 2: AES-256-GCM in compute() isolate (70 → 100%) ───────
-      final result = await EncryptionService.encryptAesGcm(plaintext);
-      registerBuffer(result.key);
-      registerBuffer(result.iv);
-      registerBuffer(result.ciphertext);
-      _progressCtrl.add(1.0);
-
-      plaintext.fillRange(0, plaintext.length, 0);
-      unregisterBuffer(plaintext);
-
-      if (mounted) {
-        setState(() {
-          _aesKey = result.key;
-          _iv = result.iv;
-          _encryptedBytes = result.ciphertext;
-          _encryptedAESKey = null;
-          _encrypting = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _encrypting = false);
-        _showError('Encryption failed: $e');
-      }
-    }
-  }
-
-  Future<void> _encryptAesKey() async {
-    if (_encryptingKey) return;
-    final aesKey = _aesKey;
-    final publicKeyJson = _selectedReceiverPublicKeyJson;
-    final receiverId = _receiverId;
-    if (aesKey == null) {
-      _showError('Encrypt the file first (Step 2).');
-      return;
-    }
-    if (publicKeyJson == null || receiverId == null) {
-      _showError('Select a receiver first (Step 0).');
-      return;
-    }
-
-    // Pre-emptive freshness check: confirm the cached public key is still live
-    // in Firestore before showing the biometric prompt.  The reactive stream has
-    // ~1-2 s latency; without this gate the sender can encrypt with a stale key
-    // in the window between the receiver closing their mailbox and the stream
-    // delivering the null snapshot.
-    try {
-      final liveKey = await _connService.fetchHandshakePublicKey(receiverId);
-      if (!mounted) return;
-      if (liveKey == null || liveKey != publicKeyJson) {
-        _wipeSensitiveData();
-        final msg = liveKey == null
-            ? 'Session ended — receiver closed their mailbox.'
-            : 'Receiver key changed — re-encrypt required.';
-        await _writeAbortAndNavigateHome(
-          receiverId: receiverId,
-          receiverUsername: _receiverUsername ?? 'Unknown',
-          msg: msg,
-        );
-        return;
-      }
-    } catch (_) {
-      if (!mounted) return;
-      _showError('Could not verify receiver key. Please try again.');
-      return;
-    }
-
-    setState(() => _encryptingKey = true);
-    final ok = await BiometricHelper.authenticate(
-        'Authenticate to encrypt the AES key for '
-        '${_receiverUsername ?? "receiver"}');
-    if (!mounted) return;
-    if (!ok) {
-      setState(() => _encryptingKey = false);
-      _showError('Authentication failed or was cancelled. Tap to retry.');
-      return;
-    }
-    try {
-      final encryptedAESKey = await compute(
-        _rsaOaepEncryptIsolate,
-        [publicKeyJson, aesKey],
-      );
-      registerBuffer(encryptedAESKey);
-      if (mounted) {
-        setState(() {
-          _encryptedAESKey = encryptedAESKey;
-          _encryptingKey = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _encryptingKey = false);
-        _showError('RSA encryption failed: $e');
-      }
-    }
-  }
-
-  void _send() {
-    final file = _file;
-    final encryptedBytes = _encryptedBytes;
-    final encryptedAESKey = _encryptedAESKey;
-    final iv = _iv;
-    final receiverId = _receiverId;
-    final receiverUsername = _receiverUsername;
-    final senderId = FirebaseAuth.instance.currentUser?.uid;
-
-    if (file == null ||
-        encryptedBytes == null ||
-        encryptedAESKey == null ||
-        iv == null ||
-        receiverId == null ||
-        receiverUsername == null ||
-        senderId == null) {
-      return;
-    }
-
-    final transferId = _transferRepo.generateId();
-
-    final encryptedAESKeyB64 = base64Encode(encryptedAESKey);
-    final ivB64 = base64Encode(iv);
-    final encryptedBytesCopy = Uint8List.fromList(encryptedBytes);
-
-    _wipeSensitiveData();
-
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, anim, _) => SenderTransferScreen(
-          transferId: transferId,
-          encryptedBytes: encryptedBytesCopy,
-          fileName: file.name,
-          fileSize: file.size,
-          receiverUsername: receiverUsername,
-          receiverId: receiverId,
-          senderId: senderId,
-          encryptedAESKeyB64: encryptedAESKeyB64,
-          ivB64: ivB64,
-        ),
-        transitionsBuilder: (_, anim, _, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
-  }
-
-  void _wipeSensitiveData() {
-    _aesKey?.fillRange(0, _aesKey!.length, 0);
-    _iv?.fillRange(0, _iv!.length, 0);
-    _encryptedBytes?.fillRange(0, _encryptedBytes!.length, 0);
-    _aesKey = null;
-    _iv = null;
-    _encryptedBytes = null;
-    _encryptedAESKey = null;
-    wipeAll();
-  }
+  // ─── SnackBar helpers ─────────────────────────────────────────────────────
 
   void _showError(String msg, {Duration? duration, bool clear = false}) {
     if (!mounted) return;
@@ -498,7 +85,8 @@ class _SenderScreenState extends State<SenderScreen>
     ));
   }
 
-  void _showSuccess(String msg, {Duration duration = const Duration(seconds: 4)}) {
+  void _showSuccess(String msg,
+      {Duration duration = const Duration(seconds: 4)}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
@@ -516,36 +104,9 @@ class _SenderScreenState extends State<SenderScreen>
     ));
   }
 
-  void _startReadinessTimer() {
-    _secondsRemaining = 60;
-    _readinessTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() => _secondsRemaining--);
-      if (_secondsRemaining == 10) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Receiver not ready — session closing in 10 seconds.'),
-          duration: Duration(seconds: 9),
-        ));
-      }
-      if (_secondsRemaining <= 0) {
-        _readinessTimer?.cancel();
-        _readinessTimer = null;
-        _ejectToHomeScreen();
-      }
-    });
-  }
-
-  void _onReceiverBecameReady() {
-    _readinessTimer?.cancel();
-    _readinessTimer = null;
-    setState(() {
-      _receiverReady = true;
-    });
-    _showSuccess('Secure channel established. Receiver is ready.');
-  }
+  // ─── Navigation helpers ───────────────────────────────────────────────────
 
   void _ejectToHomeScreen() {
-    _wipeSensitiveData();
     _showError('Session Terminated — receiver closed the session.',
         duration: const Duration(seconds: 5));
     if (!mounted) return;
@@ -556,33 +117,7 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
-  /// Writes an aborted audit log to both users, shows an error snackbar, then
-  /// navigates the sender back to HomeScreen.  Called from the pre-emptive
-  /// stale-key gate in _encryptAesKey() — no transfer doc exists at this point.
-  Future<void> _writeAbortAndNavigateHome({
-    required String receiverId,
-    required String receiverUsername,
-    required String msg,
-  }) async {
-    final senderId = FirebaseAuth.instance.currentUser?.uid;
-    final senderUsername =
-        FirebaseAuth.instance.currentUser?.displayName ?? '';
-    final fileName = _file?.name ?? '';
-    final fileSize = _file?.size ?? 0;
-    if (senderId != null && fileName.isNotEmpty) {
-      try {
-        await _transferRepo.writeAbortAuditLog(
-          senderId: senderId,
-          receiverId: receiverId,
-          senderUsername: senderUsername,
-          receiverUsername: receiverUsername,
-          fileName: fileName,
-          fileSize: fileSize,
-        );
-      } catch (_) {
-        // Best-effort — don't block navigation on a log write failure.
-      }
-    }
+  void _navigateHomeAfterAbort(String msg) {
     _showError(msg, duration: const Duration(seconds: 5), clear: true);
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
@@ -592,27 +127,35 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
-  Future<void> _checkTofuStatus(String receiverUid, String publicKeyJson) async {
-    final status = await TofuService.check(receiverUid, publicKeyJson);
-    if (status == TofuStatus.firstContact) {
-      await TofuService.pin(receiverUid, publicKeyJson);
-    }
-    if (!mounted) return;
-    if (status == TofuStatus.keyChanged) {
-      setState(() => _tofuStatus = TofuStatus.keyChanged);
-      _showKeyChangedDialog(receiverUid, publicKeyJson);
-    } else {
-      final fp = TofuService.displayFingerprint(publicKeyJson);
-      setState(() {
-        _tofuStatus = status;
-        _receiverFingerprint = fp;
-      });
-    }
+  void _send() {
+    final args = _controller.buildSendArgs();
+    if (args == null) return;
+
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, anim, _) => SenderTransferScreen(
+          transferId: args.transferId,
+          encryptedBytes: args.encryptedBytesCopy,
+          fileName: args.fileName,
+          fileSize: args.fileSize,
+          receiverUsername: args.receiverUsername,
+          receiverId: args.receiverId,
+          senderId: args.senderId,
+          encryptedAESKeyB64: args.encryptedAESKeyB64,
+          ivB64: args.ivB64,
+        ),
+        transitionsBuilder: (_, anim, _, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
   }
 
+  // ─── TOFU dialogs ─────────────────────────────────────────────────────────
+
   void _showVerifyDialog() {
-    final receiverId = _receiverId;
-    final fp = _receiverFingerprint;
+    final receiverId = _controller.state.receiverId;
+    final fp = _controller.state.receiverFingerprint;
     if (receiverId == null || fp == null) return;
     showDialog<void>(
       context: context,
@@ -650,7 +193,7 @@ class _SenderScreenState extends State<SenderScreen>
             onPressed: () async {
               await TofuService.markVerified(receiverId);
               if (!mounted) return;
-              setState(() => _tofuStatus = TofuStatus.verified);
+              _controller.onTofuVerified();
               Navigator.pop(context);
             },
             color: Theme.of(context).colorScheme.tertiary,
@@ -725,7 +268,7 @@ class _SenderScreenState extends State<SenderScreen>
             label: const Text('Cancel'),
             onPressed: () {
               Navigator.pop(context);
-              _revertToWaiting();
+              _controller.revertToWaiting();
             },
             color: cs.onSurfaceVariant,
             height: 44,
@@ -737,10 +280,7 @@ class _SenderScreenState extends State<SenderScreen>
               await TofuService.repin(uid, keyJson);
               await TofuService.markVerified(uid);
               if (!mounted) return;
-              setState(() {
-                _tofuStatus = TofuStatus.verified;
-                _receiverFingerprint = fp;
-              });
+              _controller.onTofuKeyConfirmed(fp);
               Navigator.pop(context);
             },
             color: cs.error,
@@ -751,18 +291,24 @@ class _SenderScreenState extends State<SenderScreen>
     );
   }
 
+  // ─── build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final s = _controller.state;
     return PopScope(
-      canPop: !_encrypting && !_encryptingKey,
+      canPop: !s.encrypting && !s.encryptingKey,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) {
-          _wipeSensitiveData();
+          _controller.wipeSensitiveData();
           // Clear transfer roles if assigned (returns user to role picker)
-          if (_handshakeDocId != null) {
-            _connService.clearTransferRoles(handshakeDocId: _handshakeDocId!);
+          if (_controller.handshakeDocId != null) {
+            _controller.connService
+                .clearTransferRoles(handshakeDocId: _controller.handshakeDocId!);
           }
-        } else if (_handshakeDocId != null && !_encrypting && !_encryptingKey) {
+        } else if (_controller.handshakeDocId != null &&
+            !s.encrypting &&
+            !s.encryptingKey) {
           // Show confirmation dialog for role clearing
           showDialog(
             context: context,
@@ -776,17 +322,23 @@ class _SenderScreenState extends State<SenderScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_back_rounded, size: 48, color: Theme.of(ctx).colorScheme.primary),
+                    Icon(Icons.arrow_back_rounded,
+                        size: 48,
+                        color: Theme.of(ctx).colorScheme.primary),
                     const SizedBox(height: 16),
                     Text(
                       'Go Back?',
-                      style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(ctx)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'Going back will clear your role assignment. The connection will remain.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+                      style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 32),
                     Row(
@@ -807,8 +359,8 @@ class _SenderScreenState extends State<SenderScreen>
                             onPressed: () async {
                               Navigator.pop(ctx);
                               final nav = Navigator.of(context);
-                              await _connService.clearTransferRoles(
-                                  handshakeDocId: _handshakeDocId!);
+                              await _controller.connService.clearTransferRoles(
+                                  handshakeDocId: _controller.handshakeDocId!);
                               if (mounted) nav.pop();
                             },
                           ),
@@ -835,37 +387,37 @@ class _SenderScreenState extends State<SenderScreen>
               const _WelcomeBanner(),
               const SizedBox(height: 32),
               _Step0ConnectionStatus(
-                receiverSelected: _receiverSelected,
-                receiverReady: _receiverReady,
-                receiverUsername: _receiverUsername,
-                secondsRemaining: _secondsRemaining,
-                timerRunning: _readinessTimer != null,
-                tofuStatus: _tofuStatus,
+                receiverSelected: s.receiverSelected,
+                receiverReady: s.receiverReady,
+                receiverUsername: s.receiverUsername,
+                secondsRemaining: s.secondsRemaining,
+                timerRunning: s.timerRunning,
+                tofuStatus: s.tofuStatus,
                 onVerify: _showVerifyDialog,
               ),
               const SizedBox(height: 16),
               _StepsBlock(
-                receiverReady: _receiverReady,
-                receiverSelected: _receiverSelected,
-                fileSelected: _fileSelected,
-                fileEncrypted: _fileEncrypted,
-                file: _file,
-                onPickFile: _receiverSelected ? _pickFile : null,
-                encrypting: _encrypting,
-                encryptionProgress: _encryptionProgress,
-                aesKey: _aesKey,
-                iv: _iv,
-                encryptedBytes: _encryptedBytes,
-                onEncryptFile: _fileSelected ? _encryptFile : null,
-                encryptingKey: _encryptingKey,
-                readyToSend: _readyToSend,
-                tofuStatus: _tofuStatus,
-                receiverUsername: _receiverUsername,
-                onEncryptKey: _fileEncrypted &&
-                              !_encryptingKey &&
-                              _tofuStatus != null &&
-                              _tofuStatus != TofuStatus.keyChanged
-                    ? _encryptAesKey
+                receiverReady: s.receiverReady,
+                receiverSelected: s.receiverSelected,
+                fileSelected: s.fileSelected,
+                fileEncrypted: s.fileEncrypted,
+                file: s.file,
+                onPickFile: s.receiverSelected ? _controller.pickFile : null,
+                encrypting: s.encrypting,
+                encryptionProgress: s.encryptionProgress,
+                aesKey: s.aesKey,
+                iv: s.iv,
+                encryptedBytes: s.encryptedBytes,
+                onEncryptFile: s.fileSelected ? _controller.encryptFile : null,
+                encryptingKey: s.encryptingKey,
+                readyToSend: s.readyToSend,
+                tofuStatus: s.tofuStatus,
+                receiverUsername: s.receiverUsername,
+                onEncryptKey: s.fileEncrypted &&
+                        !s.encryptingKey &&
+                        s.tofuStatus != null &&
+                        s.tofuStatus != TofuStatus.keyChanged
+                    ? () => _controller.encryptAesKey(BiometricHelper.authenticate)
                     : null,
                 onSend: _send,
               ),
@@ -978,9 +530,11 @@ class _WaitingForConnectionWidgetState
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: cs.primary.withValues(alpha: 0.1),
-                  border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 2),
+                  border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.2), width: 2),
                 ),
-                child: Icon(Icons.wifi_tethering_rounded, color: cs.primary, size: 32),
+                child:
+                    Icon(Icons.wifi_tethering_rounded, color: cs.primary, size: 32),
               ),
             ),
           ),
@@ -1042,8 +596,7 @@ class _ConnectedBadge extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Secure channel open with @$username',
-                  style: TextStyle(
-                      fontSize: 12, color: cs.secondary),
+                  style: TextStyle(fontSize: 12, color: cs.secondary),
                 ),
               ],
             ),
@@ -1093,8 +646,7 @@ class _FileCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   _fmtSize(file.size),
-                  style:
-                      TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                 ),
               ],
             ),
@@ -1105,7 +657,9 @@ class _FileCard extends StatelessWidget {
   }
 
   IconData _extIcon(String ext) {
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) return Icons.image_rounded;
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+      return Icons.image_rounded;
+    }
     if (['mp4', 'mov', 'avi'].contains(ext)) return Icons.video_file_rounded;
     if (['mp3', 'wav', 'flac'].contains(ext)) return Icons.audio_file_rounded;
     if (ext == 'pdf') return Icons.picture_as_pdf_rounded;
@@ -1194,7 +748,9 @@ class _Row extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
           Text(value,
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface)),
         ],
       ),
     );
@@ -1216,21 +772,28 @@ class _ReceiverBadge extends StatelessWidget {
       borderColor: cs.primary.withValues(alpha: 0.2),
       child: Row(
         children: [
-          Icon(Icons.person_pin_rounded,
-              color: cs.primary, size: 20),
+          Icon(Icons.person_pin_rounded, color: cs.primary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(text: 'Encrypted for ', style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.7))),
-                  TextSpan(text: '@$username', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  TextSpan(
+                      text: 'Encrypted for ',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurface.withValues(alpha: 0.7))),
+                  TextSpan(
+                      text: '@$username',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface)),
                 ],
               ),
             ),
           ),
-          Icon(Icons.check_circle_rounded,
-              color: cs.secondary, size: 20),
+          Icon(Icons.check_circle_rounded, color: cs.secondary, size: 20),
         ],
       ),
     );
@@ -1240,7 +803,8 @@ class _ReceiverBadge extends StatelessWidget {
 class _WaitingForReceiverWidget extends StatefulWidget {
   final int secondsRemaining;
   final bool timerRunning;
-  const _WaitingForReceiverWidget({required this.secondsRemaining, required this.timerRunning});
+  const _WaitingForReceiverWidget(
+      {required this.secondsRemaining, required this.timerRunning});
 
   @override
   State<_WaitingForReceiverWidget> createState() =>
@@ -1340,8 +904,8 @@ class _WaitingForReceiverWidgetState extends State<_WaitingForReceiverWidget>
                   Text(
                     display,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: cs.primary,
-                    ),
+                          color: cs.primary,
+                        ),
                   ),
                 ],
               ),
@@ -1377,7 +941,10 @@ class _TofuStatusBanner extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               'Identity verified',
-              style: TextStyle(fontSize: 12, color: cs.secondary, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: cs.secondary,
+                  fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -1406,7 +973,8 @@ class _TofuStatusBanner extends StatelessWidget {
               onTap: onVerify,
               borderRadius: BorderRadius.circular(4),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Text(
                   'Verify',
                   style: TextStyle(
@@ -1458,9 +1026,9 @@ class _WelcomeBanner extends StatelessWidget {
                 Text(
                   'Secure Inbox',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
                 ),
                 Text(
                   'Securely encrypt and transmit your data.',
@@ -1604,7 +1172,8 @@ class _StepsBlock extends StatelessWidget {
                     children: [
                       CrypButton(
                         icon: const Icon(Icons.folder_open_rounded, size: 20),
-                        label: Text(file == null ? 'Browse Files' : 'Change File'),
+                        label:
+                            Text(file == null ? 'Browse Files' : 'Change File'),
                         onPressed: onPickFile,
                         color: cs.primary,
                       ),
@@ -1635,7 +1204,8 @@ class _StepsBlock extends StatelessWidget {
                         ciphertextBytes: encryptedBytes!.length,
                       )
                     : encrypting
-                        ? _EncryptionProgressWidget(progress: encryptionProgress)
+                        ? _EncryptionProgressWidget(
+                            progress: encryptionProgress)
                         : CrypButton(
                             icon: const Icon(Icons.lock_rounded, size: 20),
                             label: const Text('Encrypt with AES Key'),
@@ -1662,7 +1232,8 @@ class _StepsBlock extends StatelessWidget {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
                               )
                             : const Icon(Icons.security_rounded, size: 20),
                         label: Text(encryptingKey
