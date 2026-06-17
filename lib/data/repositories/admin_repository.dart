@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/firebase_constants.dart';
@@ -12,27 +14,87 @@ class AdminRepository {
 
   // ─── Stats ───────────────────────────────────────────────────────────────
 
-  /// Returns a real-time count of transfer log documents.
+  /// Returns a polled count of completed transfers across all users.
   ///
-  /// KNOWN LIMITATION (WR-02): This downloads every document in the
-  /// `transfer_logs` collection on each emission, which is an unbounded read
-  /// cost as the collection grows. The preferred fix is to use Firestore
-  /// AggregateQuery (`collection.count().get()`) which runs server-side and
-  /// transfers only the count — available in `cloud_firestore ^4.x`.
+  /// Uses AggregateQuery `.count().get()` — O(1) read cost regardless of
+  /// collection size. Polls every 30 seconds so the dashboard stays fresh
+  /// without downloading any document bodies.
   ///
-  /// TODO: Replace with AggregateQuery once the project upgrades to
-  /// cloud_firestore >=4.0.0 and the Firebase project enables the
-  /// AggregateQuery API. Until then, the collection is expected to stay small
-  /// enough that read cost is acceptable.
-  Stream<int> streamTotalTransfers() =>
-      _db.collection(FirebaseConstants.transferLogs).snapshots().map((s) => s.size);
+  /// Every transfer writes one immutable record to the sender's subcollection
+  /// AND one to the receiver's subcollection in the same batch, so the raw
+  /// aggregate count is always 2x the number of transfers. Halve it for a
+  /// true transfer count.
+  Stream<int> streamTotalTransfers() {
+    late StreamController<int> ctrl;
+    Timer? timer;
+    Future<void> fetch() async {
+      try {
+        final agg = await _db
+            .collectionGroup(FirebaseConstants.auditLogs)
+            .count()
+            .get();
+        if (!ctrl.isClosed) ctrl.add((agg.count ?? 0) ~/ 2);
+      } on FirebaseException catch (e) {
+        // Surface permission/network errors to StreamBuilder so the UI can
+        // show an error state rather than silently displaying stale zeros (WR-009 fix).
+        if (!ctrl.isClosed) {
+          ctrl.addError(e);
+          timer?.cancel();
+          ctrl.close();
+        }
+      } catch (e) {
+        if (!ctrl.isClosed) ctrl.add(0); // non-Firebase errors: degrade gracefully
+      }
+    }
+    ctrl = StreamController<int>(
+      onListen: () {
+        fetch();
+        timer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+      },
+      onCancel: () {
+        timer?.cancel();
+        if (!ctrl.isClosed) ctrl.close();
+      },
+    );
+    return ctrl.stream;
+  }
 
-  /// Returns a real-time count of user documents.
+  /// Returns a polled count of user documents.
   ///
-  /// KNOWN LIMITATION (WR-02): Same unbounded read cost as [streamTotalTransfers].
-  /// TODO: Replace with AggregateQuery when available (see above).
-  Stream<int> streamTotalUsers() =>
-      _db.collection(FirebaseConstants.users).snapshots().map((s) => s.size);
+  /// Uses AggregateQuery `.count()` — O(1) read cost. Polls every 30 seconds.
+  /// The stream is cancellable — unsubscribing stops the timer immediately.
+  Stream<int> streamTotalUsers() {
+    late StreamController<int> ctrl;
+    Timer? timer;
+    Future<void> fetch() async {
+      try {
+        final agg =
+            await _db.collection(FirebaseConstants.users).count().get();
+        if (!ctrl.isClosed) ctrl.add(agg.count ?? 0);
+      } on FirebaseException catch (e) {
+        // Surface permission/network errors to StreamBuilder so the UI can
+        // show an error state rather than silently displaying stale zeros (WR-009 fix).
+        if (!ctrl.isClosed) {
+          ctrl.addError(e);
+          timer?.cancel();
+          ctrl.close();
+        }
+      } catch (e) {
+        if (!ctrl.isClosed) ctrl.add(0); // non-Firebase errors: degrade gracefully
+      }
+    }
+    ctrl = StreamController<int>(
+      onListen: () {
+        fetch();
+        timer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+      },
+      onCancel: () {
+        timer?.cancel();
+        if (!ctrl.isClosed) ctrl.close();
+      },
+    );
+    return ctrl.stream;
+  }
 
   // ─── User Management ─────────────────────────────────────────────────────
 
@@ -68,10 +130,16 @@ class AdminRepository {
         .snapshots();
   }
 
-  /// Stream transfer logs for admin dashboard (full QuerySnapshot)
+  /// Stream recent transfer activity for admin dashboard (full QuerySnapshot).
+  ///
+  /// Reads the `audit_logs` collection group — the same immutable per-user
+  /// records HomeScreen uses for "Recent Transfers". Each transfer appears
+  /// twice (once from the sender's subcollection, once from the receiver's)
+  /// since both copies carry identical senderUsername/receiverUsername/
+  /// fileName/status fields.
   Stream<QuerySnapshot<Map<String, dynamic>>> streamTransferLogsDetail() {
     return _db
-        .collection(FirebaseConstants.transferLogs)
+        .collectionGroup(FirebaseConstants.auditLogs)
         .orderBy('loggedAt', descending: true)
         .limit(100)
         .snapshots();
@@ -92,16 +160,17 @@ class AdminRepository {
     Future<Map<String, dynamic>> fetchOne(QueryDocumentSnapshot<Map<String, dynamic>> userDoc) async {
       final uid = userDoc.id;
       final data = userDoc.data();
-      final friendships = await _db
+      final countAgg = await _db
           .collection(FirebaseConstants.users)
           .doc(uid)
           .collection(FirebaseConstants.friendships)
           .where('status', isEqualTo: 'accepted')
+          .count()
           .get();
       return {
         'uid': uid,
         'username': data['username'] as String? ?? '',
-        'connectionCount': friendships.size,
+        'connectionCount': countAgg.count ?? 0,
       };
     }
 
