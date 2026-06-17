@@ -189,12 +189,12 @@ When scanning `lib/` for status updates (used by `scripts/silent_guardian.ps1` a
 - key_repository.dart contains selectSenderHandshake → mark VERIFIED (atomic WriteBatch: user doc + handshakes doc in one commit)
 - key_repository.dart contains streamHandshakesForSender → mark VERIFIED (sender listens for receiver authorization events)
 - encryption_service.dart closeReceiverSession contains selectedSenderUid → mark VERIFIED (kill-switch deletes authorization; sender stream reverts to waiting)
-- encryption_service.dart contains bindSession → mark VERIFIED (reactive kill-switch: EncryptionService listens to SessionManager.stateStream)
-- encryption_service.dart contains unbindSession → mark VERIFIED (clean teardown on deliberate close or dispose)
+- session_manager.dart contains bindEncryptionService → mark VERIFIED (reactive kill-switch: SessionManager listens to stateStream and delegates to EncryptionService)
+- session_manager.dart contains unbindEncryptionService → mark VERIFIED (clean teardown on deliberate close or dispose)
 - session_manager.dart contains stateStream → mark VERIFIED (broadcast stream enables reactive EncryptionService binding)
 - lib/core/utils/session_state.dart exists → mark VERIFIED (SessionState extracted to prevent circular import)
-- receiver_screen.dart contains EncryptionService.bindSession → mark VERIFIED (session bind wired at mailbox open)
-- receiver_screen.dart contains EncryptionService.unbindSession → mark VERIFIED (session unbind wired at close + dispose)
+- receiver_screen.dart contains bindEncryptionService → mark VERIFIED (session bind wired at mailbox open)
+- receiver_screen.dart contains unbindEncryptionService → mark VERIFIED (session unbind wired at close + dispose)
 
 ---
 
@@ -313,8 +313,8 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] **Reactive kill-switch binding (SessionManager → EncryptionService stream)** — closes the structural gap where `Encryption Module Documentation` was the only bridge between the `SessionManager State Machine` and `Kill Switch & Wipe Lifecycle` graph communities:
   - `SessionState` extracted to `lib/core/utils/session_state.dart` — standalone file prevents circular import when `EncryptionService` imports it
   - `SessionManager` exposes `Stream<SessionState> stateStream` via a `StreamController.broadcast()`; `_set()` emits every transition on the stream
-  - `EncryptionService.bindSession(stateStream, uid)` subscribes and calls `closeReceiverSession(uid)` automatically when `SessionState.terminated` fires — no manual call from `wipeSession()` required
-  - `EncryptionService.unbindSession()` cancels the subscription (called on deliberate toggle-off and `dispose()`)
+  - `SessionManager.bindEncryptionService(uid)` subscribes and calls `closeReceiverSession(uid)` automatically when `SessionState.terminated` fires — no manual call from `wipeSession()` required
+  - `SessionManager.unbindEncryptionService()` cancels the subscription (called on deliberate toggle-off and `dispose()`)
   - `SessionManager.wipeSession()` simplified: transitions state + calls `onBuffersWipe()`; `uid` param removed (crypto cleanup is now reactive)
   - Graph impact: `Encryption Module Documentation` betweenness dropped 0.041 → 0.035; direct EXTRACTED edge `SessionManager.stateStream → EncryptionService.bindSession` now exists
 - [x] **Bidirectional Disconnect** — users can now remove connections via `FindFriendsScreen`. `KeyRepository.disconnectFriend()` uses a `WriteBatch` to atomically remove the relationship from both users' `connections` sub-collections. UI features a `PopupMenuButton` on the 'Connected' status badge.
@@ -330,7 +330,7 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] **Phase 07 — Sender Reactive Cleanup Sync** — real-time stream on `SenderTransferScreen` listens to `receiverStatus` and `cleanup_initiated` signals after successful transfer. Pulsing `CircularProgressIndicator` with "Waiting for secure session close…" appears when `receiverStatus == 'saved'`; updates to "Keys destroyed. Waiting for receiver to terminate session…" when `cleanup_initiated` fires (Turn 2 AES key wipe from Firestore + RAM). Sender auto-navigates to `SenderSessionEndedScreen` on doc deletion (Turn 4). 300s safety timeout unblocks sender if receiver never completes cleanup. `_startTransferListener()` moved inside `_startUpload()` after `await .set()` — fixes silent stream cancellation caused by Firestore security rule evaluating `resource.data.senderId` as null on non-existent doc. UAT 3/3 passed.
 - [x] **Global glassmorphic 3D design system** — `GlassButton`/`CrypButton` upgraded to `StatefulWidget` with `_isPressed`, `HapticFeedback.lightImpact()`, `transformAlignment: Alignment.center` on scale `AnimatedContainer`, `Matrix4.diagonal3Values` replacing deprecated `..scale()`. `acceptProposal` → `runTransaction` (TOCTOU safety). `disconnectFromUser(partnerUid)` `WriteBatch` deletes both directional docs. `streamHandshakeWithUser` `ctrl.close()` leak fixed. Auth screens, sidebar, home, admin, sender, receiver — all glassmorphic.
 - [x] **HomeScreen snackbar helper extraction (260526-t9y)** — Consolidated 7 verbose `ScaffoldMessenger.showSnackBar()` invocations into 3 reusable helper methods (`_showErrorSnackBar`, `_showInfoSnackBar`, `_showErrorMessage`); reduced boilerplate from 28 LOC to 7 LOC; centralized 7 mounted checks into 3 helpers; fixed `BuildContext.mounted` async warnings in `_openRolePicker` callbacks by using State's `mounted` property. `flutter analyze`: No issues. Test suite: 29/29 passing.
-- [x] **`ReceiverTransferScreen`/`DecryptScreen` kill-switch propagation (2026-06-17)** — Both screens receive `SessionManager` as a required constructor arg; `stateNotifier.addListener` is wired in `initState` and removed in `dispose`. `ReceiverScreen.didChangeAppLifecycleState` intentionally guards with `!_sessionLocked` so the private key survives an active decryption if the user briefly backgrounds the app; the 120 s watchdog timer aborts abandoned sessions. TC-WIPE-008 verifies the listener propagation path.
+- [x] **`ReceiverTransferScreen`/`DecryptScreen` kill-switch propagation (2026-06-17)** — Both screens receive `SessionManager` as a required constructor arg; `stateNotifier.addListener` is wired in `initState` and removed in `dispose`. `ReceiverScreen.didChangeAppLifecycleState` intentionally guards with `!_sessionLocked` so the private key survives an active decryption if the user briefly backgrounds the app; the 120 s watchdog timers in `ReceiverTransferScreen` and `DecryptScreen` abort abandoned sessions. TC-WIPE-008 verifies the listener propagation path.
 
 ## ✅ Static Analysis
 

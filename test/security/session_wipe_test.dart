@@ -314,8 +314,8 @@ void main() {
     //
     // Verifies that stateNotifier.addListener() callbacks fire when
     // wipeSession() transitions to terminated.  This mirrors the exact
-    // listener pattern used by ReceiverTransferScreen (line 99) and
-    // DecryptScreen (line 86) — if this mechanism regresses, both screens
+    // listener pattern used by ReceiverTransferScreen and
+    // DecryptScreen — if this mechanism regresses, both screens
     // lose their kill-switch reaction.
     test(
       'TC-WIPE-008: stateNotifier.addListener callback fires on wipeSession() '
