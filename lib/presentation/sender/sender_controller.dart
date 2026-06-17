@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/constants/firebase_constants.dart';
@@ -121,42 +120,46 @@ class SenderController {
   final KeyRepository connService;
   final TransferRepository transferRepo;
 
+  // Authenticated sender identity (read from FirebaseAuth in the widget's initState).
+  final String senderUid;
+  final String senderUsername;
+
   // Pre-fill values from the widget's constructor (set once on init).
   final String? preFilledPartnerUid;
   final String? preFilledPartnerUsername;
 
-  // ─── Callbacks set by the widget ──────────────────────────────────────────
+  // ─── Callbacks (required at construction — passed by the widget) ──────────
 
   /// Called when an error SnackBar should be shown.
-  late SenderErrorCallback onError;
+  final SenderErrorCallback onError;
 
   /// Called when a success SnackBar should be shown.
-  late SenderSuccessCallback onSuccess;
+  final SenderSuccessCallback onSuccess;
 
   /// Called when an info SnackBar should be shown.
-  late SenderInfoCallback onInfo;
+  final SenderInfoCallback onInfo;
 
   /// Called to navigate the sender back to HomeScreen (session ejected).
-  late SenderEjectCallback onEject;
+  final SenderEjectCallback onEject;
 
   /// Called when the stale-key abort flow needs navigation to HomeScreen.
   /// The controller has already written the abort audit log; the widget must
   /// show [msg] and then navigate.
-  late SenderAbortNavigateCallback onAbortNavigate;
+  final SenderAbortNavigateCallback onAbortNavigate;
 
   // ─── Buffer wipe callback (SecurityLifecycleMixin stays on widget) ─────────
 
   /// Callback into [SecurityLifecycleMixin.wipeAll] on the widget.
   /// Called whenever the controller needs to zero all registered buffers.
-  late VoidCallback onBuffersWipe;
+  final VoidCallback onBuffersWipe;
 
   // ─── Buffer registration callbacks ────────────────────────────────────────
 
   /// Registers a buffer with the widget's [SecurityLifecycleMixin].
-  late void Function(Uint8List) onRegisterBuffer;
+  final void Function(Uint8List) onRegisterBuffer;
 
   /// Unregisters an already-wiped buffer from the widget's [SecurityLifecycleMixin].
-  late void Function(Uint8List) onUnregisterBuffer;
+  final void Function(Uint8List) onUnregisterBuffer;
 
   // ─── State ────────────────────────────────────────────────────────────────
 
@@ -185,6 +188,16 @@ class SenderController {
   SenderController({
     required this.connService,
     required this.transferRepo,
+    required this.senderUid,
+    required this.senderUsername,
+    required this.onError,
+    required this.onSuccess,
+    required this.onInfo,
+    required this.onEject,
+    required this.onAbortNavigate,
+    required this.onBuffersWipe,
+    required this.onRegisterBuffer,
+    required this.onUnregisterBuffer,
     this.preFilledPartnerUid,
     this.preFilledPartnerUsername,
     required String? initialHandshakeDocId,
@@ -271,8 +284,7 @@ class SenderController {
       // Role validation: verify senderUid matches current user if assigned
       final assignedSenderUid = doc['senderUid'] as String?;
       if (assignedSenderUid != null && assignedSenderUid.isNotEmpty) {
-        final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        if (assignedSenderUid != currentUid) {
+        if (assignedSenderUid != senderUid) {
           revertToWaiting();
           onError('Role conflict — partner also chose Sender. Go back and pick again.');
           return;
@@ -408,11 +420,11 @@ class SenderController {
       if (!kIsWeb && file.path != null && file.path!.isNotEmpty) {
         plaintext = await TransferService.readFileWithProgress(
           file.path!,
-          (p) => _progressCtrl.add(p * 0.7), // 0 → 70%
+          (p) { if (!_disposed) _progressCtrl.add(p * 0.7); }, // 0 → 70%
         );
       } else {
         plaintext = file.bytes ?? Uint8List(0);
-        _progressCtrl.add(0.7);
+        if (!_disposed) _progressCtrl.add(0.7);
       }
       onRegisterBuffer(plaintext);
 
@@ -421,7 +433,7 @@ class SenderController {
       onRegisterBuffer(result.key);
       onRegisterBuffer(result.iv);
       onRegisterBuffer(result.ciphertext);
-      _progressCtrl.add(1.0);
+      if (!_disposed) _progressCtrl.add(1.0);
 
       plaintext.fillRange(0, plaintext.length, 0);
       onUnregisterBuffer(plaintext);
@@ -437,6 +449,7 @@ class SenderController {
     } catch (e) {
       if (_disposed) return;
       _update(state.copyWith(encrypting: false));
+      onBuffersWipe(); // zero any partially-registered buffers
       onError('Encryption failed: $e');
     }
   }
@@ -533,7 +546,7 @@ class SenderController {
     final iv = s.iv;
     final receiverId = s.receiverId;
     final receiverUsername = s.receiverUsername;
-    final senderId = FirebaseAuth.instance.currentUser?.uid;
+    final senderId = senderUid.isEmpty ? null : senderUid;
 
     if (file == null ||
         encryptedBytes == null ||
@@ -571,6 +584,7 @@ class SenderController {
     state.aesKey?.fillRange(0, state.aesKey!.length, 0);
     state.iv?.fillRange(0, state.iv!.length, 0);
     state.encryptedBytes?.fillRange(0, state.encryptedBytes!.length, 0);
+    state.encryptedAESKey?.fillRange(0, state.encryptedAESKey!.length, 0);
     _update(state.copyWith(
       aesKey: null,
       iv: null,
@@ -619,8 +633,7 @@ class SenderController {
     required String receiverId,
     required String receiverUsername,
   }) async {
-    final senderId = FirebaseAuth.instance.currentUser?.uid;
-    final senderUsername = FirebaseAuth.instance.currentUser?.displayName ?? '';
+    final senderId = senderUid.isEmpty ? null : senderUid;
     final fileName = state.file?.name ?? '';
     final fileSize = state.file?.size ?? 0;
     if (senderId != null && fileName.isNotEmpty) {

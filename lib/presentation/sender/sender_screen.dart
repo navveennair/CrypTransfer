@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/utils/biometric_helper.dart';
@@ -35,24 +36,25 @@ class _SenderScreenState extends State<SenderScreen>
   @override
   void initState() {
     super.initState();
+    final currentUser = FirebaseAuth.instance.currentUser;
     _controller = SenderController(
       connService: KeyRepository(),
       transferRepo: TransferRepository(),
+      senderUid: currentUser?.uid ?? '',
+      senderUsername: currentUser?.displayName ?? '',
+      onError: (msg, {Duration? duration, bool clear = false}) =>
+          _showError(msg, duration: duration, clear: clear),
+      onSuccess: _showSuccess,
+      onInfo: _showInfo,
+      onEject: _ejectToHomeScreen,
+      onAbortNavigate: _navigateHomeAfterAbort,
+      onBuffersWipe: wipeAll,
+      onRegisterBuffer: registerBuffer,
+      onUnregisterBuffer: unregisterBuffer,
       preFilledPartnerUid: widget.preFilledPartnerUid,
       preFilledPartnerUsername: widget.preFilledPartnerUsername,
       initialHandshakeDocId: widget.handshakeDocId,
     );
-
-    // Wire controller callbacks → widget UI actions
-    _controller.onError = (msg, {Duration? duration, bool clear = false}) =>
-        _showError(msg, duration: duration, clear: clear);
-    _controller.onSuccess = _showSuccess;
-    _controller.onInfo = _showInfo;
-    _controller.onEject = _ejectToHomeScreen;
-    _controller.onAbortNavigate = _navigateHomeAfterAbort;
-    _controller.onBuffersWipe = wipeAll;
-    _controller.onRegisterBuffer = registerBuffer;
-    _controller.onUnregisterBuffer = unregisterBuffer;
 
     // Rebuild widget whenever controller state changes
     _controller.stateNotifier.addListener(() {
@@ -103,6 +105,8 @@ class _SenderScreenState extends State<SenderScreen>
 
   // ─── Navigation helpers ───────────────────────────────────────────────────
 
+  // Controller calls wipeSensitiveData() before invoking onEject, so buffers
+  // are already zeroed when this callback fires.
   void _ejectToHomeScreen() {
     _showError('Session Terminated — receiver closed the session.',
         duration: const Duration(seconds: 5));
