@@ -269,6 +269,7 @@ class SenderController {
       if (s.encrypting || s.encryptingKey) return;
       _readinessTimer?.cancel();
       _readinessTimer = null;
+      _update(state.copyWith(timerRunning: false));
       _ejectToHomeScreenInternal();
       return;
     } else {
