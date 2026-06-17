@@ -10,7 +10,11 @@ class CleanupRepository {
     FirebaseFirestore? db,
   }) : _db = db ?? FirebaseFirestore.instance;
 
-  /// Turn 1: Receiver initiates cleanup by writing cleanup_initiated flag and audit log
+  /// Turn 1: Receiver initiates cleanup by writing the cleanup_initiated flag.
+  ///
+  /// NOTE: The receiver's personal audit record is written in [completeReceiverCleanup]
+  /// (Turn 3) alongside the sender's record. Writing it here too would create a duplicate
+  /// audit entry that skews the admin dashboard's transfer count (WR-011 fix).
   Future<void> initiateReceiverCleanup({
     required String transferId,
     required String receiverId,
@@ -20,34 +24,10 @@ class CleanupRepository {
     required int fileSize,
   }) async {
     try {
-      final batch = _db.batch();
-
-      // Write cleanup_initiated flag to transfer doc
-      batch.update(
-        _db.collection(FirebaseConstants.transfers).doc(transferId),
-        {'cleanup_initiated': true},
-      );
-
-      // Write receiver's personal audit record
-      batch.set(
-        _db
-            .collection(FirebaseConstants.users)
-            .doc(receiverId)
-            .collection(FirebaseConstants.auditLogs)
-            .doc(),
-        {
-          'senderId': senderId,
-          'receiverId': receiverId,
-          'senderUsername': senderUsername,
-          'fileName': fileName,
-          'fileSize': fileSize,
-          'status': 'completed',
-          'timestamp': FieldValue.serverTimestamp(),
-          'loggedAt': FieldValue.serverTimestamp(),
-        },
-      );
-
-      await batch.commit();
+      await _db
+          .collection(FirebaseConstants.transfers)
+          .doc(transferId)
+          .update({'cleanup_initiated': true});
     } on FirebaseException catch (e) {
       throw TransferException(
         'Cleanup initiation failed: ${e.message ?? e.code}',
