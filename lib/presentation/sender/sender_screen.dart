@@ -521,6 +521,12 @@ class _SenderScreenState extends State<SenderScreen>
     _readinessTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _secondsRemaining--);
+      if (_secondsRemaining == 10) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Receiver not ready — session closing in 10 seconds.'),
+          duration: Duration(seconds: 9),
+        ));
+      }
       if (_secondsRemaining <= 0) {
         _readinessTimer?.cancel();
         _readinessTimer = null;
@@ -545,7 +551,7 @@ class _SenderScreenState extends State<SenderScreen>
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
       (_) => false,
     );
   }
@@ -581,7 +587,7 @@ class _SenderScreenState extends State<SenderScreen>
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
       (_) => false,
     );
   }
