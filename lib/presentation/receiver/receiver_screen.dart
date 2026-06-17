@@ -50,8 +50,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   bool _loadingReadyState = true;
   bool _isTogglingReady = false;
 
-  List<UserModel> _connectedFriends = [];
-  StreamSubscription<List<UserModel>>? _friendsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _incomingHandshakeSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _senderPresenceSub;
   bool _senderPresenceConfirmed = false;
@@ -103,29 +101,18 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         });
       }
     });
-    _subscribeToFriends();
     _loadReadyToReceiveState();
   }
 
   @override
   void dispose() {
-    _friendsSub?.cancel();
     _incomingHandshakeSub?.cancel();
     _senderPresenceSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _sessionManager.stateNotifier.removeListener(_onSessionStateChanged);
-    EncryptionService.unbindSession();
+    _sessionManager.unbindEncryptionService();
     _sessionManager.dispose();
     super.dispose();
-  }
-
-  void _subscribeToFriends() {
-    _friendsSub = _connService.streamConnectedFriends().listen(
-      (friends) {
-        if (mounted) setState(() => _connectedFriends = friends);
-      },
-      onError: (_) {}, // silently ignore errors — list stays at last known value
-    );
   }
 
   void _startIncomingHandshakeListener() {
@@ -134,7 +121,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
 
     _incomingHandshakeSub = _connService
         .streamIncomingHandshakes(uid)
-        .listen((snap) {
+        .listen((snap) async {
       if (!mounted || snap.docs.isEmpty) return;
 
       // Auto-select first incoming handshake with a sender
@@ -148,8 +135,13 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       final senderUsername = doc.data()['fromUsername'] as String? ?? 'Sender';
 
       if (senderUid != null && senderUid.isNotEmpty && !_handshakeDone && !_handshaking) {
-        // Auto-select this sender (guard prevents re-entry from the doc the
-        // call itself creates, which would loop indefinitely).
+        // Defense-in-depth: verify sender is an accepted friend before auto-selecting.
+        // Server rule (handshakes.create requires receiverId==auth.uid) is the outer
+        // guard; this client-side check closes the gap if rules are ever loosened.
+        final myUid = FirebaseAuth.instance.currentUser?.uid;
+        if (myUid == null) return;
+        final trusted = await _userRepo.isFriend(myUid, senderUid);
+        if (!trusted || !mounted) return;
         _onSenderSelected(UserModel(
           uid: senderUid,
           username: senderUsername,
@@ -157,7 +149,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
           phone: '',
         ));
       }
-    });
+    }, onError: (_) {});
   }
 
   void _stopIncomingHandshakeListener() {
@@ -263,9 +255,17 @@ class _ReceiverScreenState extends State<ReceiverScreen>
       }
 
       if (value) {
-        _sessionStartedAt = DateTime.now();
         await EncryptionService.setupReceiverSession(uid);
-        EncryptionService.bindSession(_sessionManager.stateStream, uid);
+        // Use server-written timestamp so clock drift between client and
+        // Firestore does not cause _handleIncomingTransfer to falsely
+        // reject transfers created in this session.
+        final userSnap = await FirebaseFirestore.instance
+            .collection(FirebaseConstants.users)
+            .doc(uid)
+            .get();
+        final serverTs = userSnap.data()?['publicKeyUploadedAt'] as Timestamp?;
+        _sessionStartedAt = serverTs?.toDate() ?? DateTime.now();
+        _sessionManager.bindEncryptionService(uid);
         // Signal readiness: receiver's mailbox is now open, authorizing any sender
         await _connService.setReadyToReceive(true);
         if (mounted) {
@@ -302,7 +302,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
         _senderPresenceConfirmed = false;
         // Signal unreadiness: receiver's mailbox is now closed
         await _connService.setReadyToReceive(false);
-        EncryptionService.unbindSession();
+        _sessionManager.unbindEncryptionService();
         await EncryptionService.closeReceiverSession(uid);
         wipeAll();
         _sessionManager.reset();
@@ -315,7 +315,6 @@ class _ReceiverScreenState extends State<ReceiverScreen>
             _handshaking = false;
             _handshakeDone = false;
             _incomingHandled = false;
-            _connectedFriends.clear();
             _transferStream = null;
             _handshakeDocId = null;
           });
@@ -450,6 +449,7 @@ Future<void> _onSenderSelected(UserModel sender) async {
           _handshakeDone = false;
           _handshaking = false;
           _handshakeDocId = null;
+          _incomingHandled = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -870,203 +870,6 @@ class _KeyInfoRow extends StatelessWidget {
         Text('$label: ', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
-    );
-  }
-}
-
-class _FindSenderSheet extends StatefulWidget {
-  final KeyRepository service;
-  final List<UserModel> initialConnected;
-  final VoidCallback onConnectionMade;
-  final void Function(UserModel) onSenderSelected;
-
-  const _FindSenderSheet({
-    required this.service,
-    required this.initialConnected,
-    required this.onConnectionMade,
-    required this.onSenderSelected,
-  });
-
-  @override
-  State<_FindSenderSheet> createState() => _FindSenderSheetState();
-}
-
-class _FindSenderSheetState extends State<_FindSenderSheet> {
-  final _searchCtrl = TextEditingController();
-  Timer? _debounce;
-  List<UserModel> _results = [];
-  final Map<String, String> _statusCache = {};
-  final Map<String, bool> _sendingKey = {};
-  late List<UserModel> _connectedList;
-  StreamSubscription<List<UserModel>>? _friendsSub;
-
-  @override
-  void initState() {
-    super.initState();
-    _connectedList = List.from(widget.initialConnected);
-    // Subscribe to live friend updates so the sheet reflects changes without
-    // needing to close and reopen.
-    _friendsSub = widget.service.streamConnectedFriends().listen(
-      (friends) {
-        if (mounted) setState(() => _connectedList = friends);
-      },
-      onError: (_) {},
-    );
-  }
-
-  @override
-  void dispose() {
-    _friendsSub?.cancel();
-    _debounce?.cancel();
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    if (value.trim().isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      try {
-        final results = await widget.service.searchUsers(value.trim());
-        for (final u in results) {
-          if (!_statusCache.containsKey(u.uid)) {
-            try {
-              final s = await widget.service.getConnectionStatus(u.uid);
-              _statusCache[u.uid] = s ?? 'none';
-            } catch (_) {
-              _statusCache[u.uid] = 'none';
-            }
-          }
-        }
-        if (mounted) setState(() => _results = results);
-      } catch (_) {
-        // Search failed silently — leave results empty
-      }
-    });
-  }
-
-
-  Future<void> _sendKey(UserModel user) async {
-    setState(() => _sendingKey[user.uid] = true);
-    try {
-      // All handshake creation now happens in _onSenderSelected via selectSenderHandshake()
-      // This method just triggers the selection flow.
-      if (mounted) {
-        setState(() => _sendingKey[user.uid] = false);
-        Navigator.pop(context);
-        widget.onSenderSelected(user);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _sendingKey[user.uid] = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceFirst("Exception: ", "")}',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    return GlassContainer(
-      borderRadius: 24,
-      padding: const EdgeInsets.only(top: 10),
-      child: Column(
-        children: [
-          const BottomSheetHandle(),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: TextField(
-              controller: _searchCtrl,
-              autofocus: true,
-              onChanged: _onChanged,
-              decoration: InputDecoration(
-                hintText: 'Search senders…',
-                prefixIcon: const Icon(Icons.search_rounded),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: cs.primary, width: 2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                if (_results.isNotEmpty) ...[
-                  Text('Search Results', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  ..._results.map((u) => Card(
-                    child: ListTile(
-                      leading: UserAvatar(username: u.username),
-                      title: Text(u.username),
-                      trailing: _statusCache[u.uid] == 'accepted'
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Friend',
-                                style: TextStyle(
-                                  color: cs.secondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _sendingKey[u.uid] == true
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : CrypButton(
-                                      label: const Text('Send'),
-                                      onPressed: () => _sendKey(u),
-                                      color: cs.secondary,
-                                      height: 40,
-                                    ),
-                            ],
-                          )
-                        : Tooltip(
-                            message: 'Establish connection in Find Friends',
-                            child: Text('Not connected', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-                          ),
-                    ),
-                  )),
-                ],
-                if (_connectedList.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  Text('Active Connections', style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  ..._connectedList.map((f) => Card(
-                    child: ListTile(
-                      leading: UserAvatar(username: f.username),
-                      title: Text(f.username),
-                      trailing: CrypButton(
-                        label: const Text('Select', style: TextStyle(fontSize: 12)),
-                        onPressed: () { Navigator.pop(context); widget.onSenderSelected(f); },
-                        color: cs.primary,
-                        height: 36,
-                      ),
-                    ),
-                  )),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

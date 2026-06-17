@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'session_state.dart';
+import '../../data/services/encryption_service.dart';
 
 export 'session_state.dart';
 
@@ -38,6 +39,14 @@ class SessionManager {
 
   final _stateStreamController =
       StreamController<SessionState>.broadcast();
+
+  // ─── EncryptionService session binding ───────────────────────────────────
+  //
+  // Subscription held here (instance lifetime) rather than as a static field
+  // on EncryptionService. This fixes the singleton-state collision where a
+  // second ReceiverScreen pushed before the first disposes would cancel the
+  // first session's kill-switch subscription (CR-002).
+  StreamSubscription<SessionState>? _encSub;
 
   /// Broadcast stream of every [SessionState] transition.
   ///
@@ -130,9 +139,40 @@ class SessionManager {
     }
   }
 
+  // ─── EncryptionService binding ────────────────────────────────────────────
+
+  /// Subscribes to [stateStream] so that [EncryptionService.closeReceiverSession]
+  /// fires automatically when state reaches [SessionState.terminated].
+  ///
+  /// Stored here (instance lifetime) rather than as a static field on
+  /// EncryptionService to prevent singleton-state collisions when a second
+  /// ReceiverScreen is pushed before the first disposes (CR-002 fix).
+  void bindEncryptionService(String uid) {
+    _encSub?.cancel();
+    _encSub = stateStream.listen((state) {
+      if (state == SessionState.terminated) {
+        EncryptionService.closeReceiverSession(uid).catchError((_) {});
+        _encSub?.cancel();
+        _encSub = null;
+      }
+    });
+  }
+
+  /// Cancels the EncryptionService subscription without triggering a wipe.
+  ///
+  /// Call this when the mailbox is closed deliberately (toggle-off) so the
+  /// subscription does not fire a redundant [closeReceiverSession] after the
+  /// screen has already performed its own cleanup.
+  void unbindEncryptionService() {
+    _encSub?.cancel();
+    _encSub = null;
+  }
+
   // ─── Cleanup ─────────────────────────────────────────────────────────────
 
   void dispose() {
+    _encSub?.cancel();
+    _encSub = null;
     stateNotifier.dispose();
     _stateStreamController.close();
   }

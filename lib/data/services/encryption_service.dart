@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,8 +7,8 @@ import 'package:pointycastle/export.dart' hide State, Padding;
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
+import '../../core/utils/kill_switch_outbox.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
-import '../../core/utils/session_state.dart';
 
 // ─── Top-level isolate functions ──────────────────────────────────────────────
 // These must be top-level (not instance methods) for Flutter's compute().
@@ -22,18 +21,37 @@ Uint8List runAesGcmEncrypt(List<Uint8List> args) {
   final plaintext = args[0];
   final key = args[1]; // 32 bytes
   final iv = args[2]; // 12 bytes
-  final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
-  final cipher = GCMBlockCipher(AESEngine())..init(true, params);
-  return cipher.process(plaintext);
+  try {
+    final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
+    final cipher = GCMBlockCipher(AESEngine())..init(true, params);
+    return cipher.process(plaintext);
+  } finally {
+    // Zero inputs inside the isolate before it exits. These are copies of the
+    // main-isolate buffers (isolates don't share memory), so this is the only
+    // opportunity to wipe them — the main isolate cannot reach this heap.
+    plaintext.fillRange(0, plaintext.length, 0);
+    key.fillRange(0, key.length, 0);
+    iv.fillRange(0, iv.length, 0);
+  }
 }
 
 Uint8List runAesGcmDecrypt(List<Uint8List> args) {
   final ciphertext = args[0]; // ciphertext + 16-byte GCM tag
   final key = args[1]; // 32 bytes
   final iv = args[2]; // 12 bytes
-  final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
-  final cipher = GCMBlockCipher(AESEngine())..init(false, params);
-  return cipher.process(ciphertext);
+  try {
+    final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
+    final cipher = GCMBlockCipher(AESEngine())..init(false, params);
+    return cipher.process(ciphertext);
+  } finally {
+    // Zero key and IV inside the isolate — plaintext is the return value and
+    // cannot be zeroed here, but key material is more sensitive than plaintext.
+    key.fillRange(0, key.length, 0);
+    iv.fillRange(0, iv.length, 0);
+    // ciphertext (input to decrypt) is less sensitive than the output plaintext;
+    // zero it anyway to minimise lingering data on this isolate's heap.
+    ciphertext.fillRange(0, ciphertext.length, 0);
+  }
 }
 
 // ─── Result type for AES encryption ──────────────────────────────────────────
@@ -237,7 +255,12 @@ class EncryptionService {
   /// and purges all related key-transfer and notification records.
   static Future<void> closeReceiverSession(String uid) async {
     try {
-      // 0. Read user doc to capture selectedSenderUid for audit log before clearing it.
+      // 0. Persist outbox record BEFORE any network I/O — guarantees a resume
+      //     record exists even if the device crashes during the read below.
+      //     selectedSenderUid is unknown here; resumeIfPending() only needs uid.
+      await KillSwitchOutbox.persist(uid, null);
+
+      // 0a. Read user doc to capture selectedSenderUid for audit log before clearing it.
       final userSnap = await FirebaseFirestore.instance
           .collection(FirebaseConstants.users)
           .doc(uid)
@@ -335,81 +358,22 @@ class EncryptionService {
         await batch2.commit();
       }
 
-      // 6. Log security event (event names only — no key material).
+      // 6. All Firestore cleanup complete — clear the outbox record.
+      await KillSwitchOutbox.clear();
+
+      // 7. Log security event (event names only — no key material).
       _logSecurityEvent(
         'Receiver_Session_Closed',
         uid,
         'Firestore_Key_Deleted & Local_Buffer_Zeroed',
       );
 
-      // 7. Best-effort Kotlin GC hint — no key bytes are held natively.
+      // 8. Best-effort Kotlin GC hint — no key bytes are held natively.
       SecurityLifecycleMixin.requestNativeClear();
     } catch (e) {
       _logSecurityEvent('closeReceiverSession_FAILED', uid, e.toString());
       rethrow;
     }
-  }
-
-  // ─── Session binding (reactive kill-switch) ──────────────────────────────
-
-  /// Binds [EncryptionService] to a [SessionManager]'s [stateStream].
-  ///
-  /// When [SessionState.terminated] is emitted — by [SessionManager.wipeSession]
-  /// or [SessionManager.handleLifecycleState] — this listener automatically
-  /// calls [closeReceiverSession], completing the crypto kill-switch without
-  /// any manual call chain from the UI layer.
-  ///
-  /// This creates the direct structural link between the State Machine and the
-  /// Crypto Pipeline:
-  ///
-  /// ```
-  /// SessionManager.stateStream  →  SessionState.terminated
-  ///                                       │
-  ///                                       ▼
-  ///                          EncryptionService.closeReceiverSession()
-  ///                             ├── Firestore: delete publicKey + selectedSenderUid
-  ///                             ├── SecureStorage: delete private key
-  ///                             ├── Batch-delete handshakes (receiver-side + sender-side)
-  ///                             └── Batch-delete notifications (rsa_key_received + connection_request)
-  /// ```
-  ///
-  /// Call [unbindSession] when the receiver mailbox closes normally (toggle-off)
-  /// or on [ReceiverScreen.dispose] to prevent a dangling subscription.
-  static StreamSubscription<SessionState>? _sessionSub;
-
-  static void bindSession(Stream<SessionState> stateStream, String uid) {
-    if (_sessionSub != null) {
-      // Defensive: a subscription already exists. This means bindSession() was called
-      // twice without an intervening unbindSession(). Cancel the old one but warn —
-      // the previous kill-switch binding is being overwritten.
-      if (kDebugMode) {
-        debugPrint('[EncryptionService] WARNING: bindSession called with existing binding — '
-            'previous kill-switch subscription overwritten. Ensure only one ReceiverScreen is active.');
-      }
-      assert(false, 'EncryptionService.bindSession: double-bind detected — '
-          'unbindSession() was not called before re-binding.');
-    }
-    _sessionSub?.cancel();
-    _sessionSub = stateStream.listen((state) {
-      if (state == SessionState.terminated) {
-        closeReceiverSession(uid).catchError((e) {
-          if (kDebugMode) debugPrint('[EncryptionService] kill-switch cleanup failed: $e');
-          _logSecurityEvent('kill_switch_cleanup_FAILED', uid, e.toString());
-        });
-        _sessionSub?.cancel();
-        _sessionSub = null;
-      }
-    });
-  }
-
-  /// Cancels the active session binding.
-  ///
-  /// Call this when the mailbox is closed deliberately (via toggle) so the
-  /// subscription does not fire a redundant [closeReceiverSession] after the
-  /// screen has already performed its own cleanup.
-  static void unbindSession() {
-    _sessionSub?.cancel();
-    _sessionSub = null;
   }
 
   // ─── Security event logger ───────────────────────────────────────────────
