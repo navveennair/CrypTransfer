@@ -431,6 +431,10 @@ class HandshakeRepository {
     String selfUid,
     String partnerUid,
   ) {
+    // Guard: if the controller was already closed (e.g. subscriber cancelled and
+    // onCancel ran), a late-arriving Firestore error callback could still call
+    // _emitIfResolved, which would throw StateError on ctrl.add() (WR-003 fix).
+    if (ctrl.isClosed) return;
     if (outSnap == null || inSnap == null) return;
 
     String mapStatus(String raw, bool isSent) {
