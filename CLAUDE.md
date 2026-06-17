@@ -92,7 +92,7 @@ SessionManager.reset()                 ← manual close via _onToggleReady
 - `decrypting` → primary + spinner, interaction blocked
 - `terminated` → error red + block icon, interaction blocked
 
-`SecurityLifecycleMixin` is a **god node** (10 edges in graph) bridging `Security Screen Lifecycle`, `Receiver Kill Switch`, and `Encryption Engine` communities. Applied to: `SenderScreen`, `ReceiverScreen`, `TransferProgressScreen`, `DownloadConfirmScreen`, `EndSessionScreen`, `DecryptScreen`.
+`SecurityLifecycleMixin` is a **god node** (10 edges in graph) bridging `Security Screen Lifecycle`, `Receiver Kill Switch`, and `Encryption Engine` communities. Applied to: `SenderScreen`, `ReceiverScreen`, `DecryptScreen`, `SenderSessionEndScreen`, `RsaKeyManagerScreen`.
 
 ### Android Entry Point
 
@@ -102,7 +102,7 @@ android/
 ├── app/
 │   ├── build.gradle.kts          ← signing config + R8 minification wired up
 │   ├── proguard-rules.pro        ← Flutter/Firebase/PointyCastle keep rules
-│   └── src/main/kotlin/com/example/cryptransfer/
+│   └── src/main/kotlin/com/navveennair/cryptransfer/
 │       └── MainActivity.kt       ← FLAG_SECURE (onCreate) + security MethodChannel
 └── settings.gradle.kts
 ```
@@ -126,7 +126,7 @@ keyPassword=<password>
 | Native (MainActivity.kt) | Dart counterpart | Purpose |
 |---|---|---|
 | `window.addFlags(FLAG_SECURE)` in `onCreate()` | `SecurityLifecycleMixin.isFlagSecureActive()` — `lib/core/utils/security_lifecycle_mixin.dart` | Blocks screenshots; Dart queries before each 64 KB chunk read |
-| MethodChannel `com.example.cryptransfer/security` → `isFlagSecureActive` | `SecurityLifecycleMixin._securityChannel` — same file | Returns `(flags & FLAG_SECURE) != 0` to Dart layer |
+| MethodChannel `cryptransfer/security` → `isFlagSecureActive` | `SecurityLifecycleMixin._securityChannel` — same file | Returns `(flags & FLAG_SECURE) != 0` to Dart layer |
 | MethodChannel consumer | `SenderScreen._encryptFile()` — `lib/presentation/sender/sender_screen.dart` | Aborts encryption if window is unprotected |
 
 ---
@@ -265,8 +265,8 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] SecurityLifecycleMixin created
 - [x] SenderScreen pre-flight wipe (`_wipeSensitiveData()` + handoff destruction)
 - [x] DecryptScreen Save & Suicide pattern (`_saveAndWipe()`, `_Phase.done`, clean-room decrypt)
-- [x] SecurityLifecycleMixin applied to SenderScreen, DecryptScreen, TransferProgressScreen, DownloadConfirmScreen, EndSessionScreen
-- [x] Non-repudiation Firestore listener in TransferProgressScreen
+- [x] SecurityLifecycleMixin applied to SenderScreen, ReceiverScreen, DecryptScreen, SenderSessionEndScreen, RsaKeyManagerScreen
+- [x] Non-repudiation Firestore listener in SenderTransferScreen
 - [x] `receiverStatus` field updated at each decrypt phase in DecryptScreen
 - [x] `updateReceiverStatus()` in TransferRepository
 - [x] closeReceiverSession Kill Switch (`EncryptionService.closeReceiverSession()` — public key deleted from Firestore, private key wiped from device, batch-delete handshakes + notifications, write kill_switch audit log)
@@ -286,7 +286,7 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] Guardian scanner updated — compute() check, participants check, encryptedAESKey consistency check added
 - [x] Session cleanup + pushAndRemoveUntil after EndSession — `canPop` fixed to `_phase == _Phase.ready` (prevents back-nav after done), "Back to Home" uses `Navigator.pushAndRemoveUntil` clearing the full stack, Firestore doc + Storage file + audit log cleanup all present in `_endSession()`
 - [x] Receiver stepper synchronized to SenderScreen design — Step 2 uses `cs.secondary` (was hardcoded green), Step 3 "Send Key" uses `cs.tertiary` + key icon (was deepPurple, no icon)
-- [x] CrypButton 3D button system implemented globally — `CrypButton` widget in `shared_widgets.dart`; applied to SenderScreen (steps 2/3/4), ReceiverScreen (steps 0/2/ready-button), TransferProgressScreen, DownloadConfirmScreen, EndSessionScreen
+- [x] CrypButton 3D button system implemented globally — `CrypButton` widget in `shared_widgets.dart`; applied to SenderScreen (steps 2/3/4), ReceiverScreen (steps 0/2/ready-button), SenderTransferScreen, ReceiverEndSessionScreen, SenderSessionEndScreen
 - [x] Android `FLAG_SECURE` — `MainActivity.onCreate()` sets `window.addFlags(LayoutParams.FLAG_SECURE)`; blocks task-switcher thumbnails and screenshots across all Flutter screens
 - [x] Android R8 minification — `isMinifyEnabled = true`, `isShrinkResources = true`, `proguard-rules.pro` created with Flutter/Firebase/PointyCastle keep rules
 - [x] Android release signing wired — `build.gradle.kts` reads `android/key.properties` (git-ignored); falls back to debug signing if file absent
@@ -300,7 +300,7 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
   - Automatic handshake: sender selection triggers `KeyRepository.sendPublicKey(isHandshake: true)` — stamps `status: 'handshake_complete'` on `rsaKeyTransfers` doc
   - Firestore signaling: Step 3 replaced with `StreamBuilder` on `transfers` collection filtered by `receiverId`, `senderId`, `status == pending`; drives both waiting UI and navigation trigger
   - Reactive navigation: `_handleIncomingTransfer` calls `SessionManager.setDecrypting()` → `_onSessionStateChanged` auto-pushes to `ReceiverTransferScreen` without user interaction
-  - Kotlin sync: `SecurityLifecycleMixin.isFlagSecureActive()` queries `com.example.cryptransfer/security` MethodChannel before 64 KB chunk reads; `MainActivity.configureFlutterEngine` registers the handler returning `(flags & FLAG_SECURE) != 0`
+  - Kotlin sync: `SecurityLifecycleMixin.isFlagSecureActive()` queries `cryptransfer/security` MethodChannel before 64 KB chunk reads; `MainActivity.configureFlutterEngine` registers the handler returning `(flags & FLAG_SECURE) != 0`
   - Removed: `_startTransferListener`, `_transferSub`, `_SendKeyRow`, `_SendKeySheet`, `_PulsingReadyButton`, `_openSendKeySheet`, `StatusBanner` from build
 - [x] **Firestore double-stream fixed** — `_step3Content` previously created a new Firestore snapshot stream inline on every rebuild. Now `_transferStream` is a `Stream` field initialised once in `_onSenderSelected()` and cleared in `_onToggleReady(false)` / clear-sender button. `StreamBuilder` references the stable field — one subscription per session, no re-subscription on rebuild. (`receiver_screen.dart`)
 - [x] **Sender plaintext zero-wipe** — `SenderScreen._encryptFile()` now calls `registerBuffer(plaintext)` immediately after `TransferService.resolve()` (safety net for any throw before encryption), then after `compute()` returns calls `plaintext.fillRange(0, plaintext.length, 0)` + `unregisterBuffer(plaintext)` to eagerly erase the main-isolate copy. `SecurityLifecycleMixin` gained `unregisterBuffer()` to remove an already-wiped buffer from the registry, preventing a redundant second pass in `wipeAll()`. (`sender_screen.dart`, `security_lifecycle_mixin.dart`)
@@ -320,16 +320,17 @@ This project has a persistent knowledge graph in `graphify-out/graph.json`.
 - [x] **Bidirectional Disconnect** — users can now remove connections via `FindFriendsScreen`. `KeyRepository.disconnectFriend()` uses a `WriteBatch` to atomically remove the relationship from both users' `connections` sub-collections. UI features a `PopupMenuButton` on the 'Connected' status badge.
 - [x] **Handshake is now a user-triggered event with reactive UI feedback** — `_FindSenderSheet` search results show `'Friend'` (green text) for connected users alongside a `GlassButton` labeled `'Send'`; tapping enters a per-user loading state (spinner replaces button), writes the receiver's RSA public key to Firestore via `KeyRepository.publishRSAPublicKey()`, then transforms the button into a green checkmark on success; on Firestore failure the button resets and a red `SnackBar` surfaces the error for retry
   - `publishRSAPublicKey(targetUserId)` uses a deterministic doc ID `${receiverUid}_${senderUid}` in the `handshakes/` collection — idempotent re-sends produce no duplicates; `streamHandshakesForSender()` on the sender side picks up the write immediately and transitions the sender out of the "Waiting for Connection" state
-  - `SecurityLifecycleMixin.requestNativeClear()` static method added — invokes `clearSession` on the `com.example.cryptransfer/security` MethodChannel; `EncryptionService.closeReceiverSession()` calls it as step 7 after all Firestore/storage wipes complete
+  - `SecurityLifecycleMixin.requestNativeClear()` static method added — invokes `clearSession` on the `cryptransfer/security` MethodChannel; `EncryptionService.closeReceiverSession()` calls it as step 7 after all Firestore/storage wipes complete
   - `MainActivity.kt` `clearSession` handler: no key material is held natively (all RSA/AES runs in Dart `compute()` isolates), so the handler calls `System.gc()` as a best-effort Kotlin heap-release hint
 
 - [x] **Home screen UAT gap fixes (05-06)** — Accept spinner resets after error (async/await + finally); Active Connections surfaces Firestore stream errors (hasError branch); listeners reuse stable initState stream fields; pending-row InkWell removed so cancel confirmation sheet is reachable.
 - [x] **Receiver stepper 3 prefill fix (05-07)** — `_pendingPrefilledSender` defers `_onSenderSelected` until `_onToggleReady(true)` fires after `setupReceiverSession`; eliminates silent `KeyNotFoundException` blocking RSA handshake via Active Connection role picker.
 - [x] **End Session zero-remanence cleanup unblocked** — `transfers` delete rule extended to `receiverId`; receiver can now delete the transfer doc in `endSessionCleanup` without PERMISSION_DENIED. Deployed to `cryptransfer-96e9f` (commit `8fca91a`).
 - [x] **Reactive connection status in search results** — `FindFriendsScreen` search result rows replaced with `_SearchResultTile` (StatefulWidget). Each tile subscribes to `HandshakeRepository.streamHandshakeWithUser()` in `initState` and cancels in `dispose`, giving per-tile real-time status without polling. `streamHandshakeWithUser` merges the two deterministic doc streams (`${myUid}_${partnerUid}` and `${partnerUid}_${myUid}`) via a single-subscription `StreamController` and emits a typed record `({String status, String docId})?`. The "Pending" label pulses via `AnimationController.repeat(reverse: true)` while status is `pending_sent`; the "Connected" badge appears immediately when the partner accepts without requiring a re-search. Static `_statuses` map, one-shot `_getConnectionStatus`, `_sendRequest`, and `_buildAction` removed from parent state.
-- [x] **Phase 07 — Sender Reactive Cleanup Sync** — real-time stream on `TransferProgressScreen` listens to `receiverStatus` and `cleanup_initiated` signals after successful transfer. Pulsing `CircularProgressIndicator` with "Waiting for secure session close…" appears when `receiverStatus == 'saved'`; updates to "Keys destroyed. Waiting for receiver to terminate session…" when `cleanup_initiated` fires (Turn 2 AES key wipe from Firestore + RAM). Sender auto-navigates to `SenderSessionEndedScreen` on doc deletion (Turn 4). 300s safety timeout unblocks sender if receiver never completes cleanup. `_startTransferListener()` moved inside `_startUpload()` after `await .set()` — fixes silent stream cancellation caused by Firestore security rule evaluating `resource.data.senderId` as null on non-existent doc. UAT 3/3 passed.
+- [x] **Phase 07 — Sender Reactive Cleanup Sync** — real-time stream on `SenderTransferScreen` listens to `receiverStatus` and `cleanup_initiated` signals after successful transfer. Pulsing `CircularProgressIndicator` with "Waiting for secure session close…" appears when `receiverStatus == 'saved'`; updates to "Keys destroyed. Waiting for receiver to terminate session…" when `cleanup_initiated` fires (Turn 2 AES key wipe from Firestore + RAM). Sender auto-navigates to `SenderSessionEndedScreen` on doc deletion (Turn 4). 300s safety timeout unblocks sender if receiver never completes cleanup. `_startTransferListener()` moved inside `_startUpload()` after `await .set()` — fixes silent stream cancellation caused by Firestore security rule evaluating `resource.data.senderId` as null on non-existent doc. UAT 3/3 passed.
 - [x] **Global glassmorphic 3D design system** — `GlassButton`/`CrypButton` upgraded to `StatefulWidget` with `_isPressed`, `HapticFeedback.lightImpact()`, `transformAlignment: Alignment.center` on scale `AnimatedContainer`, `Matrix4.diagonal3Values` replacing deprecated `..scale()`. `acceptProposal` → `runTransaction` (TOCTOU safety). `disconnectFromUser(partnerUid)` `WriteBatch` deletes both directional docs. `streamHandshakeWithUser` `ctrl.close()` leak fixed. Auth screens, sidebar, home, admin, sender, receiver — all glassmorphic.
 - [x] **HomeScreen snackbar helper extraction (260526-t9y)** — Consolidated 7 verbose `ScaffoldMessenger.showSnackBar()` invocations into 3 reusable helper methods (`_showErrorSnackBar`, `_showInfoSnackBar`, `_showErrorMessage`); reduced boilerplate from 28 LOC to 7 LOC; centralized 7 mounted checks into 3 helpers; fixed `BuildContext.mounted` async warnings in `_openRolePicker` callbacks by using State's `mounted` property. `flutter analyze`: No issues. Test suite: 29/29 passing.
+- [x] **`ReceiverTransferScreen`/`DecryptScreen` kill-switch propagation (2026-06-17)** — Both screens receive `SessionManager` as a required constructor arg; `stateNotifier.addListener` is wired in `initState` and removed in `dispose`. `ReceiverScreen.didChangeAppLifecycleState` intentionally guards with `!_sessionLocked` so the private key survives an active decryption if the user briefly backgrounds the app; the 120 s watchdog timer aborts abandoned sessions. TC-WIPE-008 verifies the listener propagation path.
 
 ## ✅ Static Analysis
 
@@ -349,11 +350,7 @@ Previous fixes (2026-05-15):
 
 ### Security Gaps (from `graphify-out/ZERO_REMANENCE_ANALYSIS.md`)
 
-- [ ] **`compute()` isolate ciphertext not zeroed** — the encrypted `Uint8List` lives in the isolate's heap and is not accessible for `fillRange` zeroing from the main isolate. Inherent platform limitation; accepted risk.
-
-### Session Architecture (from Active Session State refactor)
-
-- [ ] **`ReceiverTransferScreen` does not propagate `SessionManager`** — navigation is automatic but `ReceiverTransferScreen` creates its own `TransferRepository` without access to the `SessionManager` from `ReceiverScreen`. If the user backgrounds the app mid-decrypt, the `SessionManager.terminated` state is set by `ReceiverScreen.didChangeAppLifecycleState`, but `ReceiverTransferScreen` has no observer. Consider passing `sessionManager` as a constructor arg or using an `InheritedWidget`.
+- [x] ~~**`compute()` isolate ciphertext not zeroed**~~ — CLOSED 2026-06-17. Both `runAesGcmEncrypt` and `runAesGcmDecrypt` now zero all buffers (`plaintext`, `key`, `iv`, `ciphertext`) inside the isolate's `finally` block. Remaining accepted risk: the decrypted plaintext *return value* from `compute(_decryptAesGcmIsolate)` has a brief window before the main-isolate `fillRange` call — inherent to Dart's isolate messaging, no further mitigation possible without C FFI.
 
 
 ---
