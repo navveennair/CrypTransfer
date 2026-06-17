@@ -732,13 +732,18 @@ class KeyRepository {
       }
     }
 
-    // Wipe handshakes initiated by uid (as receiver)
+    // Wipe handshakes initiated by uid (as receiver) — use WriteBatch for
+    // atomic deletion in a single round-trip instead of serial deletes (WR-008 fix).
     final sent = await _db
         .collection(FirebaseConstants.handshakes)
         .where('receiverId', isEqualTo: uid)
         .get();
-    for (final doc in sent.docs) {
-      await doc.reference.delete();
+    if (sent.docs.isNotEmpty) {
+      final batchSent = _db.batch();
+      for (final doc in sent.docs) {
+        batchSent.delete(doc.reference);
+      }
+      await batchSent.commit();
     }
 
     // Wipe handshakes received by uid (as sender)
@@ -746,8 +751,12 @@ class KeyRepository {
         .collection(FirebaseConstants.handshakes)
         .where('senderId', isEqualTo: uid)
         .get();
-    for (final doc in received.docs) {
-      await doc.reference.delete();
+    if (received.docs.isNotEmpty) {
+      final batchReceived = _db.batch();
+      for (final doc in received.docs) {
+        batchReceived.delete(doc.reference);
+      }
+      await batchReceived.commit();
     }
 
     // Wipe rsa_key_received notifications from this user's inbox
@@ -757,8 +766,12 @@ class KeyRepository {
         .collection(FirebaseConstants.notifications)
         .where('type', isEqualTo: 'rsa_key_received')
         .get();
-    for (final doc in notifs.docs) {
-      await doc.reference.delete();
+    if (notifs.docs.isNotEmpty) {
+      final batchNotifs = _db.batch();
+      for (final doc in notifs.docs) {
+        batchNotifs.delete(doc.reference);
+      }
+      await batchNotifs.commit();
     }
   }
 
