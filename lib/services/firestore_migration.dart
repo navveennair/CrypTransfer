@@ -1,5 +1,6 @@
-// ignore_for_file: avoid_print
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Firestore migration service to initialize and verify collections.
 ///
@@ -7,13 +8,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// (handshakes) collections exist with proper schema.
 class FirestoreMigration {
   static final _db = FirebaseFirestore.instance;
+  static const _kMigrationDoneKey = 'firestore_migration_v1_done';
 
   /// Initializes Firestore collections on app startup.
+  ///
+  /// Gated behind a SharedPreferences flag — skips entirely after first
+  /// successful run. If either ensure-method throws, the flag is NOT set
+  /// and the migration retries on the next launch.
   ///
   /// This method is safe to call multiple times — it's idempotent.
   /// - Creates `handshakes` collection if missing (by creating a sentinel doc)
   /// - Verifies `neutral_handshakes` exists
   static Future<void> initializeCollections() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kMigrationDoneKey) == true) return; // already done
+
     try {
       // Verify/initialize handshakes collection (session-layer)
       await _ensureHandshakesCollection();
@@ -21,9 +30,11 @@ class FirestoreMigration {
       // Verify neutral_handshakes collection exists (connection-layer)
       await _ensureNeutralHandshakesCollection();
 
-      print('✅ Firestore collections initialized');
+      await prefs.setBool(_kMigrationDoneKey, true); // mark complete
+      if (kDebugMode) debugPrint('✅ Firestore collections initialized');
     } catch (e) {
-      print('⚠️  Firestore migration warning: $e');
+      if (kDebugMode) debugPrint('⚠️  Firestore migration warning: $e');
+      // Don't set the flag — retry next launch
       // Don't fail the app if migration has issues — collections will be
       // auto-created when first documents are written
     }
@@ -31,28 +42,14 @@ class FirestoreMigration {
 
   /// Ensures the session-layer handshakes collection exists.
   ///
-  /// Creates a temporary sentinel document if the collection is empty.
-  /// This triggers Firestore to create the collection and apply security rules.
+  /// Firestore collections are created automatically on first real document
+  /// write — no sentinel doc is needed. The previous sentinel write+delete
+  /// approach was removed because it caused a billable write+delete on every
+  /// fresh install and required overly-permissive security rules for the
+  /// `handshakes/_sentinel` path (WR-010 fix).
   static Future<void> _ensureHandshakesCollection() async {
-    try {
-      final snap = await _db.collection('handshakes').limit(1).get();
-      if (snap.docs.isEmpty) {
-        // Collection doesn't exist yet — create a sentinel doc to initialize it
-        final sentinelRef = _db.collection('handshakes').doc('_sentinel');
-        await sentinelRef.set({
-          'type': 'sentinel',
-          'createdAt': FieldValue.serverTimestamp(),
-          'note': 'Auto-created to initialize collection schema',
-        });
-        // Delete the sentinel immediately
-        await sentinelRef.delete();
-        print('📝 Initialized handshakes collection (session-layer)');
-      } else {
-        print('📝 handshakes collection already exists');
-      }
-    } catch (e) {
-      print('⚠️  Could not verify handshakes collection: $e');
-    }
+    // No-op: collection creation is handled by Firestore automatically.
+    if (kDebugMode) debugPrint('📝 handshakes collection will be created on first write (no sentinel needed)');
   }
 
   /// Ensures the connection-layer neutral_handshakes collection exists.
@@ -61,9 +58,9 @@ class FirestoreMigration {
   static Future<void> _ensureNeutralHandshakesCollection() async {
     try {
       final snap = await _db.collection('neutral_handshakes').limit(1).get();
-      print('📝 neutral_handshakes collection exists (${snap.size} docs)');
+      if (kDebugMode) debugPrint('📝 neutral_handshakes collection exists (${snap.size} docs)');
     } catch (e) {
-      print('⚠️  Could not verify neutral_handshakes collection: $e');
+      if (kDebugMode) debugPrint('⚠️  Could not verify neutral_handshakes collection: $e');
     }
   }
 }
