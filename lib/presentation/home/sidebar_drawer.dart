@@ -137,18 +137,20 @@ class _DrawerItem extends StatelessWidget {
   final String label;
   final String? subtitle;
   final VoidCallback onTap;
+  final Color? color;
 
   const _DrawerItem({
     required this.icon,
     required this.label,
     this.subtitle,
     required this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final itemColor = cs.primary;
+    final itemColor = color ?? cs.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
