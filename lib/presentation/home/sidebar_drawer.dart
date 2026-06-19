@@ -89,7 +89,7 @@ class SidebarDrawer extends StatelessWidget {
             // ── Navigation items ──────────────────────────────────
             _DrawerItem(
               icon: Icons.people_outline_rounded,
-              label: 'Find Friends',
+              label: 'Connections',
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
