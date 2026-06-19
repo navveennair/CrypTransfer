@@ -394,7 +394,10 @@ class _ReceiverTransferScreenState extends State<ReceiverTransferScreen>
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => DecryptScreen(transferId: widget.transferId),
+        builder: (_) => DecryptScreen(
+          transferId: widget.transferId,
+          sessionManager: widget.sessionManager,
+        ),
       ),
     );
   }

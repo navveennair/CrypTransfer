@@ -58,4 +58,31 @@ class UserRepository {
           return userData;
         });
   }
+
+  // ─── Single-user document stream ──────────────────────────────────────────
+
+  /// Streams the raw user document for [userId] (presence/claim-field watching).
+  Stream<DocumentSnapshot<Map<String, dynamic>>> streamUser(String userId) {
+    return _db.collection(FirebaseConstants.users).doc(userId).snapshots();
+  }
+
+  // ─── Friendship check ──────────────────────────────────────────────────────
+
+  /// Whether [otherUserId] is an accepted friend of [userId]. Friendships are
+  /// written bidirectionally (see HandshakeRepository.acceptProposal), so a
+  /// single-direction check is sufficient.
+  Future<bool> isFriend(String userId, String otherUserId) async {
+    try {
+      final doc = await _db
+          .collection(FirebaseConstants.users)
+          .doc(userId)
+          .collection(FirebaseConstants.friendships)
+          .doc(otherUserId)
+          .get();
+      return doc.data()?['status'] == 'accepted';
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Could not check friendship status: ${e.message ?? e.code}');
+    }
+  }
 }
