@@ -41,6 +41,9 @@ migrate_working_dir/
 test_results.json
 report_error.log
 
+# Subagent-driven-development scratch state (progress ledger, task briefs, diffs)
+.superpowers/
+
 # One-time setup scripts (do not re-add)
 scripts/setup_*.bat
 scripts/setup_*.ps1
