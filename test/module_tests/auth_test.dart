@@ -27,8 +27,14 @@ class _EmailInUseAuth extends MockFirebaseAuth {
 
 /// Throws wrong-password on every signIn call.
 class _WrongPasswordAuth extends MockFirebaseAuth {
+  // Does not forward mockUser to super: AuthRepository._ensureAuthenticated()
+  // calls signInAnonymously() first, which asserts mockUser == null ||
+  // mockUser.isAnonymous == isAnonymous inside firebase_auth_mocks. Presetting
+  // a non-anonymous mockUser here would fail that assertion before this
+  // class's overridden signInWithEmailAndPassword (which never reads
+  // mockUser) even runs.
   _WrongPasswordAuth({required MockUser mockUser})
-      : super(signedIn: false, mockUser: mockUser);
+      : super(signedIn: false);
 
   @override
   Future<UserCredential> signInWithEmailAndPassword({
@@ -143,8 +149,14 @@ void main() {
         'publicKey': null,
       });
 
+      // signedIn: true establishes the dave identity synchronously at
+      // construction, so AuthRepository._ensureAuthenticated() sees
+      // currentUser != null and skips its signInAnonymously() pre-flight —
+      // which would otherwise fail firebase_auth_mocks' internal assertion
+      // (mockUser == null || mockUser.isAnonymous == isAnonymous) against
+      // this non-anonymous preset mockUser.
       final authWithUser = MockFirebaseAuth(
-        signedIn: false,
+        signedIn: true,
         mockUser: MockUser(uid: 'uid-dave', email: 'dave@test.com'),
       );
       final repo = AuthRepository(
