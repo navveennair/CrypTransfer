@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
 import '../vault/rsa_key_manager_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -146,80 +145,6 @@ class SidebarDrawer extends StatelessWidget {
               },
             ),
 
-            const Spacer(),
-            const Divider(height: 1, indent: 24, endIndent: 24),
-            const SizedBox(height: 8),
-
-            _DrawerItem(
-              icon: Icons.logout_rounded,
-              label: 'Logout',
-              color: cs.error,
-              onTap: () async {
-                final nav = Navigator.of(context);
-                nav.pop(); // close drawer
-
-                final confirmed = await showDialog<bool>(
-                  context: nav.context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: Colors.transparent,
-                    insetPadding: const EdgeInsets.all(24),
-                    content: GlassContainer(
-                      padding: const EdgeInsets.all(24),
-                      borderRadius: 28,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.logout_rounded, size: 48, color: cs.error),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Logout',
-                            style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Are you sure you want to logout?',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: cs.onSurfaceVariant),
-                          ),
-                          const SizedBox(height: 32),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CrypButton(
-                                  label: const Text('Cancel'),
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  color: cs.onSurfaceVariant,
-                                  height: 44,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: CrypButton(
-                                  label: const Text('Logout'),
-                                  color: cs.error,
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-
-                if (confirmed == true) {
-                  await authRepo.logout();
-                  if (nav.context.mounted) {
-                    nav.pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                }
-              },
-            ),
             const SizedBox(height: 20),
           ],
         ),
