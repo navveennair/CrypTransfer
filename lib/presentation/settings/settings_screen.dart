@@ -133,6 +133,18 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _NotificationsSection(uid: uid),
+                      if (profile?.isAdmin ?? false) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'Admin',
+                          style: tt.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const _AdminSection(),
+                      ],
                     ],
                   );
                 },
@@ -466,6 +478,38 @@ class _NotificationsSection extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminSection extends StatelessWidget {
+  const _AdminSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return GlassContainer(
+      padding: EdgeInsets.zero,
+      // Transparent Material so the ListTile's ink splash paints above
+      // GlassContainer's coloured box (otherwise it's hidden + asserts).
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          leading: Icon(Icons.admin_panel_settings_outlined, color: cs.tertiary),
+          title: Text(
+            'Admin Dashboard',
+            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            'System analytics & security',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.pushNamed(context, '/admin-dashboard'),
         ),
       ),
     );

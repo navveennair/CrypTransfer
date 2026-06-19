@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../settings/settings_screen.dart';
 import '../vault/rsa_key_manager_screen.dart';
@@ -113,26 +112,6 @@ class SidebarDrawer extends StatelessWidget {
               },
             ),
 
-            if (user != null)
-              StreamBuilder<UserModel?>(
-                stream: authRepo.streamUserProfile(user.uid),
-                builder: (context, snapshot) {
-                  final isAdmin = snapshot.data?.isAdmin ?? false;
-                  if (!isAdmin) return const SizedBox.shrink();
-                  
-                  return _DrawerItem(
-                    icon: Icons.admin_panel_settings_outlined,
-                    label: 'Admin Dashboard',
-                    subtitle: 'System analytics & security',
-                    color: Theme.of(context).colorScheme.tertiary,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, '/admin-dashboard');
-                    },
-                  );
-                },
-              ),
-
             _DrawerItem(
               icon: Icons.settings_outlined,
               label: 'Settings',
@@ -158,20 +137,18 @@ class _DrawerItem extends StatelessWidget {
   final String label;
   final String? subtitle;
   final VoidCallback onTap;
-  final Color? color;
 
   const _DrawerItem({
     required this.icon,
     required this.label,
     this.subtitle,
     required this.onTap,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final itemColor = color ?? cs.primary;
+    final itemColor = cs.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
