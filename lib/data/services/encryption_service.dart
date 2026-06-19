@@ -18,17 +18,19 @@ AsymmetricKeyPair<PublicKey, PrivateKey> _generateRsaKeyPairIsolate(void _) =>
     EncryptionService.generateRsaKeyPairSync();
 
 Uint8List runAesGcmEncrypt(List<Uint8List> args) {
-  final plaintext = args[0];
-  final key = args[1]; // 32 bytes
-  final iv = args[2]; // 12 bytes
+  // Defensive copies: this function is also called directly (without compute())
+  // by unit tests for synchronicity, so args may be the caller's own buffers,
+  // not isolate-local copies. Mutating args in place would corrupt the
+  // caller's state; operating on copies keeps the zero-on-exit behavior below
+  // self-contained regardless of how this function is invoked.
+  final plaintext = Uint8List.fromList(args[0]);
+  final key = Uint8List.fromList(args[1]); // 32 bytes
+  final iv = Uint8List.fromList(args[2]); // 12 bytes
   try {
     final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
     final cipher = GCMBlockCipher(AESEngine())..init(true, params);
     return cipher.process(plaintext);
   } finally {
-    // Zero inputs inside the isolate before it exits. These are copies of the
-    // main-isolate buffers (isolates don't share memory), so this is the only
-    // opportunity to wipe them — the main isolate cannot reach this heap.
     plaintext.fillRange(0, plaintext.length, 0);
     key.fillRange(0, key.length, 0);
     iv.fillRange(0, iv.length, 0);
@@ -36,20 +38,18 @@ Uint8List runAesGcmEncrypt(List<Uint8List> args) {
 }
 
 Uint8List runAesGcmDecrypt(List<Uint8List> args) {
-  final ciphertext = args[0]; // ciphertext + 16-byte GCM tag
-  final key = args[1]; // 32 bytes
-  final iv = args[2]; // 12 bytes
+  // See runAesGcmEncrypt — defensive copies so this never mutates the
+  // caller's buffers, whether invoked via compute() or directly.
+  final ciphertext = Uint8List.fromList(args[0]); // ciphertext + 16-byte GCM tag
+  final key = Uint8List.fromList(args[1]); // 32 bytes
+  final iv = Uint8List.fromList(args[2]); // 12 bytes
   try {
     final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
     final cipher = GCMBlockCipher(AESEngine())..init(false, params);
     return cipher.process(ciphertext);
   } finally {
-    // Zero key and IV inside the isolate — plaintext is the return value and
-    // cannot be zeroed here, but key material is more sensitive than plaintext.
     key.fillRange(0, key.length, 0);
     iv.fillRange(0, iv.length, 0);
-    // ciphertext (input to decrypt) is less sensitive than the output plaintext;
-    // zero it anyway to minimise lingering data on this isolate's heap.
     ciphertext.fillRange(0, ciphertext.length, 0);
   }
 }
