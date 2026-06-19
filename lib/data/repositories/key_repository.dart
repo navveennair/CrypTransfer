@@ -372,11 +372,28 @@ class KeyRepository {
   ///
   /// A notification is sent afterward (best-effort, outside the batch).
   /// Throws [KeyNotFoundException] if the receiver has no public key yet.
+  /// Throws [RoleConflictException] if [senderUid] has already selected the
+  /// current user as their sender (both-receiver conflict).
   Future<String> selectSenderHandshake({
     required String senderUid,
     required String senderUsername,
   }) async {
     try {
+      // Defense-in-depth role-conflict guard: some callers (auto-reconnect-
+      // to-last-sender, incoming-handshake auto-detect) reach this function
+      // without ever calling assignTransferRole() first. Mirrors
+      // assignTransferRole's both-receiver late-claim check: if the partner
+      // has already committed selectedSenderUid pointing at me, they're also
+      // trying to be receiver, with me as their sender.
+      final partnerDoc =
+          await _db.collection(FirebaseConstants.users).doc(senderUid).get();
+      if (partnerDoc.data()?['selectedSenderUid'] == _uid) {
+        throw RoleConflictException(
+          'Role conflict detected. Both users cannot be receivers. '
+          'One user must be sender, another must be receiver.',
+        );
+      }
+
       // Read receiver's current public key, display name, and mailbox status.
       final userDoc =
           await _db.collection(FirebaseConstants.users).doc(_uid).get();
