@@ -6,6 +6,8 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../auth/login_screen.dart';
 import '../widgets/shared_widgets.dart';
+import '../../core/utils/notification_service.dart';
+import '../home/notifications_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -121,6 +123,16 @@ class SettingsScreen extends StatelessWidget {
                         authEmail: authRepo.currentUser?.email,
                         authRepo: authRepo,
                       ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Notifications',
+                        style: tt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _NotificationsSection(uid: uid),
                     ],
                   );
                 },
@@ -388,6 +400,74 @@ class _AccountInfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _NotificationsSection extends StatelessWidget {
+  final String uid;
+
+  const _NotificationsSection({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return GlassContainer(
+      padding: EdgeInsets.zero,
+      // Transparent Material so the ListTile's ink splash paints above
+      // GlassContainer's coloured box (otherwise it's hidden + asserts).
+      child: Material(
+        type: MaterialType.transparency,
+        child: StreamBuilder<int>(
+          stream: NotificationService.unreadCountStream(uid),
+          builder: (context, snapshot) {
+            final count = snapshot.data ?? 0;
+            return ListTile(
+              leading: Icon(Icons.notifications_none_rounded, color: cs.primary),
+              title: Text(
+                'Notifications',
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'View notification history',
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (count > 0)
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      margin: const EdgeInsets.only(right: 8),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      decoration: BoxDecoration(
+                        color: cs.error,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          count > 9 ? '9+' : '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
