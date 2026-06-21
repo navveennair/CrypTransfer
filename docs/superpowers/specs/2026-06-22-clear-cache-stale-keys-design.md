@@ -52,12 +52,11 @@ Explicitly out of scope (considered and deferred during brainstorming):
   needs is already covered by rules deployed earlier this session. Staleness
   filtering by `status` happens client-side in Dart after a plain equality
   fetch specifically to avoid needing a new composite index.
-- **Deduplicating against `closeReceiverSession`'s own stale-transfer purge.**
-  `closeReceiverSession` already deletes the receiver's own `pending`-status
-  transfers as part of its cleanup. This feature's broader sweep (sender
-  *and* receiver, terminal statuses) is not reconciled against that narrower
-  one — left as-is deliberately, since both operations are idempotent and
-  simply overlap harmlessly rather than conflict.
+- **Reusing `EncryptionService.closeReceiverSession()` for RSA remediation.**
+  Considered and rejected — its unconditional `handshakes` and
+  `connection_request`/`rsa_key_received` notification purge is a bigger
+  blast radius than "stale key cleanup" implies (see Architecture below for
+  the narrower remediation actually used instead).
 
 ## Architecture
 
@@ -93,11 +92,19 @@ existing `_uid` getter):
    `encryptedAESKey`. Collect matching doc IDs into `staleTransferIds`.
 
 **`Future<void> clearStaleKeys(StaleKeyScanResult scan)`**:
-1. If `scan.hasStaleRsaSession`, call
-   `EncryptionService.closeReceiverSession(_uid)` — reused as-is rather than
-   duplicated, since it's already the idempotent, correct remediation for
-   exactly this condition (Firestore `publicKey` delete + secure-storage
-   wipe + associated stale pending-transfer/handshake/notification purge).
+1. If `scan.hasStaleRsaSession`, delete the local secure-storage entry at
+   `FirebaseConstants.privateKeyStorageKey` and update `users/{_uid}` to
+   clear `publicKey` (`FieldValue.delete()`) and set `isReadyToReceive`/
+   `sessionActive` to `false`. This is a **narrow, dedicated** remediation —
+   deliberately *not* a call to `EncryptionService.closeReceiverSession()`.
+   That function also unconditionally deletes **all** `handshakes` docs
+   (any status, not just stale ones) and **all** `connection_request`/
+   `rsa_key_received` notifications from the user's inbox — including
+   currently-unread, unrelated connection requests. That blast radius is
+   wider than "stale key cleanup" implies, so the few lines of overlap are
+   duplicated here rather than reusing it. No new Firestore rule needed —
+   the `users` collection's existing `allow update: if isOwner(userId)`
+   already covers this write with no field-level restriction.
 2. For each ID in `scan.staleTransferIds`, delete `transfers/{id}` in a
    single `WriteBatch` (mirrors the deletion `endSessionCleanup` already
    does for a normal clean end). Deleting the whole document — not just the
@@ -139,8 +146,10 @@ split fix):
 - `list transfers where senderId == self` (no status filter) — passed.
 - `list transfers where receiverId == self` (no status filter) — passed.
 - `delete transfers/{id}` as sender or receiver — passed.
-- `closeReceiverSession()` reuse — uses rules already exercised in
-  production today; unchanged.
+- `update users/{uid}` to clear `publicKey`/`isReadyToReceive`/
+  `sessionActive` as the owner — covered by the existing
+  `allow update: if isOwner(userId) || isAdmin()`, no field-level
+  restriction; unchanged.
 
 ## Testing
 
@@ -158,3 +167,7 @@ using `fake_cloud_firestore`, matching existing repo conventions:
 - Active session (`isReadyToReceive: true`, `publicKey` set) → NOT flagged.
 - Active transfer (`status: 'pending'`, `encryptedAESKey` set) → NOT flagged,
   NOT deleted.
+- Stale RSA session with an unrelated unread `connection_request`
+  notification and an unrelated `handshakes` doc present → after
+  `clearStaleKeys`, both are still present untouched (locks in the
+  brainstorming decision not to reuse `closeReceiverSession()`).
