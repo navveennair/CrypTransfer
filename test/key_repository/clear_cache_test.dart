@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cryptransfer/core/constants/firebase_constants.dart';
 import 'package:cryptransfer/data/repositories/key_repository.dart';
+import 'package:cryptransfer/data/services/encryption_service.dart';
 
 import '../mocks/mock_firebase.dart';
 
@@ -184,6 +185,195 @@ void main() {
         expect(scan.hasStaleRsaSession, true);
         expect(scan.staleTransferIds, [staleDoc.id]);
         expect(scan.isClean, false);
+      },
+    );
+  });
+
+  group('KeyRepository.clearStaleKeys', () {
+    late FakeFirebaseFirestore db;
+    late MockFirebaseAuth auth;
+    late FakeSecureStorage secure;
+    const uid = 'user1';
+
+    setUp(() {
+      db = FakeFirebaseFirestore();
+      auth = MockFirebaseAuth(signedIn: true, mockUser: MockUser(uid: uid));
+      secure = FakeSecureStorage();
+    });
+
+    KeyRepository repo() => KeyRepository(db: db, auth: auth, secure: secure);
+
+    // ─── TC-CC-08 ──────────────────────────────────────────────────────────
+
+    test(
+      'TC-CC-08: stale RSA only — wipes Firestore publicKey + local key, '
+      'sets isReadyToReceive/sessionActive false',
+      () async {
+        await db.collection(FirebaseConstants.users).doc(uid).set({
+          'isReadyToReceive': false,
+          'sessionActive': true,
+          'publicKey': 'LEFTOVER_PUBLIC_KEY',
+        });
+        await secure.write(
+          key: FirebaseConstants.privateKeyStorageKey,
+          value: 'LEFTOVER_PRIVATE_KEY_PEM',
+        );
+
+        final scan = await repo().scanForStaleKeys();
+        expect(scan.hasStaleRsaSession, true);
+
+        await repo().clearStaleKeys(scan);
+
+        final userDoc =
+            await db.collection(FirebaseConstants.users).doc(uid).get();
+        expect(userDoc.data()!.containsKey('publicKey'), false);
+        expect(userDoc.data()!['isReadyToReceive'], false);
+        expect(userDoc.data()!['sessionActive'], false);
+        expect(
+          await secure.read(key: FirebaseConstants.privateKeyStorageKey),
+          isNull,
+        );
+      },
+    );
+
+    // ─── TC-CC-09 ──────────────────────────────────────────────────────────
+
+    test(
+      'TC-CC-09: stale transfers only — deletes exactly those docs, '
+      'leaves others untouched',
+      () async {
+        await db.collection(FirebaseConstants.users).doc(uid).set({
+          'isReadyToReceive': false,
+        });
+        final staleDoc = await db.collection(FirebaseConstants.transfers).add({
+          'senderId': uid,
+          'receiverId': 'other1',
+          'status': 'completed',
+          'encryptedAESKey': 'LEFTOVER_AES_KEY',
+        });
+        final activeDoc = await db.collection(FirebaseConstants.transfers).add({
+          'senderId': uid,
+          'receiverId': 'other2',
+          'status': 'pending',
+          'encryptedAESKey': 'ACTIVE_AES_KEY',
+        });
+
+        final scan = await repo().scanForStaleKeys();
+        await repo().clearStaleKeys(scan);
+
+        expect(
+          (await db.collection(FirebaseConstants.transfers).doc(staleDoc.id).get())
+              .exists,
+          false,
+        );
+        expect(
+          (await db.collection(FirebaseConstants.transfers).doc(activeDoc.id).get())
+              .exists,
+          true,
+        );
+      },
+    );
+
+    // ─── TC-CC-10 ──────────────────────────────────────────────────────────
+
+    test(
+      'TC-CC-10: both stale RSA and stale transfers cleaned in one call',
+      () async {
+        await db.collection(FirebaseConstants.users).doc(uid).set({
+          'isReadyToReceive': false,
+          'publicKey': 'LEFTOVER_PUBLIC_KEY',
+        });
+        final staleDoc = await db.collection(FirebaseConstants.transfers).add({
+          'senderId': uid,
+          'receiverId': 'other1',
+          'status': 'failed',
+          'encryptedAESKey': 'LEFTOVER_AES_KEY',
+        });
+
+        final scan = await repo().scanForStaleKeys();
+        await repo().clearStaleKeys(scan);
+
+        final userDoc =
+            await db.collection(FirebaseConstants.users).doc(uid).get();
+        expect(userDoc.data()!.containsKey('publicKey'), false);
+        expect(
+          (await db.collection(FirebaseConstants.transfers).doc(staleDoc.id).get())
+              .exists,
+          false,
+        );
+      },
+    );
+
+    // ─── TC-CC-11 ──────────────────────────────────────────────────────────
+
+    test(
+      'TC-CC-11: unrelated connection_request notification and handshakes '
+      'doc survive clearStaleKeys untouched (locks in the decision not to '
+      'reuse closeReceiverSession)',
+      () async {
+        await db.collection(FirebaseConstants.users).doc(uid).set({
+          'isReadyToReceive': false,
+          'publicKey': 'LEFTOVER_PUBLIC_KEY',
+        });
+        final notif = await db
+            .collection(FirebaseConstants.users)
+            .doc(uid)
+            .collection(FirebaseConstants.notifications)
+            .add({'type': 'connection_request', 'read': false});
+        final handshake = await db.collection(FirebaseConstants.handshakes).add({
+          'senderId': 'someoneElse',
+          'receiverId': uid,
+          'status': 'handshake_complete',
+        });
+
+        final scan = await repo().scanForStaleKeys();
+        await repo().clearStaleKeys(scan);
+
+        expect(
+          (await db
+                  .collection(FirebaseConstants.users)
+                  .doc(uid)
+                  .collection(FirebaseConstants.notifications)
+                  .doc(notif.id)
+                  .get())
+              .exists,
+          true,
+          reason: 'clearStaleKeys must not touch notifications — that is '
+              "closeReceiverSession's broader (and rejected-for-reuse) blast "
+              'radius',
+        );
+        expect(
+          (await db.collection(FirebaseConstants.handshakes).doc(handshake.id).get())
+              .exists,
+          true,
+          reason: 'clearStaleKeys must not touch handshakes',
+        );
+      },
+    );
+
+    // ─── TC-CC-12 ──────────────────────────────────────────────────────────
+
+    test(
+      'TC-CC-12: clearStaleKeys clears the live-session marker for this uid',
+      () async {
+        await db.collection(FirebaseConstants.users).doc(uid).set({
+          'isReadyToReceive': false,
+          'publicKey': 'LEFTOVER_PUBLIC_KEY',
+        });
+        EncryptionService.markLiveSession(uid);
+        expect(EncryptionService.isLiveSessionFor(uid), true);
+
+        final scan = await repo().scanForStaleKeys();
+        await repo().clearStaleKeys(scan);
+
+        expect(
+          EncryptionService.isLiveSessionFor(uid),
+          false,
+          reason: 'every code path that deletes the private key '
+              '(AuthRepository.deleteKeyPair, EncryptionService.'
+              'closeReceiverSession) also calls clearLiveSession — '
+              'clearStaleKeys deletes the same key material and must too',
+        );
       },
     );
   });

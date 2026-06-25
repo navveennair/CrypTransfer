@@ -6,6 +6,7 @@ import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../models/stale_key_scan_result.dart';
 import '../models/user_model.dart';
+import '../services/encryption_service.dart';
 
 /// Manages RSA key transfers and user connections.
 /// Extracted from the former ConnectionService.
@@ -843,6 +844,42 @@ class KeyRepository {
       hasStaleRsaSession: hasStaleRsaSession,
       staleTransferIds: staleTransferIds.toList(),
     );
+  }
+
+  /// Clears exactly the stale key material captured in [scan] — not a
+  /// fresh re-scan — so the deletion targets exactly what the user
+  /// confirmed, avoiding a race with new legitimate data created between
+  /// scan and confirm.
+  ///
+  /// Deliberately does NOT call EncryptionService.closeReceiverSession():
+  /// that also purges ALL handshakes and connection_request/
+  /// rsa_key_received notifications regardless of status, which is a wider
+  /// blast radius than "stale key cleanup" implies.
+  Future<void> clearStaleKeys(StaleKeyScanResult scan) async {
+    try {
+      if (scan.hasStaleRsaSession) {
+        await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
+        await _db.collection(FirebaseConstants.users).doc(_uid).update({
+          'publicKey': FieldValue.delete(),
+          'isReadyToReceive': false,
+          'sessionActive': false,
+        });
+        EncryptionService.clearLiveSession(_uid);
+      }
+
+      if (scan.staleTransferIds.isNotEmpty) {
+        final batch = _db.batch();
+        for (final id in scan.staleTransferIds) {
+          batch.delete(_db.collection(FirebaseConstants.transfers).doc(id));
+        }
+        await batch.commit();
+      }
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+        'Failed to clear stale keys: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
   }
 
   /// Atomically purges session data from Firestore.
