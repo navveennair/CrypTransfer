@@ -97,10 +97,22 @@ service cloud.firestore {
     // RULE: Create allowed if receiver has explicitly authorized this sender
     //       (selectedSenderUid == auth.uid) OR a neutral_handshake exists.
     match /transfers/{transferId} {
-      allow read:   if isAuthenticated() &&
-                       (resource == null ||
-                        resource.data.senderId == request.auth.uid ||
-                        resource.data.receiverId == request.auth.uid);
+      // get and list are split because list/listen queries are validated by
+      // Cloud Firestore against the query's own where() filters alone — a
+      // `resource == null` disjunct is not provable from those filters (a
+      // list query never returns nonexistent docs anyway), so production
+      // rejects the WHOLE query with PERMISSION_DENIED. The emulator does not
+      // enforce this and evaluates per-document instead, so rules-unit-tests
+      // pass even when this rule shape breaks production list queries
+      // (e.g. streamRecentTransfers' receiverId/status where() queries).
+      allow get:  if isAuthenticated() &&
+                     (resource == null ||
+                      resource.data.senderId == request.auth.uid ||
+                      resource.data.receiverId == request.auth.uid);
+
+      allow list: if isAuthenticated() &&
+                     (resource.data.senderId == request.auth.uid ||
+                      resource.data.receiverId == request.auth.uid);
 
       allow create: if isAuthenticated() &&
                        request.resource.data.senderId == request.auth.uid &&
@@ -155,11 +167,26 @@ service cloud.firestore {
     // proposer's own doc may also be marked connected (mutual-accept WriteBatch);
     // either party may delete (cancel or post-session cleanup).
     match /neutral_handshakes/{handshakeId} {
-      // resource == null when doc doesn't exist; needed for runTransaction tx.get()
-      // on a not-yet-created doc (WR-01 idempotent sendProposal).
-      allow read: if isAuthenticated() &&
-                     (resource == null ||
-                      resource.data.proposerId == request.auth.uid ||
+      // get and list are split because list/listen queries are validated by
+      // Cloud Firestore against the query's own where() filters alone — a
+      // `resource == null` disjunct is not provable from those filters, so
+      // production rejects the WHOLE query with PERMISSION_DENIED even though
+      // partnerId/proposerId == request.auth.uid is directly implied by the
+      // query's own where() clause. The local emulator does not enforce this
+      // production-only check (it evaluates per-document instead), so
+      // rules-unit-tests pass even though streamIncomingPending() /
+      // streamOutgoingPending() / streamActiveConnectionsAsPartner/Proposer()
+      // (all list queries) get silently PERMISSION_DENIED live.
+      //
+      // resource == null is kept on get only — needed for sendProposal()'s
+      // idempotency pre-check (docRef.get() on a not-yet-created doc, WR-01).
+      allow get: if isAuthenticated() &&
+                    (resource == null ||
+                     resource.data.proposerId == request.auth.uid ||
+                     resource.data.partnerId == request.auth.uid);
+
+      allow list: if isAuthenticated() &&
+                     (resource.data.proposerId == request.auth.uid ||
                       resource.data.partnerId == request.auth.uid);
 
       // Only proposer may create, and only with their own UID as proposerId

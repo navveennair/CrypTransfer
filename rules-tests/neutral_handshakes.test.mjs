@@ -4,7 +4,17 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { setDoc, updateDoc, getDoc, deleteDoc, doc } from 'firebase/firestore';
+import {
+  setDoc,
+  updateDoc,
+  getDoc,
+  deleteDoc,
+  doc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
 import { after, before, describe, it } from 'mocha';
 
 const PROJECT_ID = 'cryptransfer-96e9f';
@@ -90,5 +100,29 @@ describe('HAND-09 — neutral_handshakes Firestore rules', () => {
     await assertFails(
       getDoc(doc(userC.firestore(), DOC_PATH))
     );
+  });
+
+  // Regression coverage for streamActiveConnectionsAsPartner/Proposer in
+  // handshake_repository.dart — a list query, not a get. The rule's read
+  // condition must remain provable from the query's own where() filters or
+  // Firestore rejects the whole listen with PERMISSION_DENIED.
+  it('HAND-09-5: Partner lists where partnerId==self && status==connected → ALLOW', async () => {
+    const userB = testEnv.authenticatedContext(USER_B);
+    const q = query(
+      collection(userB.firestore(), 'neutral_handshakes'),
+      where('partnerId', '==', USER_B),
+      where('status', '==', 'pending')
+    );
+    await assertSucceeds(getDocs(q));
+  });
+
+  it('HAND-09-6: Proposer lists where proposerId==self && status==connected → ALLOW', async () => {
+    const userA = testEnv.authenticatedContext(USER_A);
+    const q = query(
+      collection(userA.firestore(), 'neutral_handshakes'),
+      where('proposerId', '==', USER_A),
+      where('status', '==', 'pending')
+    );
+    await assertSucceeds(getDocs(q));
   });
 });
