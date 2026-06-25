@@ -102,7 +102,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
-      final taken = await _authService.isUsernameTaken(v);
+      bool taken;
+      try {
+        taken = await _authService.isUsernameTaken(v);
+      } catch (e) {
+        if (!mounted) return;
+        if (_usernameController.text.trim() != v) return;
+        setState(() {
+          _usernameStatus = _FS.invalid;
+          _usernameError = 'Could not check username. Check your connection.';
+        });
+        return;
+      }
       if (!mounted) return;
       if (_usernameController.text.trim() != v) return;
       setState(() {
