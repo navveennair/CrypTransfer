@@ -337,6 +337,7 @@ class AuthRepository {
     batch.set(prefsRef, {'keyVaultCreatedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true)); // D-14: stamp regeneration time; merge preserves other prefs
     await batch.commit();
+    EncryptionService.markLiveSession(uid);
   }
 
   /// Deletes the RSA keypair.
@@ -359,6 +360,7 @@ class AuthRepository {
     // If batch.commit() throws, the private key is NOT wiped — Firestore and
     // secure storage remain consistent (both still hold key material).
     await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
+    EncryptionService.clearLiveSession(uid);
   }
 
   // ─── User profile ──────────────────────────────────────────────────────────

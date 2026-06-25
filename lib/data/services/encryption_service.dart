@@ -73,6 +73,26 @@ class AesEncryptResult {
 class EncryptionService {
   const EncryptionService._();
 
+  // ─── Live-session key tracking ──────────────────────────────────────────
+  //
+  // In-memory only — resets to null on every process start/restart. Used to
+  // distinguish a key pair established within THIS running app process from
+  // leftover secure-storage/Firestore key material that survived an
+  // improperly-closed previous process (e.g. force-killed via IDE/emulator
+  // stop before the lifecycle kill-switch in SessionManager could run
+  // closeReceiverSession). receiver_screen.dart's _step1Done checks this so
+  // a stale leftover key from an unknown prior process is never silently
+  // trusted as "already done" — Step 1 is forced again instead.
+  static String? _liveSessionUid;
+
+  static bool isLiveSessionFor(String uid) => _liveSessionUid == uid;
+
+  static void markLiveSession(String uid) => _liveSessionUid = uid;
+
+  static void clearLiveSession(String uid) {
+    if (_liveSessionUid == uid) _liveSessionUid = null;
+  }
+
   // ─── Secure random ──────────────────────────────────────────────────────
 
   static Uint8List secureRandomBytes(int length) {
@@ -244,6 +264,8 @@ class EncryptionService {
         'isReadyToReceive': true,
         'sessionActive': true,
       });
+
+      markLiveSession(uid);
     } catch (e) {
       _logSecurityEvent('setupReceiverSession_FAILED', uid, e.toString());
       rethrow;
@@ -284,6 +306,7 @@ class EncryptionService {
       // 2. Delete private key from secure storage.
       const storage = FlutterSecureStorage();
       await storage.delete(key: FirebaseConstants.privateKeyStorageKey);
+      clearLiveSession(uid);
 
       // 3. Write kill-switch audit log if an active session existed.
       if (selectedSenderUid != null && selectedSenderUid.isNotEmpty) {
