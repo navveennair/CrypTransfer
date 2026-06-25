@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app_theme.dart';
+import '../../core/utils/kill_switch_outbox.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/key_repository.dart';
 import '../home/home_screen.dart';
@@ -42,6 +43,15 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     setState(() => _securing = true);
+    // Resume any kill-switch cleanup interrupted by a force-kill before
+    // wipeAllSessionKeys — that blanket wipe never touches the user doc's
+    // publicKey/isReadyToReceive/sessionActive fields or pending transfers,
+    // so an interrupted closeReceiverSession would otherwise leave those
+    // stale even after relaunch. Called here (not main()) because
+    // FirebaseAuth.currentUser is not reliably restored yet immediately
+    // after Firebase.initializeApp() — authStateChanges().first above is
+    // this codebase's established pattern for a trustworthy post-restore uid.
+    await KillSwitchOutbox.resumeIfPending();
     try {
       await KeyRepository().wipeAllSessionKeys(user.uid);
     } catch (_) {}
