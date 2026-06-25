@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
+import '../models/stale_key_scan_result.dart';
 import '../models/user_model.dart';
 
 /// Manages RSA key transfers and user connections.
@@ -790,6 +791,58 @@ class KeyRepository {
       }
       await batchNotifs.commit();
     }
+  }
+
+  /// Scans Firestore (the source of truth, not just local secure storage)
+  /// for RSA/AES key material left behind by a session that ended without
+  /// proper cleanup. Read-only — does not modify any state.
+  Future<StaleKeyScanResult> scanForStaleKeys() async {
+    final userDoc =
+        await _db.collection(FirebaseConstants.users).doc(_uid).get();
+    final userData = userDoc.data();
+    final isReady = userData?['isReadyToReceive'] as bool? ?? false;
+    final publicKey = userData?['publicKey'] as String?;
+    final hasFirestorePublicKey = publicKey != null && publicKey.isNotEmpty;
+    final localPrivateKey =
+        await _secure.read(key: FirebaseConstants.privateKeyStorageKey);
+    final hasLocalPrivateKey = localPrivateKey != null;
+    final hasStaleRsaSession =
+        !isReady && (hasFirestorePublicKey || hasLocalPrivateKey);
+
+    const staleStatuses = {
+      'completed',
+      'aborted',
+      'failed',
+      'cancelled',
+      'connection_lost',
+    };
+
+    final asSender = await _db
+        .collection(FirebaseConstants.transfers)
+        .where('senderId', isEqualTo: _uid)
+        .get();
+    final asReceiver = await _db
+        .collection(FirebaseConstants.transfers)
+        .where('receiverId', isEqualTo: _uid)
+        .get();
+
+    final staleTransferIds = <String>{};
+    for (final doc in [...asSender.docs, ...asReceiver.docs]) {
+      final data = doc.data();
+      final status = data['status'] as String?;
+      final encryptedAESKey = data['encryptedAESKey'] as String?;
+      if (status != null &&
+          staleStatuses.contains(status) &&
+          encryptedAESKey != null &&
+          encryptedAESKey.isNotEmpty) {
+        staleTransferIds.add(doc.id);
+      }
+    }
+
+    return StaleKeyScanResult(
+      hasStaleRsaSession: hasStaleRsaSession,
+      staleTransferIds: staleTransferIds.toList(),
+    );
   }
 
   /// Atomically purges session data from Firestore.
