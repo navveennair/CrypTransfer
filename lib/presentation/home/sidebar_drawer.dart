@@ -4,6 +4,7 @@ import '../../data/repositories/auth_repository.dart';
 import '../settings/settings_screen.dart';
 import '../vault/rsa_key_manager_screen.dart';
 import '../widgets/shared_widgets.dart';
+import 'clear_cache_sheet.dart';
 import 'find_friends_screen.dart';
 
 class SidebarDrawer extends StatelessWidget {
@@ -108,6 +109,22 @@ class SidebarDrawer extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const RsaKeyManagerScreen()),
+                );
+              },
+            ),
+
+            _DrawerItem(
+              icon: Icons.cleaning_services_outlined,
+              label: 'Clear Cache',
+              subtitle: 'Scan for leftover keys',
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const ClearCacheSheet(),
                 );
               },
             ),
