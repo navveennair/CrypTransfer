@@ -1,0 +1,61 @@
+sequenceDiagram
+    autonumber
+    participant Mixin as SecurityLifecycleMixin<br/>(applied to Sender/Receiver/Decrypt/<br/>EndSession/RsaKeyManager screens)
+    participant Registry as _radioactiveBuffers<br/>(Uint8List registry)
+    participant MainActivity as MainActivity<br/>cryptransfer/security, cryptransfer/file
+    participant FS as Filesystem (temp dir)
+
+    rect rgb(247,247,247)
+    Note over Mixin,Registry: Registration (occurs throughout SD005 / SD009)
+    Mixin->>Registry: registerBuffer(buffer)<br/>(plaintext, ciphertext, AES key, IV,<br/>encrypted AES key, decrypted bytes)
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,Registry: Eager unregister (sender, post-encryption - SD005 step 8)
+    Mixin->>Mixin: plaintext.fillRange(0, len, 0)
+    Mixin->>Registry: unregisterBuffer(plaintext)<br/>(removes by identity to avoid double-wipe)
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,FS: wipeAll() trigger points (any of)
+    alt dispose() auto-wipe
+        Mixin->>Mixin: dispose() -> wipeAll() before super.dispose()
+    else SessionManager.wipeSession()
+        Mixin->>Mixin: onBuffersWipe() callback (see SD014)
+    else explicit pre/post-flight wipe
+        Mixin->>Mixin: _wipeSensitiveData() (SenderScreen)
+    else Save and Suicide
+        Mixin->>Mixin: _saveAndWipe() (DecryptScreen, SD010)
+    else watchdog/abort
+        Mixin->>Mixin: transfer interruption handler
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,Registry: wipeAll() body
+    loop for each buffer in _radioactiveBuffers
+        Mixin->>Registry: buffer.fillRange(0, buffer.length, 0)
+    end
+    Mixin->>Registry: _radioactiveBuffers.clear()
+    Mixin->>Mixin: onBuffersWiped() (overridable hook)
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,FS: onBuffersWiped() - DecryptScreen override
+    Mixin->>FS: _deleteTempFile()<br/>(deletes getTemporaryDirectory()/{fileName} from SD009)
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,MainActivity: Native pre-flight check (SD005 step 2)
+    Mixin->>MainActivity: isFlagSecureActive() -> MethodChannel<br/>"cryptransfer/security"
+    MainActivity-->>Mixin: (window.attributes.flags & FLAG_SECURE) != 0
+    Note right of MainActivity: returns true on iOS/desktop/<br/>MissingPluginException/any error<br/>(fail-open for non-Android)
+    end
+
+    rect rgb(247,247,247)
+    Note over Mixin,MainActivity: Native GC hint (kill-switch terminal step)
+    Mixin->>MainActivity: requestNativeClear() -> MethodChannel "clearSession"
+    MainActivity->>MainActivity: Thread { System.gc() }.start()<br/>(best-effort, swallows errors)
+    end
+
+    Note over Mixin,Registry: Known limitation - compute() isolate ciphertext<br/>(SD004/SD005/SD009) is copied back to the main isolate.<br/>The isolate's own heap copy cannot be fillRange-zeroed<br/>from the main isolate. Documented as an accepted<br/>inherent platform limitation (ZERO_REMANENCE_ANALYSIS.md).

@@ -65,12 +65,8 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
   late Animation<double> _doneScale;
 
   // 4 steps matching D-03 sequence — audit log FIRST, closeReceiverSession LAST
-  // NOTE: the audit log itself is now written earlier, in DecryptScreen._saveAndWipe(),
-  // immediately after the file is saved — so it is captured even if the user never
-  // reaches/completes this screen. Step 0 here is a no-op confirmation tick only,
-  // preserved so the visible cleanup sequence still reads top-to-bottom per D-03.
   late final List<_Step> _steps = [
-    _Step(icon: Icons.receipt_long_rounded,   label: 'Immutable audit log recorded'),
+    _Step(icon: Icons.receipt_long_rounded,   label: 'Write immutable audit log'),
     _Step(icon: Icons.cloud_off_rounded,      label: 'Delete encrypted file from storage'),
     _Step(icon: Icons.delete_forever_rounded, label: 'Delete transfer record and handshake'),
     _Step(icon: Icons.person_off_rounded,     label: 'Wipe RSA keys from device and Firestore'),
@@ -209,10 +205,18 @@ class _ReceiverEndSessionScreenState extends State<ReceiverEndSessionScreen>
     }
 
     try {
-      // ── Step 0: audit log already written by DecryptScreen._saveAndWipe() ──
-      // immediately after save — kept here only as a visual confirmation tick
-      // so the on-screen sequence still matches D-03's intended order.
+      // ── Step 0: Write immutable audit log FIRST (D-03) ──
       await tick(0);
+      final receiverUsername =
+          FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
+      await _transferRepo.writeFinalAuditLog(
+        senderId: widget.senderId,
+        receiverId: widget.receiverId,
+        senderUsername: widget.senderUsername,
+        receiverUsername: receiverUsername,
+        fileName: widget.fileName,
+        fileSize: widget.fileSize,
+      );
       await done(0);
 
       // ── Step 1: Delete encrypted file from Firebase Storage ─────────────────

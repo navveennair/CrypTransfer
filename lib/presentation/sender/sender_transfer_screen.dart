@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/handshake_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import 'sender_session_end_screen.dart';
 import '../home/home_screen.dart';
@@ -55,6 +56,8 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
   int _totalBytes = 0;
   bool _done = false;
   String? _error;
+  int _uploadAttempt = 0;
+  String? _retryInfo;
 
   // ── Non-repudiation listener state ────────────────────────────────────────
   StreamSubscription<DocumentSnapshot>? _transferListener;
@@ -158,6 +161,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
         } catch (_) {
           // best-effort — non-critical
         }
+        await _disconnectFromReceiver();
         wipeAll();
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -245,6 +249,22 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
 
   void _onWatchdogFired() => _abortDueToWatchdog();
 
+  /// Tears down the friendship/neutral_handshake connection immediately on
+  /// disruption — called from all three sender-side abort paths below
+  /// (counter-party-detected, watchdog, manual) so a disrupted transfer
+  /// disconnects the moment THIS side detects it, rather than waiting on the
+  /// receiver's own session-end path (which may never run if the receiver's
+  /// app already crashed). Best-effort: failure here must not block the rest
+  /// of the abort sequence.
+  Future<void> _disconnectFromReceiver() async {
+    try {
+      await HandshakeRepository()
+          .disconnectPair(widget.senderId, widget.receiverId);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[SenderTransferScreen] disconnectPair failed: $e');
+    }
+  }
+
   Future<void> _abortDueToWatchdog() async {
     if (_aborting || _sessionEnded || !mounted) return;
     _aborting = true;
@@ -273,6 +293,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     } catch (_) {
       // best-effort — non-critical
     }
+    await _disconnectFromReceiver();
     wipeAll();
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -305,6 +326,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     _cleanupTimeoutTimer = Timer(const Duration(seconds: 300), () {
       if (!mounted || _senderWipeSent || _sessionEnded) return;
       _sessionEnded = true;
+      _disconnectFromReceiver(); // fire-and-forget — best-effort, doesn't block navigation
       wipeAll();
       if (mounted) {
         Navigator.pushReplacement(
@@ -414,6 +436,7 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     } catch (_) {
       // best-effort — non-critical
     }
+    await _disconnectFromReceiver();
     wipeAll();
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -432,60 +455,74 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
     }
   }
 
+  static const _kMaxUploadAttempts = 3;
+
   Future<void> _startUpload() async {
-    try {
-      await _transferRepo
-          .uploadAndCreate(
-            transferId: widget.transferId,
-            encryptedBytes: widget.encryptedBytes,
-            fileName: widget.fileName,
-            fileSize: widget.fileSize,
-            senderId: widget.senderId,
-            receiverId: widget.receiverId,
-            encryptedAESKeyB64: widget.encryptedAESKeyB64,
-            ivB64: widget.ivB64,
-          )
-          .forEach((progress) {
-            if (mounted) {
-              setState(() {
-                _bytesTransferred = (progress * widget.encryptedBytes.length).toInt();
-                _totalBytes = widget.encryptedBytes.length;
-                _progress = progress;
-              });
-            }
-          });
-
-      // Start the non-repudiation listener NOW — doc exists, security rule can evaluate.
-      // Starting before .set() would subscribe to a non-existent doc, causing
-      // resource.data access in the Firestore rule to return false (null resource),
-      // which silently cancels the subscription before any receiver updates arrive.
-      _startTransferListener();
-
-      // Notify receiver (non-critical)
+    while (true) {
+      _uploadAttempt++;
       try {
-        final senderUsername =
-            FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
-        await _transferRepo.notifyReceiver(
-          receiverId: widget.receiverId,
-          senderUsername: senderUsername,
-          transferId: widget.transferId,
-        );
-      } catch (_) {
-        // best-effort — non-critical
-      }
+        await _transferRepo
+            .uploadAndCreate(
+              transferId: widget.transferId,
+              encryptedBytes: widget.encryptedBytes,
+              fileName: widget.fileName,
+              fileSize: widget.fileSize,
+              senderId: widget.senderId,
+              receiverId: widget.receiverId,
+              encryptedAESKeyB64: widget.encryptedAESKeyB64,
+              ivB64: widget.ivB64,
+            )
+            .forEach((progress) {
+              if (mounted) {
+                setState(() {
+                  _bytesTransferred = (progress * widget.encryptedBytes.length).toInt();
+                  _totalBytes = widget.encryptedBytes.length;
+                  _progress = progress;
+                  _retryInfo = null;
+                });
+              }
+            });
 
-      if (mounted) {
-        setState(() {
-          _progress = 1.0;
-          _done = true;
-        });
-        _successCtrl.forward();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString().replaceFirst('Exception: ', '');
-        });
+        // Start the non-repudiation listener NOW — doc exists, security rule can evaluate.
+        _startTransferListener();
+
+        try {
+          final senderUsername =
+              FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
+          await _transferRepo.notifyReceiver(
+            receiverId: widget.receiverId,
+            senderUsername: senderUsername,
+            transferId: widget.transferId,
+          );
+        } catch (_) {
+          // best-effort — non-critical
+        }
+
+        if (mounted) {
+          setState(() { _progress = 1.0; _done = true; });
+          _successCtrl.forward();
+        }
+        return;
+      } catch (e) {
+        if (_aborting || _sessionEnded || _uploadAttempt >= _kMaxUploadAttempts) {
+          if (mounted) {
+            setState(() {
+              _error = e.toString().replaceFirst('Exception: ', '');
+            });
+          }
+          return;
+        }
+        final delaySecs = _uploadAttempt == 1 ? 2 : 5;
+        if (mounted) {
+          setState(() {
+            _progress = 0;
+            _bytesTransferred = 0;
+            _retryInfo = 'Upload failed — retrying in ${delaySecs}s'
+                ' (attempt ${_uploadAttempt + 1}/$_kMaxUploadAttempts)…';
+          });
+        }
+        await Future.delayed(Duration(seconds: delaySecs));
+        if (!mounted || _aborting || _sessionEnded) return;
       }
     }
   }
@@ -517,13 +554,9 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
               const SizedBox(height: 16),
 
               // ── File info card ────────────────────────────────────────
-              Container(
+              GlassContainer(
                 padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outlineVariant),
-                ),
+                borderRadius: 16,
                 child: Column(
                   children: [
                     Icon(
@@ -723,6 +756,14 @@ class _SenderTransferScreenState extends State<SenderTransferScreen>
                   style: TextStyle(
                       fontSize: 13, color: cs.onSurfaceVariant),
                 ),
+                if (_retryInfo != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _retryInfo!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: cs.error),
+                  ),
+                ],
               ],
             ],
           ),

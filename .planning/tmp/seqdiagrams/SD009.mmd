@@ -1,0 +1,62 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant DecryptScreen
+    participant SecurityLifecycleMixin
+    participant TransferRepository
+    participant Storage as Firebase Storage
+    participant SecureStorage as FlutterSecureStorage
+    participant Isolate as compute() isolates<br/>(_decryptAesKeyIsolate,<br/>runAesGcmDecrypt)
+    participant FS as Filesystem (temp dir)
+    participant EncryptionService
+
+    User->>DecryptScreen: tap "Decrypt" (phase: ready)
+    DecryptScreen->>DecryptScreen: phase = decrypting
+    DecryptScreen->>TransferRepository: updateReceiverStatus(transferId, 'downloading')
+    TransferRepository->>Storage: ref('transfers/{transferId}/encrypted_file').getData(maxBytes)
+    Storage-->>DecryptScreen: encryptedBytes
+
+    DecryptScreen->>SecureStorage: read(privateKeyStorageKey)
+    alt private key missing
+        SecureStorage-->>DecryptScreen: null
+        DecryptScreen-->>User: throw error
+    else private key present
+        SecureStorage-->>DecryptScreen: privateKeyJson
+        DecryptScreen->>DecryptScreen: encryptedAESKeyBytes = base64Decode(transfer.encryptedAESKey)
+
+        DecryptScreen->>Isolate: compute(_decryptAesKeyIsolate,<br/>[privateKeyJson, encryptedAESKeyBytes])
+        Note right of Isolate: OAEPEncoding(RSAEngine())<br/>..init(false, PrivateKeyParameter(privKey))
+        Isolate-->>DecryptScreen: aesKey (32B)
+        DecryptScreen->>SecurityLifecycleMixin: registerBuffer(aesKey)
+
+        DecryptScreen->>TransferRepository: updateReceiverStatus(transferId, 'decrypting')
+        DecryptScreen->>DecryptScreen: ivBuffer = base64Decode(transfer.iv)
+        DecryptScreen->>SecurityLifecycleMixin: registerBuffer(ivBuffer)
+
+        DecryptScreen->>Isolate: compute(runAesGcmDecrypt, [encryptedBytes, aesKey, ivBuffer])
+        Note right of Isolate: GCMBlockCipher(AESEngine())<br/>..init(false, AEADParameters(<br/>KeyParameter(key), 128, iv, empty))
+        Isolate-->>DecryptScreen: decryptedBytes
+        DecryptScreen->>SecurityLifecycleMixin: registerBuffer(decryptedBytes)
+
+        DecryptScreen->>TransferRepository: updateReceiverStatus(transferId, 'decrypted')
+        DecryptScreen->>FS: write decryptedBytes to<br/>getTemporaryDirectory()/{fileName}
+        FS-->>DecryptScreen: _tempFilePath
+        DecryptScreen->>DecryptScreen: phase = done
+    end
+
+    opt User taps "Preview"
+        DecryptScreen->>FS: OpenFile.open(_tempFilePath)
+    end
+
+    rect rgb(247,247,247)
+    Note over DecryptScreen,EncryptionService: Watchdog (loop) - 120s timer
+    loop every tick until phase progresses
+        DecryptScreen->>DecryptScreen: check elapsed time
+    end
+    alt watchdog expires
+        DecryptScreen-->>User: abort dialog
+        DecryptScreen->>TransferRepository: markTransferInterrupted(transferId, wipeAesKey:true)
+        DecryptScreen->>TransferRepository: writeConnectionLostAuditLog(...)
+        DecryptScreen->>EncryptionService: closeReceiverSession(uid)
+    end
+    end

@@ -84,7 +84,13 @@ class _NotificationTile extends StatelessWidget {
       borderRadius: 12,
       color: isRead ? null : accentColor.withValues(alpha: 0.08),
       borderColor: isRead ? null : accentColor.withValues(alpha: 0.3),
-      child: ListTile(
+      // ListTile paints its ink/background on the nearest Material ancestor.
+      // GlassContainer is a coloured DecoratedBox, so without an intervening
+      // Material the tile's splash is hidden (and debug asserts). A transparent
+      // Material gives the tile a surface to paint on, above the box colour.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
         leading: CircleAvatar(
           backgroundColor: accentColor.withValues(alpha: isRead ? 0.08 : 0.15),
           child: Icon(
@@ -115,6 +121,7 @@ class _NotificationTile extends StatelessWidget {
         onTap: () async {
           await NotificationService.markRead(uid, docId);
         },
+        ),
       ),
     );
   }

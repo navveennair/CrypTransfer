@@ -1,0 +1,32 @@
+{
+  "doc_path": "docs/modules/auth.md",
+  "claims_checked": 15,
+  "claims_passed": 11,
+  "claims_failed": 4,
+  "failures": [
+    {
+      "line": 87,
+      "claim": "`generateAndStoreKeyPair()` uses `Isolate.run()` — Guardian WARNING (legacy path, intentional)",
+      "expected": "generateAndStoreKeyPair() implementation matches description",
+      "actual": "lib/data/repositories/auth_repository.dart:234 calls `compute(_generateKeyPairIsolate, null)`, not `Isolate.run()`. The doc's own '✅ compute() Migration (resolved)' section (lines 36-41) confirms the migration already happened, contradicting this 'Current Status' line."
+    },
+    {
+      "line": 94,
+      "claim": "The `generateAndStoreKeyPair()` legacy path is still active for step 0 key generation — do not remove",
+      "expected": "generateAndStoreKeyPair() described as Isolate.run() legacy path",
+      "actual": "auth_repository.dart uses compute() (via top-level _generateKeyPairIsolate), not Isolate.run(); described as already migrated/resolved earlier in the same doc (lines 36-41)"
+    },
+    {
+      "line": 57,
+      "claim": "`UserModel.fromDoc()` reads only 5 fields: `username`, `email`, `phone`, `publicKey`, `createdAt`",
+      "expected": "UserModel.fromDoc() reads exactly 5 fields as listed",
+      "actual": "lib/data/models/user_model.dart:26-39 fromDoc() reads 8 fields: username, email, phone, publicKey, isAdmin, isActive, isFirstTime, createdAt"
+    },
+    {
+      "line": 64,
+      "claim": "No `isDisabled` or `isAdmin` fields — not implemented. Access control is via Firestore security rules only.",
+      "expected": "isAdmin field not implemented in codebase",
+      "actual": "lib/data/models/user_model.dart defines `isAdmin` field (line 9, default false), reads it in fromDoc()/fromMap() (lines 34, 48), and writes it in toMap() (line 59); auth_repository.dart writes 'isAdmin': false at register() (line 73) and signInWithGoogle() (line 182)"
+    }
+  ]
+}

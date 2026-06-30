@@ -1,0 +1,62 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant ReceiverScreen
+    participant RsaKeyManagerScreen
+    participant SenderScreen
+    participant BiometricHelper
+    participant LocalAuth as local_auth<br/>(LocalAuthentication)
+
+    Note over User,LocalAuth: No app-launch biometric gate exists.<br/>BiometricHelper.authenticate() is used per-action at 3 sites.
+
+    rect rgb(247,247,247)
+    Note over User,RsaKeyManagerScreen: Site 1 - RSA Key Vault entry guard
+    User->>ReceiverScreen: tap gear icon -> _openKeyManager()
+    ReceiverScreen->>BiometricHelper: authenticate("Access RSA Key Manager")
+    alt success
+        BiometricHelper-->>ReceiverScreen: true
+        ReceiverScreen->>RsaKeyManagerScreen: push(RsaKeyManagerScreen)
+    else fail
+        BiometricHelper-->>ReceiverScreen: false
+        ReceiverScreen-->>User: stay on ReceiverScreen, no navigation
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over RsaKeyManagerScreen,LocalAuth: Site 2 - re-gate within RsaKeyManagerScreen.initState()
+    RsaKeyManagerScreen->>RsaKeyManagerScreen: addPostFrameCallback(_authenticate)
+    RsaKeyManagerScreen->>BiometricHelper: authenticate("Unlock RSA Key Vault")
+    alt fail
+        BiometricHelper-->>RsaKeyManagerScreen: false
+        RsaKeyManagerScreen->>RsaKeyManagerScreen: Navigator.pop(context) - vault closes immediately
+    else success
+        BiometricHelper-->>RsaKeyManagerScreen: true
+        RsaKeyManagerScreen->>RsaKeyManagerScreen: _gateChecked=true -> render vault UI<br/>+ updateLastVaultAccess(uid)
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over SenderScreen,LocalAuth: Site 3 - Sender AES key encryption (Step 3, see SD007)
+    SenderScreen->>BiometricHelper: authenticate("Authenticate to encrypt<br/>the AES key for {username}")
+    alt fail
+        BiometricHelper-->>SenderScreen: false
+        loop user may retry indefinitely
+            SenderScreen-->>User: "Authentication failed or was cancelled. Tap to retry."
+        end
+    end
+    end
+
+    rect rgb(255,255,255)
+    Note over BiometricHelper,LocalAuth: BiometricHelper.authenticate(reason) internals
+    BiometricHelper->>LocalAuth: canCheckBiometrics
+    alt no biometric hardware (e.g. emulator)
+        LocalAuth-->>BiometricHelper: false
+        BiometricHelper-->>BiometricHelper: return true (pass-through, no gate)
+    else hardware available
+        LocalAuth-->>BiometricHelper: true
+        BiometricHelper->>LocalAuth: authenticate(localizedReason: reason,<br/>biometricOnly:false, persistAcrossBackgrounding:true)
+        LocalAuth-->>BiometricHelper: true / false (any exception -> false)
+    end
+    end
+
+    Note over RsaKeyManagerScreen: Redundant 2nd "Confirm: Regenerate RSA Keys"<br/>biometric prompt was deliberately removed -<br/>only the vault-entry gate remains for<br/>regenerate/delete (backed by non-biometric<br/>_showConfirmDialog() bottom sheet)

@@ -1,13 +1,12 @@
 {
-  "indexes": [],
-  "fieldOverrides": [
+  "indexes": [
     {
       "collectionGroup": "audit_logs",
-      "fieldPath": "loggedAt",
-      "indexes": [
-        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
-        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "loggedAt", "order": "DESCENDING" }
       ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }

@@ -1,0 +1,58 @@
+@startuml
+skinparam BackgroundColor #FFFFFF
+skinparam dpi 150
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequence {
+    ArrowColor #000000
+    ActorBorderColor #000000
+    ActorBackgroundColor #FFFFFF
+    ParticipantBorderColor #000000
+    ParticipantBackgroundColor #FFFFFF
+    LifeLineBorderColor #888888
+    LifeLineBackgroundColor #FFFFFF
+    GroupBorderColor #000000
+    GroupFontColor #000000
+    DatabaseBorderColor #000000
+    DatabaseBackgroundColor #FFFFFF
+    BoxPadding 30
+}
+
+actor User
+control LoginScreen
+control AuthRepository
+database "Firestore /\nFirebaseAuth" as DB
+
+User -> LoginScreen : enterCredentials(username, password)
+activate LoginScreen
+
+LoginScreen -> AuthRepository : loginWithUsername(username, password)
+activate AuthRepository
+
+AuthRepository -> DB : queryUser(username)
+activate DB
+DB --> AuthRepository : userDoc(email)
+deactivate DB
+
+AuthRepository -> DB : signInWithEmailAndPassword(email, password)
+activate DB
+DB --> AuthRepository : UserCredential
+deactivate DB
+
+AuthRepository -> DB : getUser(uid)
+activate DB
+DB --> AuthRepository : UserModel(isFirstTime)
+deactivate DB
+
+AuthRepository --> LoginScreen : UserModel
+deactivate AuthRepository
+
+alt isFirstTime == true
+    LoginScreen -> User : navigateTo(OnboardingScreen)
+else returning user
+    LoginScreen -> User : navigateTo(HomeScreen)
+end
+deactivate LoginScreen
+
+@enduml

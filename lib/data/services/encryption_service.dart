@@ -9,6 +9,8 @@ import '../../core/constants/firebase_constants.dart';
 import '../../core/errors/app_exceptions.dart';
 import '../../core/utils/kill_switch_outbox.dart';
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../repositories/handshake_repository.dart';
+import '../repositories/transfer_repository.dart';
 
 // ─── Top-level isolate functions ──────────────────────────────────────────────
 // These must be top-level (not instance methods) for Flutter's compute().
@@ -18,19 +20,17 @@ AsymmetricKeyPair<PublicKey, PrivateKey> _generateRsaKeyPairIsolate(void _) =>
     EncryptionService.generateRsaKeyPairSync();
 
 Uint8List runAesGcmEncrypt(List<Uint8List> args) {
-  // Defensive copies: this function is also called directly (without compute())
-  // by unit tests for synchronicity, so args may be the caller's own buffers,
-  // not isolate-local copies. Mutating args in place would corrupt the
-  // caller's state; operating on copies keeps the zero-on-exit behavior below
-  // self-contained regardless of how this function is invoked.
-  final plaintext = Uint8List.fromList(args[0]);
-  final key = Uint8List.fromList(args[1]); // 32 bytes
-  final iv = Uint8List.fromList(args[2]); // 12 bytes
+  final plaintext = args[0];
+  final key = args[1]; // 32 bytes
+  final iv = args[2]; // 12 bytes
   try {
     final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
     final cipher = GCMBlockCipher(AESEngine())..init(true, params);
     return cipher.process(plaintext);
   } finally {
+    // Zero inputs inside the isolate before it exits. These are copies of the
+    // main-isolate buffers (isolates don't share memory), so this is the only
+    // opportunity to wipe them — the main isolate cannot reach this heap.
     plaintext.fillRange(0, plaintext.length, 0);
     key.fillRange(0, key.length, 0);
     iv.fillRange(0, iv.length, 0);
@@ -38,18 +38,20 @@ Uint8List runAesGcmEncrypt(List<Uint8List> args) {
 }
 
 Uint8List runAesGcmDecrypt(List<Uint8List> args) {
-  // See runAesGcmEncrypt — defensive copies so this never mutates the
-  // caller's buffers, whether invoked via compute() or directly.
-  final ciphertext = Uint8List.fromList(args[0]); // ciphertext + 16-byte GCM tag
-  final key = Uint8List.fromList(args[1]); // 32 bytes
-  final iv = Uint8List.fromList(args[2]); // 12 bytes
+  final ciphertext = args[0]; // ciphertext + 16-byte GCM tag
+  final key = args[1]; // 32 bytes
+  final iv = args[2]; // 12 bytes
   try {
     final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
     final cipher = GCMBlockCipher(AESEngine())..init(false, params);
     return cipher.process(ciphertext);
   } finally {
+    // Zero key and IV inside the isolate — plaintext is the return value and
+    // cannot be zeroed here, but key material is more sensitive than plaintext.
     key.fillRange(0, key.length, 0);
     iv.fillRange(0, iv.length, 0);
+    // ciphertext (input to decrypt) is less sensitive than the output plaintext;
+    // zero it anyway to minimise lingering data on this isolate's heap.
     ciphertext.fillRange(0, ciphertext.length, 0);
   }
 }
@@ -72,26 +74,6 @@ class AesEncryptResult {
 
 class EncryptionService {
   const EncryptionService._();
-
-  // ─── Live-session key tracking ──────────────────────────────────────────
-  //
-  // In-memory only — resets to null on every process start/restart. Used to
-  // distinguish a key pair established within THIS running app process from
-  // leftover secure-storage/Firestore key material that survived an
-  // improperly-closed previous process (e.g. force-killed via IDE/emulator
-  // stop before the lifecycle kill-switch in SessionManager could run
-  // closeReceiverSession). receiver_screen.dart's _step1Done checks this so
-  // a stale leftover key from an unknown prior process is never silently
-  // trusted as "already done" — Step 1 is forced again instead.
-  static String? _liveSessionUid;
-
-  static bool isLiveSessionFor(String uid) => _liveSessionUid == uid;
-
-  static void markLiveSession(String uid) => _liveSessionUid = uid;
-
-  static void clearLiveSession(String uid) {
-    if (_liveSessionUid == uid) _liveSessionUid = null;
-  }
 
   // ─── Secure random ──────────────────────────────────────────────────────
 
@@ -264,8 +246,6 @@ class EncryptionService {
         'isReadyToReceive': true,
         'sessionActive': true,
       });
-
-      markLiveSession(uid);
     } catch (e) {
       _logSecurityEvent('setupReceiverSession_FAILED', uid, e.toString());
       rethrow;
@@ -274,7 +254,10 @@ class EncryptionService {
 
   /// Closes the receiver's mailbox — the "Closed Mailbox" / Kill Switch rule:
   /// Deletes public key from Firestore, wipes private key from secure storage,
-  /// and purges all related key-transfer and notification records.
+  /// purges all related key-transfer and notification records, and fully
+  /// disconnects the paired sender (see step 3d) so a finished session — whether
+  /// completed normally or aborted mid-transfer — always tears down the
+  /// connection between the two users.
   static Future<void> closeReceiverSession(String uid) async {
     try {
       // 0. Persist outbox record BEFORE any network I/O — guarantees a resume
@@ -306,24 +289,10 @@ class EncryptionService {
       // 2. Delete private key from secure storage.
       const storage = FlutterSecureStorage();
       await storage.delete(key: FirebaseConstants.privateKeyStorageKey);
-      clearLiveSession(uid);
 
-      // 3. Write kill-switch audit log if an active session existed.
-      if (selectedSenderUid != null && selectedSenderUid.isNotEmpty) {
-        FirebaseFirestore.instance
-            .collection(FirebaseConstants.transferLogs)
-            .add({
-          'senderId': selectedSenderUid,
-          'receiverId': uid,
-          'participants': [selectedSenderUid, uid],
-          'status': 'kill_switch',
-          'loggedAt': FieldValue.serverTimestamp(),
-        }).ignore();
-      }
-
-      // 4. Delete all handshakes where this user is the receiver.
+      // 3. Delete all handshakes where this user is the receiver.
       final handshakes = await FirebaseFirestore.instance
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('receiverId', isEqualTo: uid)
           .get();
 
@@ -335,9 +304,9 @@ class EncryptionService {
         await batch.commit();
       }
 
-      // 4b. Delete sender-side handshakes (sessions where this user was the file-sender).
+      // 3b. Delete sender-side handshakes (sessions where this user was the file-sender).
       final senderHandshakes = await FirebaseFirestore.instance
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: uid)
           .get();
 
@@ -349,7 +318,7 @@ class EncryptionService {
         await batchSender.commit();
       }
 
-      // 4c. Delete pending transfers for this receiver — prevents stale docs from a
+      // 3c. Delete pending transfers for this receiver — prevents stale docs from a
       //     previous session auto-navigating the receiver on next mailbox open.
       final staleTransfers = await FirebaseFirestore.instance
           .collection(FirebaseConstants.transfers)
@@ -365,7 +334,43 @@ class EncryptionService {
         await batchTransfers.commit();
       }
 
-      // 5. Delete session-related notifications from this user's inbox (best-effort).
+      // 3d. Fully disconnect from the paired sender. This method is called by
+      //     EVERY session-ending path — manual close, app lifecycle pause/detach,
+      //     PopScope back-nav, the 120s sender-silence watchdogs in
+      //     ReceiverTransferScreen/DecryptScreen, AND as the final step of
+      //     ReceiverEndSessionScreen's post-transfer cleanup — so this single
+      //     call covers both "transfer completed" and "disrupted mid-transfer"
+      //     without each call site needing its own disconnect logic. Best-effort:
+      //     a failure here must not block the rest of the kill switch.
+      if (selectedSenderUid != null && selectedSenderUid.isNotEmpty) {
+        try {
+          await HandshakeRepository().disconnectPair(uid, selectedSenderUid);
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('closeReceiverSession: pair disconnect failed: $e');
+          }
+        }
+      }
+
+      // 3e. Write a kill-switch audit log entry (best-effort) if an active
+      //     session existed. Lands in audit_logs — the same collection every
+      //     other transfer-lifecycle event uses — so it shows up in "Recent
+      //     Transfers" / the admin dashboard's transfer-logs tab, instead of
+      //     the removed write-only transfer_logs collection nothing displayed.
+      if (selectedSenderUid != null && selectedSenderUid.isNotEmpty) {
+        try {
+          await TransferRepository().writeKillSwitchAuditLog(
+            senderId: selectedSenderUid,
+            receiverId: uid,
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('closeReceiverSession: kill-switch audit log failed: $e');
+          }
+        }
+      }
+
+      // 4. Delete session-related notifications from this user's inbox (best-effort).
       final notifications = await FirebaseFirestore.instance
           .collection(FirebaseConstants.users)
           .doc(uid)
@@ -381,22 +386,38 @@ class EncryptionService {
         await batch2.commit();
       }
 
-      // 6. All Firestore cleanup complete — clear the outbox record.
+      // 5. All Firestore cleanup complete — clear the outbox record.
       await KillSwitchOutbox.clear();
 
-      // 7. Log security event (event names only — no key material).
+      // 6. Log security event (event names only — no key material).
       _logSecurityEvent(
         'Receiver_Session_Closed',
         uid,
         'Firestore_Key_Deleted & Local_Buffer_Zeroed',
       );
 
-      // 8. Best-effort Kotlin GC hint — no key bytes are held natively.
+      // 7. Best-effort Kotlin GC hint — no key bytes are held natively.
       SecurityLifecycleMixin.requestNativeClear();
     } catch (e) {
       _logSecurityEvent('closeReceiverSession_FAILED', uid, e.toString());
       rethrow;
     }
+  }
+
+  // ─── Live-session tracker ────────────────────────────────────────────────
+  // Tracks which uid currently holds private key material in secure storage.
+  // Every code path that writes the private key calls markLiveSession; every
+  // path that deletes it calls clearLiveSession. This lets the Clear Cache
+  // sheet verify cleanup without re-reading secure storage after the fact.
+
+  static String? _liveSessionUid;
+
+  static void markLiveSession(String uid) => _liveSessionUid = uid;
+
+  static bool isLiveSessionFor(String uid) => _liveSessionUid == uid;
+
+  static void clearLiveSession(String uid) {
+    if (_liveSessionUid == uid) _liveSessionUid = null;
   }
 
   // ─── Security event logger ───────────────────────────────────────────────

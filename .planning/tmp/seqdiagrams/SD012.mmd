@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant SettingsScreen
+    participant AppearanceSubScreen
+    participant ThemeService
+    participant LocalStorage as Persisted preference<br/>(SharedPreferences)
+
+    Note over User,LocalStorage: NOT IMPLEMENTED as a dedicated "Manage User Profile"<br/>feature (no edit of username/email/phone/password/avatar).<br/>Closest existing flow: Settings -> Appearance -> Theme
+
+    User->>SettingsScreen: open Settings ("Preferences" banner)
+    User->>SettingsScreen: tap "Appearance"
+    SettingsScreen->>AppearanceSubScreen: navigate
+    AppearanceSubScreen-->>User: show ThemeMode options<br/>(System / Light / Dark)
+
+    User->>AppearanceSubScreen: select ThemeMode
+    AppearanceSubScreen->>ThemeService: setThemeMode(mode)
+    ThemeService->>LocalStorage: persist themeMode
+    ThemeService-->>AppearanceSubScreen: notifyListeners() - app re-themes
+
+    rect rgb(247,247,247)
+    Note over User,LocalStorage: Profile-adjacent data with no edit UI
+    Note right of LocalStorage: users/{uid}/profile/preferences doc holds<br/>biometricGateEnabled, themeMode,<br/>keyVaultCreatedAt, lastVaultAccessAt -<br/>written at registration / vault access only.<br/>RSA keypair management is covered separately (SD006).
+    end

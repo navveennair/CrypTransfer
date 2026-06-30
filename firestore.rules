@@ -13,6 +13,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Returns false if the user's Firestore doc explicitly sets isActive to false.
+    // Anonymous users (no user doc) are allowed through — they only ever run
+    // pre-auth queries (username lookup, login, registration) against the users
+    // collection, never against transfers or role_handshake.
+    function isNotRevoked() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) != false;
+    }
+
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
@@ -97,24 +106,12 @@ service cloud.firestore {
     // RULE: Create allowed if receiver has explicitly authorized this sender
     //       (selectedSenderUid == auth.uid) OR a neutral_handshake exists.
     match /transfers/{transferId} {
-      // get and list are split because list/listen queries are validated by
-      // Cloud Firestore against the query's own where() filters alone — a
-      // `resource == null` disjunct is not provable from those filters (a
-      // list query never returns nonexistent docs anyway), so production
-      // rejects the WHOLE query with PERMISSION_DENIED. The emulator does not
-      // enforce this and evaluates per-document instead, so rules-unit-tests
-      // pass even when this rule shape breaks production list queries
-      // (e.g. streamRecentTransfers' receiverId/status where() queries).
-      allow get:  if isAuthenticated() &&
-                     (resource == null ||
-                      resource.data.senderId == request.auth.uid ||
-                      resource.data.receiverId == request.auth.uid);
+      allow read:   if isAuthenticated() &&
+                       (resource == null ||
+                        resource.data.senderId == request.auth.uid ||
+                        resource.data.receiverId == request.auth.uid);
 
-      allow list: if isAuthenticated() &&
-                     (resource.data.senderId == request.auth.uid ||
-                      resource.data.receiverId == request.auth.uid);
-
-      allow create: if isAuthenticated() &&
+      allow create: if isAuthenticated() && isNotRevoked() &&
                        request.resource.data.senderId == request.auth.uid &&
                        (
                          // Handshake-authorized: receiver explicitly selected this sender
@@ -134,11 +131,11 @@ service cloud.firestore {
                         resource.data.receiverId == request.auth.uid);
     }
 
-    // ─── handshakes ──────────────────────────────────────────────────────────
+    // ─── role_handshake ──────────────────────────────────────────────────────
     // Receiver creates the document (publishes their RSA public key).
     // Both sender and receiver can read and update (sender may ack).
     // Either party can delete during session cleanup.
-    match /handshakes/{handshakeId} {
+    match /role_handshake/{handshakeId} {
       allow read:   if isAuthenticated() &&
                        (resource.data.senderId == request.auth.uid ||
                         resource.data.receiverId == request.auth.uid ||
@@ -146,7 +143,7 @@ service cloud.firestore {
 
       // Only receiver may create (via selectSenderHandshake atomic WriteBatch).
       // Sender NEVER creates handshake docs; all session handshakes initiated by receiver.
-      allow create: if isAuthenticated() &&
+      allow create: if isAuthenticated() && isNotRevoked() &&
                        request.resource.data.receiverId == request.auth.uid;
 
       // Either participant may update (receiver publishes key; sender may ack)
@@ -162,36 +159,21 @@ service cloud.firestore {
     }
 
     // ─── neutral_handshakes ──────────────────────────────────────────────────
-    // Connection-layer neutral handshakes. Separate from session-layer `handshakes`.
+    // Connection-layer neutral handshakes. Separate from session-layer `role_handshake`.
     // proposer creates; both parties read; only partner may accept/reject;
     // proposer's own doc may also be marked connected (mutual-accept WriteBatch);
     // either party may delete (cancel or post-session cleanup).
     match /neutral_handshakes/{handshakeId} {
-      // get and list are split because list/listen queries are validated by
-      // Cloud Firestore against the query's own where() filters alone — a
-      // `resource == null` disjunct is not provable from those filters, so
-      // production rejects the WHOLE query with PERMISSION_DENIED even though
-      // partnerId/proposerId == request.auth.uid is directly implied by the
-      // query's own where() clause. The local emulator does not enforce this
-      // production-only check (it evaluates per-document instead), so
-      // rules-unit-tests pass even though streamIncomingPending() /
-      // streamOutgoingPending() / streamActiveConnectionsAsPartner/Proposer()
-      // (all list queries) get silently PERMISSION_DENIED live.
-      //
-      // resource == null is kept on get only — needed for sendProposal()'s
-      // idempotency pre-check (docRef.get() on a not-yet-created doc, WR-01).
-      allow get: if isAuthenticated() &&
-                    (resource == null ||
-                     resource.data.proposerId == request.auth.uid ||
-                     resource.data.partnerId == request.auth.uid);
-
-      allow list: if isAuthenticated() &&
-                     (resource.data.proposerId == request.auth.uid ||
+      // resource == null when doc doesn't exist; needed for runTransaction tx.get()
+      // on a not-yet-created doc (WR-01 idempotent sendProposal).
+      allow read: if isAuthenticated() &&
+                     (resource == null ||
+                      resource.data.proposerId == request.auth.uid ||
                       resource.data.partnerId == request.auth.uid);
 
       // Only proposer may create, and only with their own UID as proposerId
       // WR-05: self-proposals blocked — proposerId must differ from partnerId
-      allow create: if isAuthenticated() &&
+      allow create: if isAuthenticated() && isNotRevoked() &&
                        request.resource.data.proposerId == request.auth.uid &&
                        request.resource.data.proposerId != request.resource.data.partnerId;
 
@@ -218,16 +200,6 @@ service cloud.firestore {
                        (resource == null ||
                         resource.data.proposerId == request.auth.uid ||
                         resource.data.partnerId == request.auth.uid);
-    }
-
-    // ─── transfer_logs ───────────────────────────────────────────────────────
-    // Append-only per-transfer start log. Participants may read; admin sees all.
-    match /transfer_logs/{logId} {
-      allow read:   if isAuthenticated() &&
-                       (request.auth.uid in resource.data.get('participants', []) || isAdmin());
-      allow create: if isAuthenticated() &&
-                       (request.auth.uid in request.resource.data.get('participants', []) || isAdmin());
-      allow update, delete: if isAdmin();
     }
 
     // ─── security_audit_log ──────────────────────────────────────────────────

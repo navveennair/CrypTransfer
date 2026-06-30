@@ -179,26 +179,6 @@ class TransferRepository {
 
   // ─── Write audit log ───────────────────────────────────────────────────────
 
-  Future<void> writeAuditLog({
-    required String senderId,
-    required String receiverId,
-    required String fileName,
-    required int fileSize,
-    required String status,
-  }) async {
-    await _db
-        .collection(FirebaseConstants.transferLogs)
-        .add({
-      'senderId': senderId,
-      'receiverId': receiverId,
-      'participants': [senderId, receiverId],
-      'fileName': fileName,
-      'fileSize': fileSize,
-      'status': status,
-      'loggedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   /// Write final immutable audit log to both users' collections in a batch (D-03).
   Future<void> writeFinalAuditLog({
     required String senderId,
@@ -213,6 +193,7 @@ class TransferRepository {
       'receiverId': receiverId,
       'senderUsername': senderUsername,
       'receiverUsername': receiverUsername,
+      'participants': [senderId, receiverId],
       'fileName': fileName,
       'fileSize': fileSize,
       'status': 'completed',
@@ -264,6 +245,7 @@ class TransferRepository {
       'receiverId': receiverId,
       'senderUsername': senderUsername,
       'receiverUsername': receiverUsername,
+      'participants': [senderId, receiverId],
       'fileName': fileName,
       'fileSize': fileSize,
       'status': 'aborted',
@@ -387,6 +369,47 @@ class TransferRepository {
     await batch.commit();
   }
 
+  /// Write a kill-switch audit log to both participants' auditLogs in one
+  /// batch. Called from [EncryptionService.closeReceiverSession] when the
+  /// receiver's mailbox closes while a sender was actively paired
+  /// (`selectedSenderUid` was set) — i.e. the session was torn down abruptly
+  /// rather than via the normal end-of-transfer cleanup. Lands in the same
+  /// `audit_logs` collection as every other transfer-lifecycle entry so it
+  /// shows up in "Recent Transfers" and the admin dashboard's transfer-logs
+  /// tab, instead of the now-removed write-only `transfer_logs` collection
+  /// that nothing ever displayed.
+  Future<void> writeKillSwitchAuditLog({
+    required String senderId,
+    required String receiverId,
+  }) async {
+    final payload = <String, dynamic>{
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'participants': [senderId, receiverId],
+      'status': 'kill_switch',
+      'timestamp': FieldValue.serverTimestamp(),
+      'loggedAt': FieldValue.serverTimestamp(),
+    };
+    final batch = _db.batch();
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(senderId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    batch.set(
+      _db
+          .collection(FirebaseConstants.users)
+          .doc(receiverId)
+          .collection(FirebaseConstants.auditLogs)
+          .doc(),
+      payload,
+    );
+    await batch.commit();
+  }
+
   // ─── Delete transfer document ──────────────────────────────────────────────
 
   Future<void> deleteTransfer(String transferId) async {
@@ -424,7 +447,7 @@ class TransferRepository {
   /// Turn 2 (Sender): Wipe the AES key from Firestore and mark sender as cleaned up.
   Future<void> senderWipeAESKey(String transferId) async {
     await _db.collection(FirebaseConstants.transfers).doc(transferId).update({
-      'encryptedAESKey': '',
+      'encryptedAESKey': FieldValue.delete(),
       'senderCleanedUp': true,
       'senderCleanedUpAt': FieldValue.serverTimestamp(),
     });

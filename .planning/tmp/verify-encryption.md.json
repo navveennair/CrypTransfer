@@ -1,0 +1,32 @@
+{
+  "doc_path": "docs/modules/encryption.md",
+  "claims_checked": 17,
+  "claims_passed": 13,
+  "claims_failed": 4,
+  "failures": [
+    {
+      "line": 46,
+      "claim": "rsa_key_transfers",
+      "expected": "closeReceiverSession() batch-deletes 'rsa_key_transfers' documents",
+      "actual": "no 'rsa_key_transfers' / 'rsaKeyTransfers' collection reference found anywhere in lib/; closeReceiverSession() actually batch-deletes from the 'handshakes' collection (where receiverId == uid)"
+    },
+    {
+      "line": 58,
+      "claim": "AuthRepository.generateAndStoreKeyPair() uses Isolate.run() (not compute())",
+      "expected": "generateAndStoreKeyPair() implementation uses Isolate.run()",
+      "actual": "lib/data/repositories/auth_repository.dart line 234 calls 'await compute(_generateKeyPairIsolate, null)' — already migrated to compute(), no Isolate.run() found anywhere in lib/"
+    },
+    {
+      "line": 60,
+      "claim": "Called from `ReceiverScreen._generateKeys()` (step 0 stepper) and `SidebarDrawer`",
+      "expected": "generateAndStoreKeyPair() referenced from ReceiverScreen._generateKeys() and SidebarDrawer",
+      "actual": "no reference to generateAndStoreKeyPair, _generateKeys, or generateKeys found anywhere under lib/presentation/"
+    },
+    {
+      "line": 74,
+      "claim": "generateAndStoreKeyPair() (legacy step 0) uses Isolate.run() — Guardian WARNING (intentional)",
+      "expected": "generateAndStoreKeyPair() uses Isolate.run()",
+      "actual": "generateAndStoreKeyPair() uses compute(), matching CLAUDE.md Completed Features entry: 'generateAndStoreKeyPair() migrated from Isolate.run() to compute() — Guardian WARNING resolved'"
+    }
+  ]
+}

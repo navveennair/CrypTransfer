@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    participant SenderScreen
+    participant EncryptionService
+    participant Isolate as compute() isolate<br/>(runAesGcmEncrypt)
+    participant PointyCastle as PointyCastle<br/>(FortunaRandom)
+
+    Note over SenderScreen,PointyCastle: Invoked from within _encryptFile() - see SD005
+
+    SenderScreen->>EncryptionService: encryptAesGcm(plaintext)
+    EncryptionService->>PointyCastle: secureRandomBytes(32)
+    PointyCastle-->>EncryptionService: key (256-bit AES key)
+    EncryptionService->>PointyCastle: secureRandomBytes(12)
+    PointyCastle-->>EncryptionService: iv (96-bit GCM nonce)
+
+    EncryptionService->>Isolate: compute(runAesGcmEncrypt, [plaintext, key, iv])
+    Note right of Isolate: GCMBlockCipher(AESEngine())<br/>..init(true, AEADParameters(<br/>KeyParameter(key), 128, iv, empty))
+    Isolate-->>EncryptionService: ciphertext
+
+    EncryptionService-->>SenderScreen: AesEncryptResult{ ciphertext, key, iv }
+    Note right of SenderScreen: caller registers key / iv / ciphertext<br/>as wipeable buffers via registerBuffer()

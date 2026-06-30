@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant SenderScreen
+    participant SecurityLifecycleMixin
+    participant FilePicker as FilePicker (file_picker)
+
+    User->>SenderScreen: tap "Choose File" (Step 1)
+    SenderScreen->>SenderScreen: _pickFile()
+    SenderScreen->>SecurityLifecycleMixin: _wipeSensitiveData()
+    Note right of SecurityLifecycleMixin: zero any previous _aesKey, _iv,<br/>_encryptedBytes, clear _encryptedAESKey,<br/>wipeAll() on registry
+
+    SenderScreen->>FilePicker: pickFiles(withData: kIsWeb)
+    alt Web
+        FilePicker-->>SenderScreen: PlatformFile { name, size, bytes }
+    else Mobile / Desktop
+        FilePicker-->>SenderScreen: PlatformFile { name, size, path }
+    end
+
+    SenderScreen->>SenderScreen: store result as _file
+    SenderScreen-->>User: advance to Step 2 (Encrypt File)
+    Note right of SenderScreen: _encryptedBytes, _aesKey, _iv,<br/>_encryptedAESKey all null/cleared

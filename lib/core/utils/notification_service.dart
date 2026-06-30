@@ -53,21 +53,16 @@ class NotificationService {
   // ─── Mutations ────────────────────────────────────────────────────────────
 
   /// Mark a single notification as read.
-  static Future<void> markRead(String uid, String docId) async {
-    try {
-      await _notifs(uid).doc(docId).update({'read': true});
-    } catch (_) {}
-  }
+  static Future<void> markRead(String uid, String docId) =>
+      _notifs(uid).doc(docId).update({'read': true});
 
   /// Mark all unread notifications for [uid] as read.
   static Future<void> markAllRead(String uid) async {
-    try {
-      final snap = await _notifs(uid).where('read', isEqualTo: false).get();
-      final batch = _db.batch();
-      for (final doc in snap.docs) {
-        batch.update(doc.reference, {'read': true});
-      }
-      await batch.commit();
-    } catch (_) {}
+    final snap = await _notifs(uid).where('read', isEqualTo: false).get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
   }
 }

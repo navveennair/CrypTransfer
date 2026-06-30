@@ -1,0 +1,40 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "background": "#ffffff",
+    "primaryColor": "#ffffff",
+    "primaryTextColor": "#000000",
+    "primaryBorderColor": "#000000",
+    "secondaryColor": "#ffffff",
+    "tertiaryColor": "#ffffff",
+    "lineColor": "#000000",
+    "textColor": "#000000",
+    "actorBkg": "#ffffff",
+    "actorBorder": "#000000",
+    "actorTextColor": "#000000",
+    "actorLineColor": "#000000",
+    "signalColor": "#000000",
+    "signalTextColor": "#000000",
+    "labelBoxBkgColor": "#ffffff",
+    "labelBoxBorderColor": "#000000",
+    "labelTextColor": "#000000",
+    "loopTextColor": "#000000",
+    "noteBorderColor": "#000000",
+    "noteBkgColor": "#ffffff",
+    "noteTextColor": "#000000",
+    "activationBorderColor": "#000000",
+    "activationBkgColor": "#f2f2f2",
+    "sequenceNumberColor": "#000000",
+    "altBackground": "#f7f7f7",
+    "fontFamily": "\"Segoe UI\", Helvetica, Arial, sans-serif"
+  },
+  "sequence": {
+    "useMaxWidth": false,
+    "wrap": true,
+    "showSequenceNumbers": true,
+    "actorMargin": 60,
+    "messageFontSize": 14,
+    "actorFontSize": 14,
+    "noteFontSize": 13
+  }
+}

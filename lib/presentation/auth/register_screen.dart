@@ -102,18 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
-      bool taken;
-      try {
-        taken = await _authService.isUsernameTaken(v);
-      } catch (e) {
-        if (!mounted) return;
-        if (_usernameController.text.trim() != v) return;
-        setState(() {
-          _usernameStatus = _FS.invalid;
-          _usernameError = 'Could not check username. Check your connection.';
-        });
-        return;
-      }
+      final taken = await _authService.isUsernameTaken(v);
       if (!mounted) return;
       if (_usernameController.text.trim() != v) return;
       setState(() {
@@ -412,7 +401,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       padding: const EdgeInsets.all(20),
                       borderRadius: 100,
                       color: cs.primary.withValues(alpha: 0.1),
-                      child: Icon(Icons.person_add_rounded, size: 64, color: cs.primary),
+                      child: Image.asset(
+                        'assets/icon/app_logo.png',
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),

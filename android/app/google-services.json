@@ -58,11 +58,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "881677813575-0hrgs46jq3a5vma0iet6j9orkeoi3v1e.apps.googleusercontent.com",
+          "client_id": "881677813575-hs1v0t08ut17r10q49770uvh0s11mecf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.navveennair.cryptransfer",
-            "certificate_hash": "10c2bf7e5d15cb4353d31aad863b3da0943af020"
+            "certificate_hash": "f551b35c465d43afd83e84e1ddde5fe9d9cdc14e"
           }
         },
         {

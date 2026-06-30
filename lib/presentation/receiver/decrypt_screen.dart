@@ -473,31 +473,6 @@ class _DecryptScreenState extends State<DecryptScreen>
 
       await _repo.updateReceiverStatus(widget.transferId, 'saved');
 
-      // Write the immutable completion audit log NOW — as soon as the transfer
-      // is functionally done — rather than gating it behind the optional/
-      // destructive "End Session" cleanup button on the next screen. Recent
-      // Transfers reads exclusively from this audit log; if the user backs out
-      // of ReceiverEndSessionScreen before tapping "End Session" (its PopScope
-      // allows this in the 'ready' phase), the transfer would otherwise never
-      // appear in either party's history. Best-effort: a failure here must not
-      // block the save flow the user is already waiting on.
-      try {
-        final receiverUsername =
-            _auth.currentUser?.displayName ?? 'Unknown';
-        await _repo.writeFinalAuditLog(
-          senderId: _transfer!.senderId,
-          receiverId: _transfer!.receiverId,
-          senderUsername: _senderUsername,
-          receiverUsername: receiverUsername,
-          fileName: _transfer!.fileName,
-          fileSize: _transfer!.fileSize,
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('[DecryptScreen] writeFinalAuditLog failed (non-critical): $e');
-        }
-      }
-
       // Eagerly wipe decrypted bytes before navigating.
       _decryptedBytes?.fillRange(0, _decryptedBytes!.length, 0);
       _decryptedBytes = null;

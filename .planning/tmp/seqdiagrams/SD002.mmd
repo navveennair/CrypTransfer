@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant RegisterScreen
+    participant AuthRepository
+    participant FirebaseAuth
+    participant Firestore as Firestore (users,<br/>profile/preferences)
+    participant LoginScreen
+
+    User->>RegisterScreen: fill username, email, phone, password,<br/>confirmPassword (live debounced validation)
+    User->>RegisterScreen: tap "Register"
+    RegisterScreen->>AuthRepository: register(username, email, phone, password)
+    AuthRepository->>Firestore: query users where username == username
+
+    alt username already exists
+        Firestore-->>AuthRepository: doc found
+        AuthRepository-->>RegisterScreen: throw AuthException("Username already taken")
+        RegisterScreen-->>User: mark username field invalid
+    else username available
+        Firestore-->>AuthRepository: empty result
+        AuthRepository->>FirebaseAuth: createUserWithEmailAndPassword(email, password)
+        FirebaseAuth-->>AuthRepository: UserCredential
+        AuthRepository->>FirebaseAuth: getIdToken()  (wait for JWT)
+        AuthRepository->>FirebaseAuth: updateDisplayName(username)
+
+        rect rgb(247,247,247)
+        Note over AuthRepository,Firestore: Atomic WriteBatch (2 docs)
+        AuthRepository->>Firestore: users/{uid}.set({username, email, phone,<br/>publicKey:null, isAdmin:false,<br/>isFirstTime:true, createdAt})
+        AuthRepository->>Firestore: users/{uid}/profile/preferences.set({<br/>biometricGateEnabled:false, themeMode:'dark',<br/>keyVaultCreatedAt:null, lastVaultAccessAt:null})
+        AuthRepository->>Firestore: batch.commit()
+        end
+
+        AuthRepository-->>RegisterScreen: success
+        RegisterScreen-->>User: SnackBar "Account created successfully!"
+        RegisterScreen->>LoginScreen: pushReplacement (after 2s delay)
+    end
+
+    alt other failure
+        FirebaseAuth-->>AuthRepository: email-already-in-use / generic error
+        AuthRepository-->>RegisterScreen: AuthException
+        RegisterScreen-->>User: mark email invalid OR<br/>SnackBar "Registration failed."
+    end

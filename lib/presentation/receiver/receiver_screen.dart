@@ -74,14 +74,7 @@ class _ReceiverScreenState extends State<ReceiverScreen>
   // previous sessions that were never cleaned up.
   DateTime? _sessionStartedAt;
 
-  // Requires a live-session match (not just on-device/Firestore presence) so
-  // key material left over from a previous process that was force-killed
-  // before the lifecycle kill-switch could run (see SessionManager) is never
-  // silently trusted — Step 1 is forced again on a genuinely fresh launch.
-  bool get _step1Done =>
-      _hasPrivateKey &&
-      _hasPublicKey &&
-      EncryptionService.isLiveSessionFor(_authService.currentUid ?? '');
+  bool get _step1Done => _hasPrivateKey && _hasPublicKey;
   bool get _step2Done => _isReadyToReceive;
   bool get _step3Done =>
       _sessionManager.activeSenderUid != null && _handshakeDone;

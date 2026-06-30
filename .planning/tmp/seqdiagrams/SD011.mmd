@@ -1,0 +1,80 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Receiver)
+    participant ReceiverScreen
+    participant EncryptionService
+    participant Isolate as compute() isolate<br/>(_generateRsaKeyPairIsolate)
+    participant SecureStorage as FlutterSecureStorage
+    participant Firestore as Firestore (users,<br/>handshakes)
+    participant SessionManager
+    participant KeyRepository
+    participant SenderScreen as SenderScreen<br/>(other device)
+
+    rect rgb(247,247,247)
+    Note over User,KeyRepository: Open Mailbox (_onToggleReady(true))
+    User->>ReceiverScreen: toggle "Ready to Receive" ON
+    ReceiverScreen->>EncryptionService: setupReceiverSession(uid)
+    EncryptionService->>Isolate: compute(_generateRsaKeyPairIsolate, null)
+    Isolate-->>EncryptionService: RSA-2048 keypair
+    EncryptionService->>SecureStorage: write(privateKeyStorageKey, privKeyJson)
+    EncryptionService->>Firestore: users/{uid}.update({publicKey: pubKeyJson,<br/>publicKeyUploadedAt: serverTimestamp(),<br/>isReadyToReceive:true, sessionActive:true})
+
+    ReceiverScreen->>EncryptionService: bindSession(sessionManager.stateStream, uid)
+    Note right of EncryptionService: subscribes, on future SessionState.terminated<br/>auto-calls closeReceiverSession(uid)
+
+    ReceiverScreen->>KeyRepository: setReadyToReceive(true)
+    KeyRepository->>Firestore: users/{uid}.update({isReadyToReceive:true,<br/>readySince: serverTimestamp()})
+    ReceiverScreen->>ReceiverScreen: set _isReadyToReceive=true,<br/>_hasPrivateKey=true, _hasPublicKey=true
+    ReceiverScreen->>KeyRepository: _startIncomingHandshakeListener()<br/>-> streamIncomingHandshakes(uid)
+    end
+
+    rect rgb(247,247,247)
+    Note over User,SenderScreen: Receiver selects sender (authorization handshake)
+    User->>ReceiverScreen: select sender from _FindSenderSheet
+    ReceiverScreen->>SessionManager: selectSender(senderUid, senderUsername)
+    Note right of SessionManager: stores activeSenderUid (session isolation)
+
+    ReceiverScreen->>KeyRepository: selectSenderHandshake({senderUid, senderUsername})
+    rect rgb(255,255,255)
+    Note over KeyRepository,Firestore: Atomic WriteBatch
+    KeyRepository->>Firestore: read users/{myUid}.publicKey<br/>(throw KeyNotFoundException if missing)
+    KeyRepository->>Firestore: write 1: users/{myUid}.set(<br/>{selectedSenderUid: senderUid}, merge:true)
+    KeyRepository->>Firestore: write 2: handshakes/{docId}.set({receiverId: myUid,<br/>senderId: senderUid, publicKey, sentAt,<br/>fromUsername, receiverUsername,<br/>status:'handshake_complete', receiverReady:true})
+    KeyRepository->>Firestore: batch.commit()
+    end
+    KeyRepository->>Firestore: notifications.add({type:'rsa_key_received', ...})<br/>(best-effort, to senderUid)
+
+    ReceiverScreen->>ReceiverScreen: init _transferStream =<br/>watchPendingTransfersFromSender(receiverUid, senderUid)
+    ReceiverScreen->>ReceiverScreen: _startSenderPresenceWatch()
+    end
+
+    rect rgb(247,247,247)
+    Note over SenderScreen,Firestore: Sender side (reactive)
+    SenderScreen->>KeyRepository: streamHandshakesForSender()<br/>-> handshakes.where(senderId == myUid)
+    Firestore-->>SenderScreen: snapshot - new doc status=='handshake_complete'<br/>matching receiverId
+    SenderScreen->>SenderScreen: _onHandshakeUpdate(snap)
+    SenderScreen->>SenderScreen: _checkTofuStatus(receiverUid, publicKey)
+    alt firstContact
+        SenderScreen->>SenderScreen: TofuService.pin()
+    else keyChanged
+        SenderScreen-->>User: block + _showKeyChangedDialog()
+    else unchanged
+        SenderScreen->>SenderScreen: store fingerprint, allow proceed
+    end
+    SenderScreen-->>User: replace "Waiting for Connection" with<br/>_ConnectedBadge ("Secure Channel Established /<br/>Key received from @username")
+
+    alt handshake doc disappears (receiver closed mailbox)
+        SenderScreen->>SenderScreen: _revertToWaiting()<br/>_wipeSensitiveData(), snackbar notification,<br/>restart waiting animation
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over User,EncryptionService: Close Mailbox (_onToggleReady(false)) - kill-switch, see SD014
+    User->>ReceiverScreen: tap toggle OFF -> _showCloseSessionDialog()
+    ReceiverScreen->>ReceiverScreen: _stopIncomingHandshakeListener(),<br/>cancel _senderPresenceSub
+    ReceiverScreen->>KeyRepository: setReadyToReceive(false)
+    ReceiverScreen->>EncryptionService: unbindSession()
+    ReceiverScreen->>EncryptionService: closeReceiverSession(uid)
+    Note right of EncryptionService: delete publicKey, selectedSenderUid,<br/>batch-delete handshakes where receiverId==uid,<br/>delete rsa_key_received notifications
+    ReceiverScreen->>ReceiverScreen: wipeAll(), _sessionManager.reset()
+    end

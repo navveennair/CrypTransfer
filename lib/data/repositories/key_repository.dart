@@ -107,18 +107,6 @@ class KeyRepository {
     }
   }
 
-  Future<void> disconnectFriend(String friendId) async {
-    try {
-      final batch = _db.batch();
-      batch.delete(_friendshipsOf(_uid).doc(friendId));
-      batch.delete(_friendshipsOf(friendId).doc(_uid));
-      await batch.commit();
-    } on FirebaseException catch (e) {
-      throw NetworkException(
-          'Failed to disconnect: ${e.message ?? e.code}');
-    }
-  }
-
   // ─── RSA public key sharing ───────────────────────────────────────────────
 
   /// Sends the current user's RSA public key to [toUserId].
@@ -159,7 +147,7 @@ class KeyRepository {
   Future<String?> getPublicKeyFor(String senderId) async {
     try {
       final result = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: senderId)
           .where('receiverId', isEqualTo: _uid)
           .limit(1)
@@ -176,7 +164,7 @@ class KeyRepository {
   Future<DocumentSnapshot<Map<String, dynamic>>> getHandshake(String docId) async {
     try {
       return await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .doc(docId)
           .get();
     } on FirebaseException catch (e) {
@@ -188,7 +176,7 @@ class KeyRepository {
   Future<List<Map<String, dynamic>>> getSentKeyTransfers() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('receiverId', isEqualTo: _uid)
           .get();
 
@@ -222,7 +210,7 @@ class KeyRepository {
   Future<List<Map<String, dynamic>>> getReceivedKeys() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: _uid)
           .get();
 
@@ -277,7 +265,7 @@ class KeyRepository {
   Future<bool> hasReceivedKeyFrom(String fromUserId) async {
     try {
       final result = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: fromUserId)
           .where('receiverId', isEqualTo: _uid)
           .limit(1)
@@ -307,7 +295,7 @@ class KeyRepository {
     // This eliminates the TOCTOU race where two concurrent calls could both observe
     // docs.isEmpty and both call add(), creating duplicate handshake docs (WR-002 fix).
     final docId = '${_uid}_$senderId';
-    await _db.collection(FirebaseConstants.handshakes).doc(docId).set(
+    await _db.collection(FirebaseConstants.roleHandshakes).doc(docId).set(
       {
         'receiverId': _uid,
         'senderId': senderId,
@@ -327,7 +315,7 @@ class KeyRepository {
   Future<List<UserModel>> getAvailableReceivers() async {
     try {
       final snapshot = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: _uid)
           .get();
 
@@ -372,84 +360,92 @@ class KeyRepository {
   ///    to [senderUid] with `status: 'handshake_complete'`, signalling the
   ///    sender's Firestore stream that the secure channel is open.
   ///
-  /// A notification is sent afterward (best-effort, outside the batch).
+  /// A notification is sent afterward (best-effort, outside the transaction).
   /// Throws [KeyNotFoundException] if the receiver has no public key yet.
+  ///
   /// Throws [RoleConflictException] if [senderUid] has already selected the
-  /// current user as their sender (both-receiver conflict).
+  /// current user as *their* sender (`selectedSenderUid == myUid`) — i.e. both
+  /// users are trying to be the receiver of each other. This check runs here,
+  /// inside the same transaction that commits `selectedSenderUid`, because
+  /// this method is the single real commit point: every receiver-side path
+  /// (the home-screen role picker's `preFilledSenderUid`, the incoming-handshake
+  /// auto-detect listener, and the auto-reconnect-to-last-sender path) ends up
+  /// calling this method, but only the role-picker path went through
+  /// [assignTransferRole]'s earlier, UI-only conflict check. Enforcing the
+  /// guard here closes that gap for every entry point.
   Future<String> selectSenderHandshake({
     required String senderUid,
     required String senderUsername,
   }) async {
+    final docId = _db.collection(FirebaseConstants.roleHandshakes).doc().id;
+    String fromUsername = 'Unknown';
+
     try {
-      // Defense-in-depth role-conflict guard: some callers (auto-reconnect-
-      // to-last-sender, incoming-handshake auto-detect) reach this function
-      // without ever calling assignTransferRole() first. Mirrors
-      // assignTransferRole's both-receiver late-claim check: if the partner
-      // has already committed selectedSenderUid pointing at me, they're also
-      // trying to be receiver, with me as their sender.
-      final partnerDoc =
-          await _db.collection(FirebaseConstants.users).doc(senderUid).get();
-      if (partnerDoc.data()?['selectedSenderUid'] == _uid) {
-        throw RoleConflictException(
-          'Role conflict detected. Both users cannot be receivers. '
-          'One user must be sender, another must be receiver.',
+      await _db.runTransaction<void>((txn) async {
+        // Reads must happen before writes inside a Firestore transaction.
+        final myDoc =
+            await txn.get(_db.collection(FirebaseConstants.users).doc(_uid));
+        final partnerDoc = await txn
+            .get(_db.collection(FirebaseConstants.users).doc(senderUid));
+
+        final myData = myDoc.data() ?? <String, dynamic>{};
+        final partnerData = partnerDoc.data() ?? <String, dynamic>{};
+
+        final publicKey = myData['publicKey'] as String?;
+        if (publicKey == null || publicKey.isEmpty) {
+          throw KeyNotFoundException('Generate RSA keys first');
+        }
+        fromUsername = myData['username'] as String? ??
+            _auth.currentUser?.displayName ??
+            'Unknown';
+
+        // Both-receiver conflict: partner has already chosen ME as their
+        // sender, so neither side is willing to act as the actual sender.
+        final partnerSelectedSender =
+            partnerData['selectedSenderUid'] as String?;
+        if (partnerSelectedSender == _uid) {
+          throw RoleConflictException(
+            'Role conflict detected. Both users cannot be receivers. '
+            'One user must be sender, another must be receiver.',
+          );
+        }
+
+        // Write 1 — mark selected sender on the receiver's user document.
+        txn.set(
+          _db.collection(FirebaseConstants.users).doc(_uid),
+          {'selectedSenderUid': senderUid},
+          SetOptions(merge: true),
         );
-      }
 
-      // Read receiver's current public key, display name, and mailbox status.
-      final userDoc =
-          await _db.collection(FirebaseConstants.users).doc(_uid).get();
-      final publicKey = userDoc.data()?['publicKey'] as String?;
-      if (publicKey == null || publicKey.isEmpty) {
-        throw KeyNotFoundException('Generate RSA keys first');
-      }
-      final fromUsername = userDoc.data()?['username'] as String? ??
-          _auth.currentUser?.displayName ??
-          'Unknown';
+        // Write 2 — publish receiver's public key to the sender with
+        // handshake_complete status so the sender's stream fires immediately.
+        final keyPayload = <String, dynamic>{
+          'publicKey': publicKey,
+          'sentAt': FieldValue.serverTimestamp(),
+          'fromUsername': fromUsername,
+          // 'receiverUsername' is the canonical field read by SenderScreen.
+          // 'fromUsername' is kept for backward compatibility.
+          'receiverUsername': fromUsername,
+          // 'senderUsername' allows getSentKeyTransfers() to avoid a user-doc fetch.
+          'senderUsername': senderUsername,
+          'status': 'handshake_complete',
+          'receiverReady': true,
+        };
 
-      // FIX 2: Use Firestore auto-ID to prevent collision when roles reverse
-      final docId = _db.collection(FirebaseConstants.handshakes).doc().id;
+        txn.set(
+          _db.collection(FirebaseConstants.roleHandshakes).doc(docId),
+          {
+            'receiverId': _uid,
+            'senderId': senderUid,
+            'receiverUid': _uid,
+            'senderUid': senderUid,
+            ...keyPayload,
+          },
+          SetOptions(merge: true),
+        );
+      });
 
-      final batch = _db.batch();
-
-      // Write 1 — mark selected sender on the receiver's user document.
-      batch.set(
-        _db.collection(FirebaseConstants.users).doc(_uid),
-        {'selectedSenderUid': senderUid},
-        SetOptions(merge: true),
-      );
-
-      // Write 2 — publish receiver's public key to the sender with
-      // handshake_complete status so the sender's stream fires immediately.
-      // If receiver's mailbox is open, automatically signal readiness on this handshake.
-      final keyPayload = <String, dynamic>{
-        'publicKey': publicKey,
-        'sentAt': FieldValue.serverTimestamp(),
-        'fromUsername': fromUsername,
-        // 'receiverUsername' is the canonical field read by SenderScreen.
-        // 'fromUsername' is kept for backward compatibility.
-        'receiverUsername': fromUsername,
-        // 'senderUsername' allows getSentKeyTransfers() to avoid a user-doc fetch.
-        'senderUsername': senderUsername,
-        'status': 'handshake_complete',
-        'receiverReady': true,
-      };
-
-      batch.set(
-        _db.collection(FirebaseConstants.handshakes).doc(docId),
-        {
-          'receiverId': _uid,
-          'senderId': senderUid,
-          'receiverUid': _uid,
-          'senderUid': senderUid,
-          ...keyPayload,
-        },
-        SetOptions(merge: true),
-      );
-
-      await batch.commit();
-
-      // Notification — best-effort, not part of the atomic batch.
+      // Notification — best-effort, not part of the atomic transaction.
       await _db
           .collection(FirebaseConstants.users)
           .doc(senderUid)
@@ -464,6 +460,8 @@ class KeyRepository {
       });
       return docId;
     } on KeyNotFoundException {
+      rethrow;
+    } on RoleConflictException {
       rethrow;
     } on FirebaseException catch (e) {
       throw NetworkException('Handshake failed: ${e.message ?? e.code}');
@@ -481,7 +479,7 @@ class KeyRepository {
   }) async {
     try {
       final snap = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: senderUid)
           .where('receiverId', isEqualTo: receiverUid)
           .limit(1)
@@ -504,7 +502,7 @@ class KeyRepository {
   Stream<QuerySnapshot<Map<String, dynamic>>> streamHandshakesForSender() {
     final senderId = _uid;
     return _db
-        .collection(FirebaseConstants.handshakes)
+        .collection(FirebaseConstants.roleHandshakes)
         .where('senderId', isEqualTo: senderId)
         .snapshots();
   }
@@ -517,7 +515,7 @@ class KeyRepository {
   Future<String?> fetchHandshakePublicKey(String receiverUid) async {
     try {
       final result = await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('senderId', isEqualTo: _uid)
           .where('receiverId', isEqualTo: receiverUid)
           .limit(1)
@@ -535,7 +533,7 @@ class KeyRepository {
   Stream<QuerySnapshot<Map<String, dynamic>>> streamIncomingHandshakes(
       String receiverUid) =>
       _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .where('receiverId', isEqualTo: receiverUid)
           .snapshots();
 
@@ -562,7 +560,7 @@ class KeyRepository {
   Future<void> setReceiverReady(String handshakeDocId) async {
     try {
       await _db
-          .collection(FirebaseConstants.handshakes)
+          .collection(FirebaseConstants.roleHandshakes)
           .doc(handshakeDocId)
           .update({'receiverReady': true});
     } on FirebaseException catch (e) {
@@ -714,7 +712,7 @@ class KeyRepository {
     // Best-effort: also strip role fields from the handshake doc when we have a real ID.
     if (handshakeDocId.isNotEmpty) {
       try {
-        await _db.collection(FirebaseConstants.handshakes).doc(handshakeDocId).update({
+        await _db.collection(FirebaseConstants.roleHandshakes).doc(handshakeDocId).update({
           'senderUid': FieldValue.delete(),
           'receiverUid': FieldValue.delete(),
           'rolesAssignedAt': FieldValue.delete(),
@@ -754,7 +752,7 @@ class KeyRepository {
     // Wipe handshakes initiated by uid (as receiver) — use WriteBatch for
     // atomic deletion in a single round-trip instead of serial deletes (WR-008 fix).
     final sent = await _db
-        .collection(FirebaseConstants.handshakes)
+        .collection(FirebaseConstants.roleHandshakes)
         .where('receiverId', isEqualTo: uid)
         .get();
     if (sent.docs.isNotEmpty) {
@@ -767,7 +765,7 @@ class KeyRepository {
 
     // Wipe handshakes received by uid (as sender)
     final received = await _db
-        .collection(FirebaseConstants.handshakes)
+        .collection(FirebaseConstants.roleHandshakes)
         .where('senderId', isEqualTo: uid)
         .get();
     if (received.docs.isNotEmpty) {
@@ -902,7 +900,7 @@ class KeyRepository {
     }
 
     if (handshakeId != null && handshakeId.isNotEmpty) {
-      batch.delete(_db.collection(FirebaseConstants.handshakes).doc(handshakeId));
+      batch.delete(_db.collection(FirebaseConstants.roleHandshakes).doc(handshakeId));
     }
 
     // Always clear the receiver authorization field as part of the cleanup.

@@ -122,6 +122,14 @@ class AuthRepository {
     }
 
     final data = query.docs.first.data();
+
+    if (data['isActive'] == false) {
+      throw const AuthException(
+        'Your account has been suspended. Please contact the administrator.',
+        code: 'account-suspended',
+      );
+    }
+
     final email = (data['email'] as String?)?.trim() ?? '';
     if (email.isEmpty) {
       throw AuthException('Account data is corrupted. Please re-register.',
@@ -169,6 +177,15 @@ class AuthRepository {
 
       // Check if user document exists, if not create one
       final userDoc = await _db.collection(FirebaseConstants.users).doc(user.uid).get();
+
+      if (userDoc.exists && userDoc.data()?['isActive'] == false) {
+        await _auth.signOut();
+        throw const AuthException(
+          'Your account has been suspended. Please contact the administrator.',
+          code: 'account-suspended',
+        );
+      }
+
       if (!userDoc.exists) {
         String username = user.email!.split('@')[0].replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
 
@@ -337,7 +354,6 @@ class AuthRepository {
     batch.set(prefsRef, {'keyVaultCreatedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true)); // D-14: stamp regeneration time; merge preserves other prefs
     await batch.commit();
-    EncryptionService.markLiveSession(uid);
   }
 
   /// Deletes the RSA keypair.
@@ -360,7 +376,6 @@ class AuthRepository {
     // If batch.commit() throws, the private key is NOT wiped — Firestore and
     // secure storage remain consistent (both still hold key material).
     await _secure.delete(key: FirebaseConstants.privateKeyStorageKey);
-    EncryptionService.clearLiveSession(uid);
   }
 
   // ─── User profile ──────────────────────────────────────────────────────────

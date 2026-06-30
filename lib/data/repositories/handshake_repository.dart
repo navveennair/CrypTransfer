@@ -224,40 +224,70 @@ class HandshakeRepository {
   /// and clears any stale role-assignment fields from the calling user's own
   /// Firestore document.
   ///
-  /// Only the calling user's own doc is updated — Firestore security rules
-  /// (allow update: if isOwner(userId) || isAdmin()) prevent writing to another
-  /// user's document. The partner's stale [pendingSenderFor] / [selectedSenderUid]
-  /// fields are inert once the connection no longer exists and will be cleared
-  /// by the partner's own [KeyRepository.clearTransferRoles] call on their next
-  /// sender/receiver screen exit.
+  /// Only the calling user's own role fields are updated — Firestore security
+  /// rules (allow update: if isOwner(userId) || isAdmin()) prevent writing to
+  /// another user's document. The partner's stale [pendingSenderFor] /
+  /// [selectedSenderUid] fields are inert once the connection no longer exists
+  /// and will be cleared by the partner's own [KeyRepository.clearTransferRoles]
+  /// call on their next sender/receiver screen exit.
   ///
-  /// The neutral_handshakes deletes cover both directions (`selfUid_partnerUid`
-  /// and `partnerUid_selfUid`). If only one direction exists the other delete is
-  /// a safe no-op because the security rule guards `resource == null`.
+  /// Delegates the actual connection teardown to [disconnectPair] so the
+  /// `neutral_handshakes` docs AND the `friendships` sub-collection docs are
+  /// always cleared together — see [disconnectPair] for why both matter.
   Future<void> disconnectFromUser(String partnerUid) async {
     final selfUid = _uid; // capture before any await
+    await disconnectPair(selfUid, partnerUid);
     try {
-      final batch = _db.batch();
-
-      // Remove both directional neutral_handshake docs.
-      batch.delete(_db
-          .collection(FirebaseConstants.neutralHandshakes)
-          .doc('${selfUid}_$partnerUid'));
-      batch.delete(_db
-          .collection(FirebaseConstants.neutralHandshakes)
-          .doc('${partnerUid}_$selfUid'));
-
       // Clear stale role fields from the calling user's own document only.
       // Writing to users/{partnerUid} would violate isOwner(partnerUid).
       // FieldValue.delete() on a non-existent field is a safe no-op.
-      batch.update(
-        _db.collection(FirebaseConstants.users).doc(selfUid),
-        {
-          FirebaseConstants.pendingSenderFor: FieldValue.delete(),
-          'selectedSenderUid': FieldValue.delete(),
-        },
-      );
+      await _db.collection(FirebaseConstants.users).doc(selfUid).update({
+        FirebaseConstants.pendingSenderFor: FieldValue.delete(),
+        'selectedSenderUid': FieldValue.delete(),
+      });
+    } on FirebaseException catch (e) {
+      throw NetworkException(
+          'Failed to disconnect: ${e.message ?? e.code}');
+    }
+  }
 
+  /// Fully disconnects [uidA] and [uidB]: deletes both directional
+  /// `neutral_handshakes` docs (`A_B` and `B_A`) AND both `friendships`
+  /// sub-collection docs (`users/A/friendships/B` and `users/B/friendships/A`)
+  /// in a single batch.
+  ///
+  /// `neutral_handshakes` is the request/accept negotiation log; `friendships`
+  /// is the denormalized index every transfer-gating check actually reads
+  /// ([KeyRepository.getConnectionStatus], [UserRepository.isFriend],
+  /// [AdminRepository] connection stats). Clearing only one left the other
+  /// collection stale — a "disconnected" pair could still pass the
+  /// connection-required gate or get auto-trusted by the incoming-handshake
+  /// listener. This method is the single place both collections are torn down
+  /// together, called both for manual user-initiated disconnects
+  /// ([disconnectFromUser]) and automatically whenever a transfer session ends
+  /// (see [EncryptionService.closeReceiverSession]).
+  ///
+  /// If only one direction/doc exists the other delete is a safe no-op —
+  /// Firestore allows deleting a non-existent document.
+  Future<void> disconnectPair(String uidA, String uidB) async {
+    try {
+      final batch = _db.batch();
+      batch.delete(_db
+          .collection(FirebaseConstants.neutralHandshakes)
+          .doc('${uidA}_$uidB'));
+      batch.delete(_db
+          .collection(FirebaseConstants.neutralHandshakes)
+          .doc('${uidB}_$uidA'));
+      batch.delete(_db
+          .collection(FirebaseConstants.users)
+          .doc(uidA)
+          .collection(FirebaseConstants.friendships)
+          .doc(uidB));
+      batch.delete(_db
+          .collection(FirebaseConstants.users)
+          .doc(uidB)
+          .collection(FirebaseConstants.friendships)
+          .doc(uidA));
       await batch.commit();
     } on FirebaseException catch (e) {
       throw NetworkException(

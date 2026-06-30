@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant SenderScreen
+    participant SecurityLifecycleMixin
+    participant MainActivity as MainActivity (Kotlin)<br/>cryptransfer/security
+    participant TransferService
+    participant EncryptionService
+    participant Isolate as compute() isolate<br/>(runAesGcmEncrypt)
+
+    User->>SenderScreen: tap "Encrypt File" (Step 2)
+    SenderScreen->>SecurityLifecycleMixin: isFlagSecureActive()
+    SecurityLifecycleMixin->>MainActivity: MethodChannel.invoke("isFlagSecureActive")
+    MainActivity-->>SecurityLifecycleMixin: (window.attributes.flags & FLAG_SECURE) != 0
+
+    alt FLAG_SECURE not active
+        SecurityLifecycleMixin-->>SenderScreen: false
+        SenderScreen-->>User: abort encryption, show error
+    else FLAG_SECURE active
+        rect rgb(247,247,247)
+        Note over SenderScreen,TransferService: Phase 1 - read file (progress 0% to 70%)
+        SenderScreen->>TransferService: resolve(path: file.path, fallbackBytes: file.bytes)
+        alt Mobile / Desktop
+            TransferService->>TransferService: readFileWithProgress()<br/>RandomAccessFile.read(kChunkSize = 65536)
+            loop every 64 KB chunk
+                TransferService-->>SenderScreen: onProgress(offset/length * 0.7)
+            end
+        else Web
+            TransferService-->>SenderScreen: file.bytes directly
+        end
+        TransferService-->>SenderScreen: plaintext: Uint8List
+        end
+
+        SenderScreen->>SecurityLifecycleMixin: registerBuffer(plaintext)
+        Note right of SecurityLifecycleMixin: safety net for early-throw zero-wipe
+
+        rect rgb(247,247,247)
+        Note over SenderScreen,Isolate: Phase 2 - AES-GCM encrypt (progress 70% to 100%)
+        SenderScreen->>EncryptionService: encryptAesGcm(plaintext)
+        EncryptionService->>EncryptionService: generate key (32B), iv (12B)
+        EncryptionService->>Isolate: compute(runAesGcmEncrypt, [plaintext, key, iv])
+        Isolate-->>EncryptionService: ciphertext
+        EncryptionService-->>SenderScreen: AesEncryptResult{ ciphertext, key, iv }
+        end
+
+        SenderScreen->>SecurityLifecycleMixin: registerBuffer(ciphertext, key, iv)
+        SenderScreen->>SenderScreen: plaintext.fillRange(0, len, 0)
+        SenderScreen->>SecurityLifecycleMixin: unregisterBuffer(plaintext)
+        Note right of SenderScreen: eager zero-wipe of plaintext copy
+
+        SenderScreen->>SenderScreen: set _aesKey, _iv, _encryptedBytes,<br/>clear _encryptedAESKey = null
+        SenderScreen-->>User: advance to Step 3 (Encrypt AES Key)
+    end

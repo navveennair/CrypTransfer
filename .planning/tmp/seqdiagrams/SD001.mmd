@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant LoginScreen
+    participant AuthRepository
+    participant FirebaseAuth
+    participant Firestore as Firestore (users)
+    participant NextScreen as Onboarding / Home
+
+    User->>LoginScreen: enter username + password, tap "Login"
+    LoginScreen->>AuthRepository: loginWithUsername(username, password)
+    AuthRepository->>Firestore: query users where username == username (limit 1)
+    Firestore-->>AuthRepository: user doc { email }
+    AuthRepository->>FirebaseAuth: signInWithEmailAndPassword(email, password)
+    FirebaseAuth-->>AuthRepository: UserCredential
+    AuthRepository->>FirebaseAuth: getIdToken()
+    AuthRepository->>Firestore: get users/{uid}
+    Firestore-->>AuthRepository: UserModel { isFirstTime, ... }
+
+    alt isFirstTime == true
+        AuthRepository-->>LoginScreen: profile (isFirstTime = true)
+        LoginScreen->>NextScreen: pushAndRemoveUntil(OnboardingScreen)
+    else returning user
+        AuthRepository-->>LoginScreen: profile (isFirstTime = false)
+        LoginScreen->>NextScreen: pushAndRemoveUntil(HomeScreen)
+    end
+
+    rect rgb(247,247,247)
+    Note over User,FirebaseAuth: Alt path - Google Sign-In
+    User->>LoginScreen: tap "Sign in with Google"
+    LoginScreen->>AuthRepository: signInWithGoogle()
+    AuthRepository->>FirebaseAuth: signInWithCredential(GoogleAuthProvider)
+    FirebaseAuth-->>AuthRepository: UserCredential
+    opt users/{uid} does not exist
+        AuthRepository->>Firestore: batch create users/{uid} + profile/preferences
+        Note right of Firestore: publicKey=null, isAdmin=false,<br/>isFirstTime=true, biometricGateEnabled=false
+    end
+    AuthRepository-->>LoginScreen: profile (isFirstTime branch as above)
+    end
+
+    alt FirebaseAuthException
+        FirebaseAuth-->>LoginScreen: error code (user-not-found / wrong-password /<br/>invalid-credential / too-many-requests / user-disabled)
+        LoginScreen-->>User: inline error message
+    end

@@ -204,6 +204,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     try {
       await _hsRepo.acceptProposal(
           req['docId'] as String, req['proposerId'] as String);
+      // Auto-clear the awareness notification so the bell badge doesn't linger.
+      _hsRepo
+          .clearConnectionRequestNotif(req['proposerId'] as String)
+          .ignore();
       if (mounted) {
         setState(() {
           _pendingRequests.removeWhere((r) => r['docId'] == req['docId']);
@@ -237,6 +241,28 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     }
   }
 
+  Future<void> _declineRequest(Map<String, dynamic> req) async {
+    try {
+      await _hsRepo.rejectProposal(req['docId'] as String);
+      _hsRepo
+          .clearConnectionRequestNotif(req['proposerId'] as String)
+          .ignore();
+      if (mounted) {
+        setState(() =>
+            _pendingRequests.removeWhere((r) => r['docId'] == req['docId']));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to decline: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _disconnect(Map<String, dynamic> conn) async {
     final username = conn['username'] as String;
     final uid = conn['uid'] as String;
@@ -259,7 +285,10 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to disconnect: $e')),
+          SnackBar(
+            content: Text('Failed to disconnect: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
@@ -401,7 +430,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                     child: GlassContainer(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
-                      child: ListTile(
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
                           backgroundColor:
@@ -423,6 +454,7 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                           onPressed: () => _disconnect(conn),
                           tooltip: 'Disconnect',
                         ),
+                      ),
                       ),
                     ),
                   );
@@ -466,7 +498,9 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       borderColor: cs.secondary.withValues(alpha: 0.3),
-                      child: ListTile(
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
                           backgroundColor: cs.secondary,
@@ -484,13 +518,29 @@ class _FindFriendsScreenState extends State<FindFriendsScreen> {
                         subtitle: Text('Wants to connect with you',
                             style:
                                 TextStyle(color: cs.onSurfaceVariant)),
-                        trailing: CrypButton(
-                          onPressed: () => _acceptRequest(req),
-                          label: const Text('Accept', style: TextStyle(fontSize: 11)),
-                          color: cs.secondary,
-                          height: 30,
-                          width: 70,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.close_rounded,
+                                  color: cs.error, size: 20),
+                              onPressed: () => _declineRequest(req),
+                              tooltip: 'Decline',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                            ),
+                            const SizedBox(width: 4),
+                            CrypButton(
+                              onPressed: () => _acceptRequest(req),
+                              label: const Text('Accept',
+                                  style: TextStyle(fontSize: 11)),
+                              color: cs.secondary,
+                              height: 30,
+                              width: 70,
+                            ),
+                          ],
                         ),
+                      ),
                       ),
                     ),
                   );
@@ -616,6 +666,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
   StreamSubscription<({String status, String docId})?>? _statusSub;
   ({String status, String docId})? _current;
   bool _isSending = false;
+  bool _isDisconnecting = false;
   bool _streamReady = false;
 
   @override
@@ -676,6 +727,9 @@ class _SearchResultTileState extends State<_SearchResultTile>
   Future<void> _accept(String docId) async {
     try {
       await widget.hsRepo.acceptProposal(docId, widget.user.uid);
+      widget.hsRepo
+          .clearConnectionRequestNotif(widget.user.uid)
+          .ignore();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -699,6 +753,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
   Future<void> _disconnect(String docId) async {
     final confirmed = await _showDisconnectDialog(context, widget.user.username);
     if (confirmed != true) return;
+    setState(() => _isDisconnecting = true);
     try {
       await widget.hsRepo.disconnectFromUser(widget.user.uid);
       if (mounted) {
@@ -715,14 +770,19 @@ class _SearchResultTileState extends State<_SearchResultTile>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to disconnect: $e')),
+          SnackBar(
+            content: Text('Failed to disconnect: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isDisconnecting = false);
     }
   }
 
   Widget _buildTrailing(ColorScheme cs) {
-    if (_isSending || !_streamReady) {
+    if (_isSending || _isDisconnecting || !_streamReady) {
       return const SizedBox(
         width: 20,
         height: 20,
@@ -819,7 +879,9 @@ class _SearchResultTileState extends State<_SearchResultTile>
       child: GlassContainer(
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: ListTile(
+        child: Material(
+          type: MaterialType.transparency,
+          child: ListTile(
           contentPadding: EdgeInsets.zero,
           leading: CircleAvatar(
             backgroundColor: cs.surfaceContainerHigh,
@@ -837,6 +899,7 @@ class _SearchResultTileState extends State<_SearchResultTile>
                 TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
           trailing: _buildTrailing(cs),
+        ),
         ),
       ),
     );

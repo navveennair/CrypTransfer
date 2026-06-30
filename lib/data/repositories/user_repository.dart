@@ -30,6 +30,27 @@ class UserRepository {
     }
   }
 
+  // ─── Stream user document ─────────────────────────────────────────────────
+
+  /// Stream a single user document by UID.
+  Stream<DocumentSnapshot<Map<String, dynamic>>> streamUser(String userId) {
+    return _db
+        .collection(FirebaseConstants.users)
+        .doc(userId)
+        .snapshots();
+  }
+
+  /// Returns true if [partnerUid] is an accepted friend of [myUid].
+  Future<bool> isFriend(String myUid, String partnerUid) async {
+    final doc = await _db
+        .collection(FirebaseConstants.users)
+        .doc(myUid)
+        .collection(FirebaseConstants.friendships)
+        .doc(partnerUid)
+        .get();
+    return doc.exists && doc.data()?['status'] == 'accepted';
+  }
+
   // ─── Stream user with friendships for connection map ─────────────────────
 
   /// Stream user document with their friendships (for connection node map visualization)
@@ -57,32 +78,5 @@ class UserRepository {
 
           return userData;
         });
-  }
-
-  // ─── Single-user document stream ──────────────────────────────────────────
-
-  /// Streams the raw user document for [userId] (presence/claim-field watching).
-  Stream<DocumentSnapshot<Map<String, dynamic>>> streamUser(String userId) {
-    return _db.collection(FirebaseConstants.users).doc(userId).snapshots();
-  }
-
-  // ─── Friendship check ──────────────────────────────────────────────────────
-
-  /// Whether [otherUserId] is an accepted friend of [userId]. Friendships are
-  /// written bidirectionally (see HandshakeRepository.acceptProposal), so a
-  /// single-direction check is sufficient.
-  Future<bool> isFriend(String userId, String otherUserId) async {
-    try {
-      final doc = await _db
-          .collection(FirebaseConstants.users)
-          .doc(userId)
-          .collection(FirebaseConstants.friendships)
-          .doc(otherUserId)
-          .get();
-      return doc.data()?['status'] == 'accepted';
-    } on FirebaseException catch (e) {
-      throw NetworkException(
-          'Could not check friendship status: ${e.message ?? e.code}');
-    }
   }
 }

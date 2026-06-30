@@ -16,6 +16,7 @@ import '../widgets/shared_widgets.dart';
 import 'find_friends_screen.dart';
 import 'transfer_summary_screen.dart';
 import 'notifications_screen.dart';
+import '../auth/login_screen.dart';
 import '../receiver/receiver_screen.dart';
 import '../sender/sender_screen.dart';
 import 'sidebar_drawer.dart';
@@ -29,6 +30,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin {
+  StreamSubscription? _profileSub;
   StreamSubscription<Map<String, dynamic>?>? _notifSub;
   OverlayEntry? _bannerEntry;          // rsa_key_received / file_received
   OverlayEntry? _outcomeEntry;         // connection accepted/declined (separate slot)
@@ -63,14 +65,32 @@ class _HomeScreenState extends State<HomeScreen>
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
     _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+    _profileSub = _authRepo.streamUserProfile(uid).listen((profile) {
+      if (profile != null && profile.isActive == false && mounted) {
+        _forceLogout();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startNotifListener();
       _startOutcomeListener();
     });
   }
 
+  Future<void> _forceLogout() async {
+    _profileSub?.cancel();
+    await _authRepo.logout();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _profileSub?.cancel();
     _pulseCtrl.dispose();
     _notifSub?.cancel();
     _bannerEntry?.remove();

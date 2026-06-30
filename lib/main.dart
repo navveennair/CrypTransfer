@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'app_theme.dart';
+import 'core/utils/kill_switch_outbox.dart';
 import 'firebase_options.dart';
 import 'presentation/auth/splash_screen.dart';
 import 'services/firestore_migration.dart';
@@ -16,6 +17,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirestoreMigration.initializeCollections();
+  await KillSwitchOutbox.resumeIfPending();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeService(),

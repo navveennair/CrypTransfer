@@ -4,17 +4,16 @@ abstract class FirebaseConstants {
   // ─── Firestore collections ─────────────────────────────────────────────────
   static const String users = 'users';
   static const String transfers = 'transfers';
-  static const String transferLogs = 'transfer_logs';
   static const String auditLogs = 'audit_logs';
   static const String notifications = 'notifications';
-  static const String friendships = 'friendships';
-  static const String connections = 'connections';  // subcollection: users/{uid}/connections
+  static const String friendships = 'friendships';  // subcollection: users/{uid}/friendships
 
   // Connection layer: initial proposals (symmetric roles)
   static const String neutralHandshakes = 'neutral_handshakes';
 
   // Session layer: RSA key exchange + role assignment (asymmetric sender/receiver)
-  static const String handshakes = 'handshakes';
+  static const String roleHandshakes = 'role_handshake';
+  static const String transferLogs = 'transfer_logs';
   static const String securityAuditLog = 'security_audit_log';
   static const String rsaKeyManager = 'rsa_key_manager';  // subcollection: users/{uid}/rsa_key_manager
   static const String profile = 'profile';                 // subcollection: users/{uid}/profile

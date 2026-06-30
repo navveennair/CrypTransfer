@@ -67,6 +67,13 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: lightTextMain,
+        contentTextStyle: GoogleFonts.poppins(color: lightSurface, fontSize: 14),
+        elevation: 6,
+      ),
     );
   }
 
@@ -105,6 +112,13 @@ class AppTheme {
           fontSize: 18,
           fontWeight: FontWeight.w600,
         ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: darkSurface,
+        contentTextStyle: GoogleFonts.poppins(color: darkTextMain, fontSize: 14),
+        elevation: 6,
       ),
     );
   }

@@ -1,0 +1,69 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant SenderScreen
+    participant KeyRepository
+    participant BiometricHelper
+    participant Isolate as compute() isolate<br/>(_rsaOaepEncryptIsolate)
+    participant SenderTransferScreen
+    participant TransferRepository
+    participant Storage as Firebase Storage
+    participant Firestore as Firestore (transfers,<br/>notifications)
+
+    rect rgb(247,247,247)
+    Note over User,Isolate: Step 3 - Encrypt AES Key (_encryptAesKey())
+    User->>SenderScreen: tap "Encrypt AES Key" (Step 3)
+    SenderScreen->>KeyRepository: fetchHandshakePublicKey(receiverId)
+    Note right of KeyRepository: TOFU freshness check - one-shot read of<br/>handshakes where senderId==me AND receiverId==target
+    KeyRepository-->>SenderScreen: liveKey
+
+    alt liveKey == null OR liveKey != cachedPublicKeyJson
+        Note right of SenderScreen: receiver closed mailbox, or key rotated
+        SenderScreen->>SenderScreen: _wipeSensitiveData()
+        SenderScreen->>TransferRepository: writeAbortAuditLog(...)
+        SenderScreen-->>User: pushAndRemoveUntil(HomeScreen) + error SnackBar
+    else key fresh
+        SenderScreen->>BiometricHelper: authenticate("Authenticate to encrypt<br/>the AES key for {receiverUsername}")
+        alt authentication fails
+            BiometricHelper-->>SenderScreen: false
+            SenderScreen-->>User: "Authentication failed. Tap to retry."
+        else authentication succeeds
+            SenderScreen->>Isolate: compute(_rsaOaepEncryptIsolate, [publicKeyJson, aesKey])
+            Note right of Isolate: OAEPEncoding(RSAEngine())<br/>..init(true, PublicKeyParameter(pubKey))
+            Isolate-->>SenderScreen: encryptedAESKey
+            SenderScreen->>SenderScreen: registerBuffer(encryptedAESKey)
+            SenderScreen-->>User: advance to Step 4 (Send)
+        end
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over User,Firestore: Step 4 - Send (_send())
+    User->>SenderScreen: tap "Send"
+    SenderScreen->>TransferRepository: generateId() -> transfers.doc().id
+    TransferRepository-->>SenderScreen: transferId
+    SenderScreen->>SenderScreen: encode encryptedAESKey/iv as Base64,<br/>copy encryptedBytes
+    SenderScreen->>SenderScreen: _wipeSensitiveData()<br/>(zero _aesKey, _iv, _encryptedBytes, wipeAll())
+    SenderScreen->>SenderTransferScreen: push(transferId, encryptedBytesCopy,<br/>fileName, fileSize, receiver info,<br/>encryptedAESKeyB64, ivB64)
+    end
+
+    rect rgb(247,247,247)
+    Note over SenderTransferScreen,Firestore: SenderTransferScreen._startUpload()
+    SenderTransferScreen->>SenderTransferScreen: registerBuffer(encryptedBytesCopy[, aesKey])
+    loop upload progress stream (Stream<double>)
+        SenderTransferScreen->>TransferRepository: uploadAndCreate({transferId, encryptedBytes,<br/>fileName, fileSize, senderId, receiverId,<br/>encryptedAESKeyB64, ivB64})
+        TransferRepository->>Storage: ref('transfers/{transferId}/encrypted_file')<br/>.putData(encryptedBytes, metadata)
+        Storage-->>TransferRepository: bytesTransferred / totalBytes
+        TransferRepository-->>SenderTransferScreen: progress (0.0 to 1.0)
+    end
+    TransferRepository->>Storage: getDownloadURL()
+    Storage-->>TransferRepository: downloadUrl
+    TransferRepository->>Firestore: transfers/{transferId}.set({senderId, receiverId,<br/>encryptedAESKey, encryptedFileUrl: downloadUrl,<br/>fileName, fileSize, iv, status:'pending',<br/>sessionActive:true, createdAt})
+    TransferRepository-->>SenderTransferScreen: 1.0 (done)
+
+    SenderTransferScreen->>TransferRepository: watchTransferStatus(transferId)
+    Note right of TransferRepository: non-repudiation listener - see SD014
+    SenderTransferScreen->>TransferRepository: notifyReceiver({receiverId,<br/>senderUsername, transferId})
+    TransferRepository->>Firestore: notifications.add({type:'fileReceived',<br/>message:"sent you an encrypted file"})
+    SenderTransferScreen-->>User: progress=1.0, done=true (success animation)
+    end

@@ -1,0 +1,50 @@
+{
+  "doc_path": "docs/modules/ui.md",
+  "claims_checked": 21,
+  "claims_passed": 14,
+  "claims_failed": 7,
+  "failures": [
+    {
+      "line": 19,
+      "claim": "lib/presentation/sender/transfer_progress_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/sender/transfer_progress_screen.dart"
+    },
+    {
+      "line": 23,
+      "claim": "lib/presentation/receiver/download_confirm_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/receiver/download_confirm_screen.dart"
+    },
+    {
+      "line": 24,
+      "claim": "lib/presentation/session/end_session_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/session/end_session_screen.dart"
+    },
+    {
+      "line": 53,
+      "claim": "StatusBanner | ReceiverScreen | Animated fade-in incoming transfer banner",
+      "expected": "StatusBanner used in receiver_screen.dart",
+      "actual": "no reference to StatusBanner found in lib/presentation/receiver/receiver_screen.dart (per CLAUDE.md, StatusBanner was removed from the receiver build)"
+    },
+    {
+      "line": 81,
+      "claim": "Icons.lock_outline_rounded",
+      "expected": "Icons.lock_outline_rounded used in receiver_screen.dart AppBar for key manager button",
+      "actual": "no match for Icons.lock_outline_rounded in receiver_screen.dart; the key-manager AppBar action actually uses Icons.settings_suggest_rounded (line 767)"
+    },
+    {
+      "line": 92,
+      "claim": "_db.collection('transfers_log').where('participants', arrayContains: uid).orderBy('loggedAt', descending: true).limit(10)",
+      "expected": "matching Firestore query in home_screen.dart",
+      "actual": "no 'transfers_log' top-level collection or 'participants' arrayContains query found in home_screen.dart; HomeScreen instead uses TransferRepository.streamRecentTransfers() which queries users/{uid}/auditLogs ordered by loggedAt with limit(3), not limit(10)"
+    },
+    {
+      "line": 97,
+      "claim": "writeAuditLog(",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no function named writeAuditLog found in lib/data/repositories/transfer_repository.dart; the audit-log writers are named writeFinalAuditLog(), writeAbortAuditLog(), and writeConnectionLostAuditLog() (the latter already includes a 'participants' field)"
+    }
+  ]
+}

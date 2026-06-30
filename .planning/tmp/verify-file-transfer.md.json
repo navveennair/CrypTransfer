@@ -1,0 +1,62 @@
+{
+  "doc_path": "docs/modules/file-transfer.md",
+  "claims_checked": 31,
+  "claims_passed": 22,
+  "claims_failed": 9,
+  "failures": [
+    {
+      "line": 17,
+      "claim": "lib/presentation/sender/transfer_progress_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/sender/transfer_progress_screen.dart; file appears to have been renamed to lib/presentation/sender/sender_transfer_screen.dart"
+    },
+    {
+      "line": 21,
+      "claim": "lib/presentation/receiver/download_confirm_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/receiver/download_confirm_screen.dart"
+    },
+    {
+      "line": 22,
+      "claim": "lib/presentation/session/end_session_screen.dart",
+      "expected": "file exists",
+      "actual": "file not found at lib/presentation/session/end_session_screen.dart; file appears to have been renamed/moved to lib/presentation/receiver/receiver_end_session_screen.dart"
+    },
+    {
+      "line": 109,
+      "claim": "TransferRepository.writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found in lib/data/repositories/transfer_repository.dart or anywhere in lib/"
+    },
+    {
+      "line": 113,
+      "claim": "writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found anywhere in lib/"
+    },
+    {
+      "line": 115,
+      "claim": "writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found anywhere in lib/"
+    },
+    {
+      "line": 127,
+      "claim": "writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found anywhere in lib/"
+    },
+    {
+      "line": 161,
+      "claim": "writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found anywhere in lib/"
+    },
+    {
+      "line": 175,
+      "claim": "writeAuditLog()",
+      "expected": "function 'writeAuditLog' in codebase",
+      "actual": "no definition found anywhere in lib/"
+    }
+  ]
+}

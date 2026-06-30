@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant ReceiverScreen
+    participant SessionManager
+    participant TransferRepository as TransferRepository<br/>(Firestore transfers)
+    participant ReceiverTransferScreen
+    participant EncryptionService
+
+    Note over ReceiverScreen,TransferRepository: Prerequisite - mailbox open + sender selected (see SD011)
+    ReceiverScreen->>SessionManager: selectSender(uid, username)
+    ReceiverScreen->>TransferRepository: watchPendingTransfersFromSender(receiverUid, senderUid)
+    Note right of TransferRepository: query transfers where receiverId==X<br/>AND senderId==Y AND status=='pending'
+
+    rect rgb(247,247,247)
+    Note over ReceiverScreen,SessionManager: Incoming transfer detection
+    TransferRepository-->>ReceiverScreen: StreamBuilder snapshot
+    alt hasPending AND not sessionLocked AND not incomingHandled
+        ReceiverScreen->>ReceiverScreen: _handleIncomingTransfer(transferId, data)
+        ReceiverScreen->>ReceiverScreen: set _incomingTransferId,<br/>_incomingFileName, _sessionLocked=true
+        ReceiverScreen->>SessionManager: lock()
+        Note right of SessionManager: SessionState.locked - CrypButton<br/>turns amber/lock, interaction blocked
+        ReceiverScreen->>SessionManager: setDecrypting()
+        SessionManager-->>ReceiverScreen: SessionState.decrypting (via stateStream)
+        ReceiverScreen->>ReceiverScreen: _onSessionStateChanged() detects<br/>decrypting + incomingTransferId != null
+        ReceiverScreen->>ReceiverTransferScreen: _navigateToDecrypt() -> push(transferId,<br/>fileName, sessionManager)
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over ReceiverTransferScreen,TransferRepository: ReceiverTransferScreen - "establishing connection"
+    ReceiverTransferScreen->>SessionManager: stateNotifier.addListener(_onSessionStateChanged)
+    ReceiverTransferScreen->>TransferRepository: watchTransferStatus(transferId)
+    TransferRepository-->>ReceiverTransferScreen: transfers/{transferId}.snapshots()
+    ReceiverTransferScreen->>TransferRepository: getTransfer(transferId)
+    ReceiverTransferScreen->>ReceiverTransferScreen: load AuthRepository.getUserProfile(senderId)<br/>-> senderId, senderUsername, fileSize
+    ReceiverTransferScreen->>User: animated steps - "Establishing secure connection..."<br/>-> "Verifying encryption parameters..."<br/>-> "Secure channel ready"
+    ReceiverTransferScreen->>ReceiverTransferScreen: _resetWatchdog() - 120s timer starts
+
+    alt status == 'failed' (sender aborted)
+        ReceiverTransferScreen->>ReceiverTransferScreen: wipeAll()
+        ReceiverTransferScreen->>EncryptionService: closeReceiverSession(uid)
+        ReceiverTransferScreen-->>User: navigate home
+    else SessionState.terminated (e.g. app backgrounded)
+        ReceiverTransferScreen->>ReceiverTransferScreen: wipeAll()
+        ReceiverTransferScreen-->>User: popUntil(isFirst)
+    else proceed
+        User->>ReceiverTransferScreen: tap "Proceed" (or auto)
+        ReceiverTransferScreen->>ReceiverTransferScreen: _proceed()
+        ReceiverTransferScreen-->>User: pushReplacement(DecryptScreen(transferId))
+    end
+    end

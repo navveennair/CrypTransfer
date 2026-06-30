@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/navve/projects/cryptransfer/.claude/skills/excalidraw-diagram/**)",
+      "Read(//c/Users/navve/projects/cryptransfer/**)",
+      "Bash(uv sync *)",
+      "Bash(uv init *)",
+      "Bash(uv add *)",
+      "Bash(uv run *)",
+      "Read(//c/Users/navve/.claude/skills/**)"
+    ]
+  }
+}

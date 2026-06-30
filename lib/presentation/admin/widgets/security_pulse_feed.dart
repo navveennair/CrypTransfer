@@ -18,7 +18,7 @@ TextStyle _jb({
   Color color = _spfText,
   FontWeight weight = FontWeight.w400,
   double? spacing,
-}) => GoogleFonts.jetBrainsMono(
+}) => GoogleFonts.poppins(
   fontSize: size, color: color, fontWeight: weight, letterSpacing: spacing,
 );
 

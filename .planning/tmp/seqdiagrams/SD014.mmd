@@ -1,0 +1,66 @@
+sequenceDiagram
+    autonumber
+    participant OS as App Lifecycle<br/>(Android OS / WidgetsBindingObserver)
+    participant ReceiverScreen
+    participant SessionManager
+    participant SecurityLifecycleMixin
+    participant EncryptionService
+    participant SecureStorage as FlutterSecureStorage
+    participant Firestore as Firestore (users,<br/>handshakes, notifications,<br/>security_audit_log)
+    participant MainActivity as MainActivity<br/>cryptransfer/security
+    participant SenderScreen as SenderScreen<br/>(other device)
+
+    Note over ReceiverScreen,EncryptionService: Binding (set up at mailbox open, see SD011)
+    ReceiverScreen->>EncryptionService: bindSession(sessionManager.stateStream, uid)
+    Note right of EncryptionService: subscribes to broadcast Stream<SessionState>
+
+    rect rgb(247,247,247)
+    Note over OS,SessionManager: Trigger paths (any one fires wipeSession / handleLifecycleState)
+    alt App backgrounded / killed
+        OS->>ReceiverScreen: didChangeAppLifecycleState(paused/detached)
+        ReceiverScreen->>SessionManager: handleLifecycleState(state, onBuffersWipe: wipeAll)<br/>[if isReadyToReceive && !sessionLocked]
+    else Back navigation
+        ReceiverScreen->>SessionManager: PopScope -> wipeSession(onBuffersWipe: wipeAll)
+    else Manual close
+        ReceiverScreen->>SessionManager: _onToggleReady(false) -> reset()<br/>(clears sender, state -> open)
+        Note right of SessionManager: manual close also calls<br/>closeReceiverSession() directly (below)
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over SessionManager,SecurityLifecycleMixin: SessionManager.wipeSession() / handleLifecycleState()
+    SessionManager->>SessionManager: clearSender()<br/>(clear activeSenderUid/activeSenderUsername)
+    SessionManager->>SessionManager: _set(SessionState.terminated)<br/>(updates stateNotifier AND emits on stateStream)
+    SessionManager->>SecurityLifecycleMixin: onBuffersWipe() -> wipeAll() (see SD015)
+    end
+
+    rect rgb(247,247,247)
+    Note over EncryptionService,Firestore: Reactive kill-switch (bindSession subscriber fires on terminated)
+    EncryptionService->>Firestore: read users/{uid} -> capture selectedSenderUid for audit
+    EncryptionService->>Firestore: users/{uid}.update({publicKey: delete(),<br/>isReadyToReceive:false, sessionActive:false,<br/>lastSessionClosed: serverTimestamp(),<br/>selectedSenderUid: delete()})
+    EncryptionService->>SecureStorage: delete(privateKeyStorageKey)
+
+    opt selectedSenderUid != null
+        EncryptionService->>Firestore: transferLogs.add({senderId: selectedSenderUid,<br/>receiverId: uid, participants:[selectedSenderUid, uid],<br/>status:'kill_switch', loggedAt}) (best-effort, .ignore())
+    end
+
+    loop batch-delete handshakes where receiverId == uid
+        EncryptionService->>Firestore: delete handshake doc
+    end
+    loop batch-delete notifications where type=='rsa_key_received'
+        EncryptionService->>Firestore: delete notification doc
+    end
+
+    EncryptionService->>Firestore: security_audit_log.add({event:<br/>'Receiver_Session_Closed', userId, timestamp,<br/>details: 'Firestore_Key_Deleted & Local_Buffer_Zeroed'})
+
+    EncryptionService->>MainActivity: requestNativeClear() -> MethodChannel "clearSession"
+    MainActivity->>MainActivity: Thread { System.gc() }.start()<br/>(best-effort heap-release hint)
+
+    EncryptionService->>EncryptionService: unbindSession() - cancel _sessionSub
+    end
+
+    rect rgb(247,247,247)
+    Note over SenderScreen,Firestore: Sender-side reactive revert (consequence of handshake deletion)
+    Firestore-->>SenderScreen: handshake doc deleted (onHandshakeUpdate)
+    SenderScreen->>SenderScreen: _revertToWaiting()<br/>_wipeSensitiveData() -> UI reverts to<br/>_WaitingForConnectionWidget, snackbar shown
+    end

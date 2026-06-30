@@ -63,6 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
     } on FirebaseAuthException catch (e) {
       if (mounted) setState(() => _errorMessage = _authError(e.code));
     } catch (e) {
@@ -93,6 +95,8 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
     } catch (e) {
       if (mounted) setState(() => _errorMessage = 'Google sign-in failed. Please try again.');
     } finally {
@@ -303,7 +307,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(20),
                         borderRadius: 100,
                         color: cs.primary.withValues(alpha: 0.1),
-                        child: Icon(Icons.shield_rounded, size: 64, color: cs.primary),
+                        child: Image.asset(
+                          'assets/icon/app_logo.png',
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),

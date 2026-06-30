@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant RsaKeyManagerScreen
+    participant BiometricHelper
+    participant AuthRepository
+    participant Isolate as compute() isolate<br/>(_generateKeyPairIsolate)
+    participant EncryptionService
+    participant SecureStorage as FlutterSecureStorage
+    participant Firestore as Firestore (users,<br/>rsa_key_manager, preferences)
+
+    rect rgb(247,247,247)
+    Note over RsaKeyManagerScreen,Firestore: Vault entry gate
+    RsaKeyManagerScreen->>RsaKeyManagerScreen: initState() -> addPostFrameCallback(_authenticate)
+    RsaKeyManagerScreen->>BiometricHelper: authenticate("Unlock RSA Key Vault")
+    alt authentication fails
+        BiometricHelper-->>RsaKeyManagerScreen: false
+        RsaKeyManagerScreen->>RsaKeyManagerScreen: Navigator.pop(context)
+    else authentication succeeds
+        BiometricHelper-->>RsaKeyManagerScreen: true
+        RsaKeyManagerScreen->>RsaKeyManagerScreen: _gateChecked = true
+        RsaKeyManagerScreen->>AuthRepository: updateLastVaultAccess(uid)
+        AuthRepository->>Firestore: users/{uid}/profile/preferences.set(<br/>{lastVaultAccessAt: serverTimestamp()}, merge:true)
+    end
+    end
+
+    rect rgb(247,247,247)
+    Note over User,Firestore: Generate / Regenerate (no second biometric prompt)
+    User->>RsaKeyManagerScreen: tap "Generate Keys" / "Regenerate Keys"
+    RsaKeyManagerScreen->>User: _showConfirmDialog() bottom sheet
+    User-->>RsaKeyManagerScreen: confirm
+    RsaKeyManagerScreen->>Isolate: compute(_generateKeyPairIsolate, null)
+    Isolate->>EncryptionService: generateRsaKeyPairSync()
+    Note right of Isolate: FortunaRandom seeded Random.secure()<br/>RSAKeyGenerator(65537, 2048, 64)
+    Isolate-->>RsaKeyManagerScreen: AsymmetricKeyPair{ publicKey, privateKey }
+    RsaKeyManagerScreen->>EncryptionService: encodePublicKey() / encodePrivateKey()
+    RsaKeyManagerScreen->>AuthRepository: computeFingerprint(pubKeyJson) -> SHA-256 hex
+
+    opt regenerate (existing key)
+        RsaKeyManagerScreen->>SecureStorage: write(privateKeyStorageKey, privKeyJson)
+        Note right of SecureStorage: new key written FIRST -<br/>old key superseded immediately
+    end
+
+    rect rgb(255,255,255)
+    Note over RsaKeyManagerScreen,Firestore: Atomic WriteBatch (3 docs)
+    RsaKeyManagerScreen->>Firestore: users/{uid}.update({publicKey: pubKeyJson})
+    RsaKeyManagerScreen->>Firestore: users/{uid}/rsa_key_manager/{auto}.set(<br/>{action:'regenerated', timestamp,<br/>publicKeyHash, deviceInfo})
+    RsaKeyManagerScreen->>Firestore: users/{uid}/profile/preferences.set(<br/>{keyVaultCreatedAt: serverTimestamp()}, merge:true)
+    RsaKeyManagerScreen->>Firestore: batch.commit()
+    end
+
+    RsaKeyManagerScreen-->>User: SnackBar "RSA keys regenerated successfully."<br/>pop back to ReceiverScreen
+    end
+
+    rect rgb(247,247,247)
+    Note over User,SecureStorage: Delete (separate destructive action, biometric-gated by vault entry)
+    User->>RsaKeyManagerScreen: tap "Delete Keys" -> _showConfirmDialog()
+    RsaKeyManagerScreen->>AuthRepository: deleteKeyPair(uid)
+    Note over AuthRepository,Firestore: WriteBatch (2 docs)
+    AuthRepository->>Firestore: users/{uid}.update({publicKey: FieldValue.delete()})
+    AuthRepository->>Firestore: users/{uid}/rsa_key_manager/{auto}.set(<br/>{action:'deleted', publicKeyHash:null, deviceInfo})
+    AuthRepository->>Firestore: batch.commit()
+    AuthRepository->>SecureStorage: delete(privateKeyStorageKey)
+    Note right of SecureStorage: deleted only AFTER Firestore success -<br/>keeps both stores consistent on failure
+    end

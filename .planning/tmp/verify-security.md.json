@@ -1,0 +1,50 @@
+{
+  "doc_path": "docs/modules/security.md",
+  "claims_checked": 17,
+  "claims_passed": 11,
+  "claims_failed": 6,
+  "failures": [
+    {
+      "line": 19,
+      "claim": "SECURITY_PROTOCOL.md",
+      "expected": "file exists",
+      "actual": "file not found at SECURITY_PROTOCOL.md (actual file is SECURITY_PROTOCOLS.md)"
+    },
+    {
+      "line": 23,
+      "claim": "EndSessionScreen",
+      "expected": "EndSessionScreen class exists in lib/presentation",
+      "actual": "no EndSessionScreen class found; codebase has ReceiverEndSessionScreen (lib/presentation/receiver/receiver_end_session_screen.dart) and SenderSessionEndScreen (lib/presentation/sender/sender_session_end_screen.dart)"
+    },
+    {
+      "line": 52,
+      "claim": "Batch-deletes `rsa_key_transfers` documents",
+      "expected": "rsa_key_transfers collection referenced in encryption_service.dart closeReceiverSession",
+      "actual": "no 'rsa_key_transfers' collection found in codebase; closeReceiverSession batch-deletes from FirebaseConstants.handshakes collection (encryption_service.dart line 280)"
+    },
+    {
+      "line": 65,
+      "claim": "_showSessionLockedBanner()",
+      "expected": "function '_showSessionLockedBanner' in codebase",
+      "actual": "no definition found in lib/"
+    },
+    {
+      "line": 94,
+      "claim": "Deletes all `rsa_key_transfers` where `fromUserId == uid`",
+      "expected": "rsa_key_transfers collection with fromUserId field referenced in wipeAllSessionKeys",
+      "actual": "wipeAllSessionKeys (key_repository.dart line 793) queries FirebaseConstants.handshakes where receiverId == uid, not 'rsa_key_transfers' with 'fromUserId'"
+    },
+    {
+      "line": 95,
+      "claim": "Deletes all `rsa_key_transfers` where `toUserId == uid`",
+      "expected": "rsa_key_transfers collection with toUserId field referenced in wipeAllSessionKeys",
+      "actual": "wipeAllSessionKeys (key_repository.dart line 793) queries FirebaseConstants.handshakes where senderId == uid, not 'rsa_key_transfers' with 'toUserId'"
+    },
+    {
+      "line": 153,
+      "claim": "EndSessionScreen._endSession()",
+      "expected": "function '_endSession' on class EndSessionScreen in codebase",
+      "actual": "no EndSessionScreen class found; receiver_end_session_screen.dart contains a comment 'Turn 3: Run full cleanup sequence (was _endSession)' indicating the method was renamed/refactored"
+    }
+  ]
+}

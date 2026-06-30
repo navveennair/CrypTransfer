@@ -26,7 +26,7 @@ TextStyle _jb({
   Color color = _text,
   FontWeight weight = FontWeight.w400,
   double? spacing,
-}) => GoogleFonts.jetBrainsMono(
+}) => GoogleFonts.poppins(
   fontSize: size,
   color: color,
   fontWeight: weight,
@@ -159,21 +159,27 @@ class _CommandHeader extends StatelessWidget {
                   // Back
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: _border),
-                        borderRadius: BorderRadius.circular(6),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: _border),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded,
+                              color: _muted, size: 13),
+                        ),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new_rounded,
-                          color: _muted, size: 13),
                     ),
                   ),
                   const SizedBox(width: 14),
                   // Title
                   Expanded(
                     child: Text(
-                      'CRYPTRANSFER // COMMAND',
+                      'CrypTransfer Admin',
                       style: _jb(size: 13, color: _amber, weight: FontWeight.w700, spacing: 2.5),
                     ),
                   ),

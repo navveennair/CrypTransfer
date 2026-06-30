@@ -47,13 +47,9 @@ class KillSwitchOutbox {
 
   /// On app launch, check for an incomplete kill-switch and resume if the
   /// same authenticated user is present.
-  ///
-  /// [currentUid] defaults to [FirebaseAuth.instance.currentUser]'s uid;
-  /// overridable in tests since [FirebaseAuth.instance] cannot itself be
-  /// mocked (it's a real static singleton, not constructor-injectable).
-  static Future<void> resumeIfPending({String? currentUid}) async {
-    final uid = currentUid ?? FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+  static Future<void> resumeIfPending() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
 
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_kKey);
@@ -67,8 +63,8 @@ class KillSwitchOutbox {
       return;
     }
 
-    final recordUid = data['uid'] as String?;
-    if (recordUid == null || recordUid.isEmpty || recordUid != uid) {
+    final uid = data['uid'] as String?;
+    if (uid == null || uid.isEmpty || uid != currentUser.uid) {
       // Stale record from a different session or corrupt data — discard.
       await clear();
       return;

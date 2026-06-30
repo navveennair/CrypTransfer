@@ -1,0 +1,72 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant DecryptScreen
+    participant MainActivity as MainActivity<br/>cryptransfer/file
+    participant SecurityLifecycleMixin
+    participant ReceiverEnd as ReceiverEndSessionScreen
+    participant CleanupRepository
+    participant SenderTransfer as SenderTransferScreen
+    participant KeyRepository
+    participant EncryptionService
+    participant Firestore as Firestore (transfers,<br/>auditLogs)
+    participant Storage as Firebase Storage
+
+    rect rgb(247,247,247)
+    Note over User,ReceiverEnd: A) Save and Suicide (_saveAndWipe())
+    User->>DecryptScreen: tap "Save" (phase: done)
+    DecryptScreen->>MainActivity: saveToDownloads(fileName, decryptedBytes)
+    Note right of MainActivity: API 29+: MediaStore.Downloads<br/>API <29: FileOutputStream
+    DecryptScreen->>Firestore: updateReceiverStatus(transferId, 'saved')
+    DecryptScreen->>DecryptScreen: decryptedBytes.fillRange(0, len, 0), set null
+    DecryptScreen->>SecurityLifecycleMixin: _deleteTempFile(), wipeAll()
+    Note right of SecurityLifecycleMixin: zeroes aesKey, ivBuffer, decryptedBytes
+    SecurityLifecycleMixin->>SecurityLifecycleMixin: onBuffersWiped() -> delete temp file (defensive)
+    DecryptScreen->>ReceiverEnd: pushReplacement(ReceiverEndSessionScreen)
+    end
+
+    rect rgb(247,247,247)
+    Note over ReceiverEnd,Storage: B) Synchronized cleanup protocol (Turns 1-4)
+
+    Note over ReceiverEnd,Firestore: Turn 1 (Receiver)
+    User->>ReceiverEnd: tap "End Session"
+    ReceiverEnd->>ReceiverEnd: _initiateCleanup()
+    ReceiverEnd->>CleanupRepository: initiateReceiverCleanup({transferId,<br/>receiverId, senderId, senderUsername, fileName, fileSize})
+    CleanupRepository->>Firestore: transfers/{transferId}.update({status:'cleanup_initiated',<br/>cleanupInitiatedAt: serverTimestamp})
+    CleanupRepository->>Firestore: write receiver audit log
+
+    ReceiverEnd->>CleanupRepository: watchTransferForDeletion(transferId)
+    Note right of ReceiverEnd: 120s safety timeout (_senderWaitTimeout)<br/>falls through to _runFinalCleanup() regardless
+
+    Note over SenderTransfer,Firestore: Turn 2 (Sender)
+    SenderTransfer->>SenderTransfer: _startTransferListener() sees<br/>cleanup_initiated==true && done && !senderWipeSent
+    SenderTransfer->>Firestore: senderWipeAESKey(transferId) -><br/>transfers/{transferId}.update({encryptedAESKey:'',<br/>senderCleanedUp:true, senderCleanedUpAt: serverTimestamp})
+    SenderTransfer->>SenderTransfer: wipeAll() (zero encryptedBytes, aesKey)
+
+    Note over ReceiverEnd,EncryptionService: Turn 3 (Receiver) - triggered by senderCleanedUp==true
+    Firestore-->>ReceiverEnd: onTransferDocUpdate(senderCleanedUp==true,<br/>encryptedAESKey=='')
+    ReceiverEnd->>ReceiverEnd: cancel timeout/listener -> _runFinalCleanup()
+
+    rect rgb(255,255,255)
+    Note over ReceiverEnd,EncryptionService: Ordered steps (security order)
+    ReceiverEnd->>Firestore: Step 0: writeFinalAuditLog({senderId, receiverId,<br/>senderUsername, receiverUsername, fileName, fileSize})<br/>(batch write to both users' auditLogs, status:'completed')
+    ReceiverEnd->>Storage: Step 1: deleteStorageFile(transferId)<br/>(delete transfers/{transferId}/encrypted_file)
+    ReceiverEnd->>KeyRepository: Step 2: getActiveHandshakeDocId(senderUid, receiverUid)
+    ReceiverEnd->>KeyRepository: endSessionCleanup({transferId, handshakeId, receiverId})
+    Note right of KeyRepository: WriteBatch: delete transfers/{transferId},<br/>delete handshakes/{handshakeId},<br/>users/{receiverId}.update({selectedSenderUid: delete()})
+    ReceiverEnd->>EncryptionService: Step 3: closeReceiverSession(receiverId)<br/>(full RSA session teardown - see SD014/SD015)
+    end
+
+    Note over SenderTransfer,Firestore: Turn 4 (Sender)
+    Firestore-->>SenderTransfer: transfers/{transferId} doc deleted (from Step 2)
+    SenderTransfer->>SenderTransfer: watchTransferStatus stream sees doc gone<br/>(done==true && !sessionEnded)
+    SenderTransfer->>SenderTransfer: wipeAll()
+    SenderTransfer-->>User: navigate to SenderSessionEndScreen<br/>("Receiver has securely closed the session")
+
+    ReceiverEnd-->>User: phase=done -> 2s delay -><br/>pushAndRemoveUntil(HomeScreen)
+    end
+
+    alt 300s sender timeout (cleanup_initiated never arrives)
+        SenderTransfer->>SenderTransfer: wipeAll()
+        SenderTransfer-->>User: navigate to SenderSessionEndScreen<br/>(timeoutReason: "Session ended by timeout -<br/>receiver did not complete cleanup")
+    end
