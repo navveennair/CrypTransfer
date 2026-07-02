@@ -101,6 +101,25 @@ service cloud.firestore {
       }
     }
 
+    // ─── audit_logs (collection group) ─────────────────────────────────────
+    // Firestore only applies the nested `match /audit_logs/{logId}` rule
+    // above to queries scoped to one exact parent (`users/{uid}/audit_logs`,
+    // used by transfer_repository.dart for per-user "Recent Transfers").
+    // It does NOT apply that rule to `collectionGroup('audit_logs')` queries
+    // that span every user's subcollection — those require a separate rule
+    // declared with the recursive wildcard `{path=**}`, per Firestore's
+    // documented collection-group rule requirement. Without this block,
+    // AdminRepository's collectionGroup(audit_logs) reads (Analytics tab)
+    // fail PERMISSION_DENIED even though isAdmin() would otherwise allow it —
+    // the whole audit_logs match block above is simply never consulted for
+    // this query shape.
+    match /{path=**}/audit_logs/{logId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.senderId == request.auth.uid ||
+                      resource.data.receiverId == request.auth.uid ||
+                      isAdmin());
+    }
+
     // ─── transfers ──────────────────────────────────────────────────────────
     // Only the sender or receiver of a transfer may read/write it.
     // RULE: Create allowed if receiver has explicitly authorized this sender

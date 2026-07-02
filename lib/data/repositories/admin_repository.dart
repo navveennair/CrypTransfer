@@ -137,12 +137,51 @@ class AdminRepository {
   /// twice (once from the sender's subcollection, once from the receiver's)
   /// since both copies carry identical senderUsername/receiverUsername/
   /// fileName/status fields.
+  ///
+  /// Polls via one-time `.get()` every 30 seconds rather than `.snapshots()`.
+  /// A real-time listener on this exact query (collection-group + orderBy,
+  /// rule-gated by an isAdmin() cross-document get()) returns PERMISSION_DENIED
+  /// in production even though the identical query succeeds as a one-time read
+  /// or aggregate — confirmed via the live ruleset test and REST API reads
+  /// during the 2026-07-02 debug session. Matches the polling pattern already
+  /// used by streamTotalTransfers()/streamTotalUsers() above.
   Stream<QuerySnapshot<Map<String, dynamic>>> streamTransferLogsDetail() {
-    return _db
-        .collectionGroup(FirebaseConstants.auditLogs)
-        .orderBy('loggedAt', descending: true)
-        .limit(100)
-        .snapshots();
+    late StreamController<QuerySnapshot<Map<String, dynamic>>> ctrl;
+    Timer? timer;
+    Future<void> fetch() async {
+      try {
+        final snap = await _db
+            .collectionGroup(FirebaseConstants.auditLogs)
+            .orderBy('loggedAt', descending: true)
+            .limit(100)
+            .get();
+        if (!ctrl.isClosed) ctrl.add(snap);
+      } on FirebaseException catch (e) {
+        if (!ctrl.isClosed) {
+          ctrl.addError(e);
+          timer?.cancel();
+          ctrl.close();
+        }
+      }
+    }
+
+    // Must be broadcast: unlike streamTotalTransfers()/streamTotalUsers()
+    // (called fresh inline on every _AnalyticsTab rebuild), this stream is
+    // created once in AdminDashboard.initState() and reused across the
+    // widget's lifetime — a single-subscription controller throws "Stream
+    // has already been listened to" the moment StreamBuilder resubscribes
+    // (e.g. after a tab-switch remount).
+    ctrl = StreamController<QuerySnapshot<Map<String, dynamic>>>.broadcast(
+      onListen: () {
+        fetch();
+        timer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+      },
+      onCancel: () {
+        timer?.cancel();
+        if (!ctrl.isClosed) ctrl.close();
+      },
+    );
+    return ctrl.stream;
   }
 
   // ─── Connection Node Map ─────────────────────────────────────────────────
