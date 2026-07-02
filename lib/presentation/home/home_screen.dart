@@ -1089,8 +1089,12 @@ class _RolePickerSheetState extends State<_RolePickerSheet> {
                     final senderBlocked =
                         (data[FirebaseConstants.pendingSenderFor] as String?) == widget.currentUserUid;
                     // Partner claimed Receiver with me as their Sender → I cannot also be Receiver.
+                    // Covers both the committed claim (selectedSenderUid) and the
+                    // in-progress claim (pendingReceiverFor) — either means partner
+                    // is already receiving from me, so I can't also try to receive.
                     final receiverBlocked =
-                        (data['selectedSenderUid'] as String?) == widget.currentUserUid;
+                        (data['selectedSenderUid'] as String?) == widget.currentUserUid ||
+                        (data[FirebaseConstants.pendingReceiverFor] as String?) == widget.currentUserUid;
                     return Column(
                       children: [
                         // Send File tile

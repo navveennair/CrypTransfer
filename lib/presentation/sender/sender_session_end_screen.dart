@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/security_lifecycle_mixin.dart';
+import '../../data/repositories/key_repository.dart';
 import '../../data/repositories/transfer_repository.dart';
 import '../home/home_screen.dart';
 import '../widgets/shared_widgets.dart';
@@ -61,6 +62,11 @@ class _SenderSessionEndScreenState extends State<SenderSessionEndScreen>
     super.initState();
     // No buffers to register — AES already zeroed upstream in SenderTransferScreen.
     _watchForCleanupCompletion();
+    // The sender's role in this session is over — clear pendingSenderFor so a
+    // future role-swap (this receiver becoming sender) isn't blocked by a stale
+    // claim. endSessionCleanup() can't do this: Firestore rules only let a user
+    // update their own doc, and that cleanup runs on the receiver's device.
+    KeyRepository().clearSenderClaim();
   }
 
   @override

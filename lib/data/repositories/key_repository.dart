@@ -903,10 +903,17 @@ class KeyRepository {
       batch.delete(_db.collection(FirebaseConstants.roleHandshakes).doc(handshakeId));
     }
 
-    // Always clear the receiver authorization field as part of the cleanup.
+    // Always clear the receiver authorization fields as part of the cleanup.
+    // selectSenderHandshake() sets both selectedSenderUid and (earlier, via
+    // assignTransferRole) pendingReceiverFor, but never clears the latter —
+    // so it must be cleared here too, or it stays stale and permanently
+    // greys out the Receive File tile for a future session with this partner.
     batch.update(
       _db.collection(FirebaseConstants.users).doc(receiverId),
-      {'selectedSenderUid': FieldValue.delete()},
+      {
+        'selectedSenderUid': FieldValue.delete(),
+        FirebaseConstants.pendingReceiverFor: FieldValue.delete(),
+      },
     );
 
     try {
