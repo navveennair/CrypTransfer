@@ -1,14 +1,14 @@
 ---
-status: partial
+status: resolved
 phase: 04-zero-remanence-reactive-session-termination-receiver-as-mast
 source: [04-VERIFICATION.md]
 started: 2026-05-08T00:00:00Z
-updated: 2026-05-08T00:00:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+[testing complete — 2/2 passed]
 
 ## Tests
 

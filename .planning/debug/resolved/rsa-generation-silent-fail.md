@@ -1,5 +1,5 @@
 ---
-status: fix_applied
+status: resolved
 trigger: RSA key pair generation failing on receiver stepper 1
 created: 2026-05-25T20:52:00Z
 updated: 2026-05-25T21:05:00Z

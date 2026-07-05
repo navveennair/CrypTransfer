@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: resolved
 trigger: "Sender stepper 3 — 'Encrypt Key for @' button does not respond when clicked. Started after phase 07.1 layer decoupling refactor."
 created: 2026-05-25T00:00:00Z
-updated: 2026-05-25T00:00:00Z
+updated: 2026-07-05T00:00:00Z
 symptoms_prefilled: true
 ---
 
@@ -67,9 +67,7 @@ started: After phase 07.1 layer decoupling refactor
 
 ## Resolution
 
-root_cause: Sender's IgnorePointer(ignoring: !_receiverReady) on line 678-679 blocks all taps on Steps 1-4 because _receiverReady is false. This happens when the receiver hasn't completed their sender selection flow (calling setReceiverReady), leaving the handshakes document with receiverReady=false. Phase 07.1 did not directly change the _receiverReady gate logic, but may have introduced a subtle issue in the receiver's flow: the only UI changes were replacing Firestore.instance calls with repository methods, which should be equivalent. The most likely scenario is that the receiver's sender selection works, but setReceiverReady fails silently or doesn't get called. Evidence: If setReceiverReady threw an error, receiver would see snackbar (lines 409-420), so if no snackbar is seen, the call succeeded. But then the sender's listener should fire and set _receiverReady=true (line 177 condition). Unless the listener fires while doc has receiverReady=false BEFORE receiver calls setReceiverReady, and then the subsequent update doesn't trigger a second listener call. Testing confirms Firestore listeners DO fire on field updates. Most likely hidden issue: receiver's sender selection UI is broken post-phase-07.1, preventing them from reaching _writeReceiverReady call.
-
-fix: Add debug logging to SenderScreen._onHandshakeUpdate (around line 170) to print (_receiverReady, receiverReady from doc, _selectedReceiverPublicKeyJson) to identify which path is taken. Also check ReceiverScreen._onSenderSelected to verify it completes and reaches _writeReceiverReady call.
-
-verification: (pending - requires adding logging and testing end-to-end flow)
+root_cause: "Never conclusively identified in this session — analysis was speculative and never converged past 'most likely' theories about setReceiverReady() timing. Superseded by a later refactor that moved this logic from sender_screen.dart into sender_controller.dart, where the receiverReady stream handling and revertToWaiting/_startReadinessTimer wiring is now explicit and self-consistent (see revert-to-waiting-timer-not-restarted.md, resolved separately)."
+fix: "No targeted fix was applied for this specific session; behavior changed as a side effect of the sender_screen.dart -> sender_controller.dart extraction."
+verification: "User confirmed on 2026-07-05 that Step 3 'Encrypt Key' now responds correctly."
 files_changed: []

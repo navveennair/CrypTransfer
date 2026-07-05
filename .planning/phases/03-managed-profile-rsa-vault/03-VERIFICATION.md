@@ -1,21 +1,13 @@
 ---
 phase: 03-managed-profile-rsa-vault
 verified: 2026-05-03T00:00:00Z
-status: gaps_found
+status: resolved
 score: 18/19 must-haves verified
 overrides_applied: 0
-gaps:
+waived:
   - truth: "When publicKey is present: View section shows algorithm (RSA-2048), fingerprint (first 16 hex chars uppercase), and lastVaultAccessAt from profile/preferences"
-    status: partial
-    reason: "RsaKeyManagerScreen shows Algorithm and Fingerprint rows correctly but does NOT display lastVaultAccessAt. The streamUserProfile() method only streams users/{uid} — it does not read the profile/preferences subcollection. UserModel has no lastVaultAccessAt field. The timestamp is written to Firestore by updateLastVaultAccess() but never surfaced in the vault UI."
-    artifacts:
-      - path: "lib/presentation/vault/rsa_key_manager_screen.dart"
-        issue: "No _KeyInfoRow for lastVaultAccessAt; _buildVaultBody() renders Algorithm and Fingerprint only"
-      - path: "lib/data/models/user_model.dart"
-        issue: "UserModel lacks a lastVaultAccessAt field; streamUserProfile() cannot carry this value without schema change or a separate subcollection stream"
-    missing:
-      - "Add a Stream<Map<String,dynamic>?> for users/{uid}/profile/preferences to RsaKeyManagerScreen (or extend UserModel)"
-      - "Render lastVaultAccessAt as a _KeyInfoRow in _buildVaultBody() when key is present (display formatted DateTime or 'Never')"
+    decision: "Waived by navveennair on 2026-07-05 — lastVaultAccessAt display deemed not needed. The timestamp is still written correctly to Firestore by updateLastVaultAccess(); it's just intentionally not surfaced in the vault UI. Algorithm + Fingerprint rows remain fully functional."
+    original_reason: "RsaKeyManagerScreen shows Algorithm and Fingerprint rows correctly but does NOT display lastVaultAccessAt. The streamUserProfile() method only streams users/{uid} — it does not read the profile/preferences subcollection. UserModel has no lastVaultAccessAt field."
 ---
 
 # Phase 03: Managed Profile & RSA Vault — Verification Report
@@ -178,20 +170,13 @@ None identified.
 
 ### Gaps Summary
 
-One gap blocks full verification of the phase's vault UI must-have:
+**Gap 1: `lastVaultAccessAt` not displayed in RsaKeyManagerScreen — WAIVED 2026-07-05**
 
-**Gap 1: `lastVaultAccessAt` not displayed in RsaKeyManagerScreen**
+Plan 03-04 originally required: "When publicKey is present: View section shows algorithm (RSA-2048), fingerprint (first 16 hex chars uppercase), and **lastVaultAccessAt from profile/preferences**."
 
-Plan 03-04 explicitly requires: "When publicKey is present: View section shows algorithm (RSA-2048), fingerprint (first 16 hex chars uppercase), and **lastVaultAccessAt from profile/preferences**."
+The vault screen (`rsa_key_manager_screen.dart`) renders Algorithm and Fingerprint correctly but never fetches or displays `lastVaultAccessAt`, requiring either a second stream on `profile/preferences` or an extension of `UserModel`. Re-confirmed present as of 2026-07-05.
 
-The vault screen (`rsa_key_manager_screen.dart`) renders Algorithm and Fingerprint correctly but never fetches or displays `lastVaultAccessAt`. Two structural blockers:
-
-1. `streamUserProfile()` streams only `users/{uid}` — it does not read the `profile` subcollection. `lastVaultAccessAt` lives in `users/{uid}/profile/preferences`, which is a separate Firestore document.
-2. `UserModel` has no `lastVaultAccessAt` field — even if the stream were extended, the model cannot carry this value.
-
-**Root cause:** The screen would need either (a) a second `StreamBuilder` on `FirebaseFirestore.instance.collection('users').doc(uid).collection('profile').doc('preferences').snapshots()`, or (b) an extension of `UserModel` + `streamUserProfile()` to merge subcollection data.
-
-This is a display-only gap and does not affect the core security functionality (biometric gate, key lifecycle, Firestore audit log). The timestamp IS written correctly by `updateLastVaultAccess()` and `regenerateKeyPair()` — it just is not surfaced in the UI.
+**Decision:** navveennair decided this display is not needed. The timestamp is still written correctly by `updateLastVaultAccess()` and `regenerateKeyPair()` — it's just intentionally not surfaced in the UI. No further action required.
 
 All other 18 must-haves from Plans 03-01 through 03-05 are VERIFIED against the actual codebase.
 

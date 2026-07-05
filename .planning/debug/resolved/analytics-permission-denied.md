@@ -1,6 +1,6 @@
 ---
 slug: analytics-permission-denied
-status: fixed
+status: resolved
 trigger: "Admin Dashboard Analytics tab shows 'ERROR LOADING DATA' (chart) and 'ERROR LOADING LOG' (transfer log table), even after a Firestore composite index fix and a rules redeploy that were both confirmed live in production."
 created: "2026-07-02"
 updated: "2026-07-02"

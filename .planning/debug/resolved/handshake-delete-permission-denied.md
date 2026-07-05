@@ -1,7 +1,7 @@
 ---
 phase: 06-synchronized-readiness-gate
 test: WR-01
-status: diagnosed
+status: resolved
 ---
 
 # Root Cause: Firestore rules block receiver from deleting handshake doc

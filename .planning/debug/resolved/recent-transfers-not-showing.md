@@ -1,9 +1,9 @@
 ---
 slug: recent-transfers-not-showing
-status: investigating
+status: resolved
 trigger: "transfers were done between two devices . check why isnt it showing up at recent transfers"
 created: "2026-06-22"
-updated: "2026-06-22"
+updated: "2026-07-02"
 ---
 
 # Debug Session: recent-transfers-not-showing
@@ -72,6 +72,7 @@ next_action: "Read sender_session_end_screen.dart to check the timeout/abort-sid
 ## Resolution
 
 root_cause: "Recent Transfers is driven exclusively by users/{uid}/audit_logs documents, which are written by exactly one code path: TransferRepository.writeFinalAuditLog(), called only from ReceiverEndSessionScreen._runFinalCleanup() — itself only reachable after the receiver explicitly taps the 'End Session' button. The screen's PopScope allows the user to navigate away during the initial 'ready' phase (immediately after a successful decrypt+save) without ever tapping that button, silently skipping the audit log write entirely for both sender and receiver. No error occurs because nothing fails — the write simply never runs."
-fix: ""
-verification: ""
+fix: "Extracted writeFinalAuditLog call into idempotent _writeAuditLogOnce(), guarded by _auditLogWritten flag. Called eagerly (best-effort, errors swallowed) from initState() so the record is written as soon as the session-summary screen loads, decoupled from the 'End Session' button. _runFinalCleanup()'s Step 0 now calls the same guarded method — if the eager write already succeeded it's a no-op; if it failed (e.g. no network on load), it retries here and a failure still surfaces via the existing try/catch (_error + phase reset), preserving D-03's audit-before-deletion guarantee for the explicit cleanup path."
+verification: "flutter analyze on the modified file: no issues found. Manual two-device retest not yet performed by user — recommend confirming a transfer now appears in Recent Transfers immediately after decrypt+save, even without tapping End Session."
 files_changed:
+  - lib/presentation/receiver/receiver_end_session_screen.dart

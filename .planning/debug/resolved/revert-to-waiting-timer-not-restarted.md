@@ -1,7 +1,7 @@
 ---
 phase: 06-synchronized-readiness-gate
 test: WR-03
-status: diagnosed
+status: resolved
 ---
 
 # Root Cause: _revertToWaiting() resets countdown but never restarts the timer

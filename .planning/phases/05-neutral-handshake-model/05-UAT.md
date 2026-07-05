@@ -1,14 +1,14 @@
 ---
-status: diagnosed
+status: resolved
 phase: 05-neutral-handshake-model
-source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md, 05-05-SUMMARY.md]
+source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md, 05-05-SUMMARY.md, 05-06-SUMMARY.md, 05-07-SUMMARY.md]
 started: 2026-05-13T00:00:00Z
-updated: 2026-05-13T10:05:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 ## Current Test
 
-[testing complete]
+[testing complete — all 4 issues fixed by 05-06-PLAN.md and 05-07-PLAN.md gap closure, verified against current source 2026-07-05]
 
 ## Tests
 
@@ -70,12 +70,14 @@ severity: major
 
 total: 10
 passed: 3
-issues: 4
+issues: 0
 pending: 0
 skipped: 1
-blocked: 2
+blocked: 0
+fixed: 4
+verified: 2026-07-05
 
-## Gaps
+## Gaps — all fixed, verified against current source 2026-07-05
 
 - truth: "After accepting a proposal: acceptor sees connection in Active Connections with green badge; requester's status updates from Pending to Connected"
   status: failed
@@ -89,6 +91,7 @@ blocked: 2
   missing:
     - "Verify fix is live: hot-restart and retest accept flow"
   debug_session: ".planning/debug/handshake-accept-blank-page.md"
+  fixed: "05-06-PLAN.md — streams lifted to initState (commit 801ed35); debug session already marked resolved"
 
 - truth: "Active Connections row shows green Connected badge; tapping opens role picker bottom sheet without freezing"
   status: failed
@@ -108,6 +111,7 @@ blocked: 2
     - "Make onAccept return Future<void>, await in _PendingRequestRowState, reset _accepting in finally block"
     - "Replace fresh .snapshots() calls in listeners with reuse of initState stream fields"
   debug_session: ".planning/debug/home-connections-frozen-badge.md"
+  fixed: "05-06-PLAN.md — verified 2026-07-05: home_screen.dart:762 has hasError branch across all 3 nested StreamBuilders; _PendingRequestRow/_accepting no longer exists (accept flow moved to FindFriendsScreen); duplicate stream subscriptions removed"
 
 - truth: "Tapping the cancel/trash icon on a pending outgoing proposal shows a confirmation sheet before cancelling"
   status: failed
@@ -121,6 +125,7 @@ blocked: 2
   missing:
     - "Remove InkWell wrapper for non-connected rows in _ActiveConnectionRow.build()"
   debug_session: ".planning/debug/cancel-proposal-confirmation-missing.md"
+  fixed: "05-06-PLAN.md — verified 2026-07-05: home_screen.dart:913 InkWell now only wraps isConnected rows; pending rows use bare IconButton onPressed calling _cancelProposal() directly"
 
 - truth: "ReceiverScreen stepper 3 recognises the pre-connected user from the neutral handshake (stepper 0) and proceeds with RSA key exchange"
   status: failed
@@ -137,3 +142,4 @@ blocked: 2
     - "Store preFilledSender in _pendingPrefilledSender in initState instead of calling _onSenderSelected immediately"
     - "Consume _pendingPrefilledSender inside _onToggleReady(true) after setupReceiverSession succeeds"
   debug_session: ".planning/debug/stepper3-prefill-sender-not-recognized.md"
+  fixed: "05-07-PLAN.md — verified 2026-07-05: receiver_screen.dart:61,89-96,327-329 confirms _pendingPrefilledSender field deferred and consumed in _onToggleReady(true) exactly per prescribed fix"

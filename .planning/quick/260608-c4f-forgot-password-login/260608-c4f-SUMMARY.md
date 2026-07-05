@@ -1,4 +1,5 @@
 ---
+status: complete
 quick_id: 260608-c4f
 slug: forgot-password-login
 phase: quick

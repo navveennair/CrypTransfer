@@ -1,7 +1,8 @@
 ---
 phase: 04-zero-remanence-reactive-session-termination-receiver-as-mast
 verified: 2026-05-08T12:00:00Z
-status: human_needed
+status: resolved
+resolved_note: "Both human_verification items (TERM-06, TERM-07) satisfied via 04-HUMAN-UAT.md (2026-07-05): 2/2 passed."
 score: 10/12 must-haves verified
 overrides_applied: 0
 human_verification:

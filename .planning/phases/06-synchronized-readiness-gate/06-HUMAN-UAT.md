@@ -1,20 +1,14 @@
 ---
-status: testing
+status: resolved
 phase: 06-synchronized-readiness-gate
 source: [06-VERIFICATION.md]
 started: 2026-05-16T01:00:00Z
-updated: 2026-05-20T00:15:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 ## Current Test
 
-number: 2
-name: WR-01 Returning-Pair Bypass Test (re-test after rules deploy)
-expected: |
-  Complete a full transfer end-to-end. On end session, 'Delete transfer record and handshake'
-  step completes without any Cleanup error. After that, re-enter SenderScreen with same partner —
-  Step 0 shows _WaitingForReceiverWidget with ticking countdown, NOT _ConnectedBadge.
-awaiting: user response
+[testing complete — 8/8 passed; both gap fixes (handshake-delete-permission-denied, revert-to-waiting-timer-not-restarted) applied and verified via re-test]
 
 ## Tests
 

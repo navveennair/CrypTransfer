@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: resolved
 trigger: "Key Vault itself is not working — not just navigation, but the vault screen core functionality is broken."
 created: 2026-05-25T00:00:00Z
-updated: 2026-05-25T00:00:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 hypothesis: Dialog stack management race condition — Navigator.pop called before progress dialog is rendered, causing vault screen to close instead of dialog
@@ -96,4 +96,4 @@ files_changed:
 verification: 
   - flutter analyze passes (no issues)
   - Code compiles successfully
-  - Manual testing: tap buttons, confirm actions, should see dialog, get feedback, then return to ReceiverScreen
+  - User confirmed end-to-end on 2026-07-05: vault regenerate/delete operations work correctly on-device

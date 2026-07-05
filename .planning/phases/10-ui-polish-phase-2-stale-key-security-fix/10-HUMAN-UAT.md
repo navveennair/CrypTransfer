@@ -1,25 +1,22 @@
 ---
-status: partial
+status: resolved
 phase: 10-ui-polish-phase-2-stale-key-security-fix
 source: [10-VERIFICATION.md]
 started: 2026-05-31T00:00:00Z
-updated: 2026-06-01T08:45:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 ## Current Test
 
-Autonomous UAT run on 2026-06-01 using emulator-5554 (navveennair/sender) and emulator-5556 (testt123/receiver). FLAG_SECURE temporarily bypassed for screenshots (restored after). Tests 2 and 3 verified via code evidence + live dialog observation. Test 1 needs manual re-run with precise timing.
+[testing complete — Tests 1, 2, 4 confirmed passing on re-test 2026-07-05; Test 3 remains pass-code only (visual styling not re-confirmed live this pass)]
 
 ## Tests
 
 ### 1. Stale-key guard live trigger
 
 expected: SnackBar "Receiver key changed — re-encrypt required." appears on sender side when receiver closes and reopens their mailbox (rotating RSA keypair); sender's encrypt action requires re-initiation; previously encrypted AES key is wiped.
-result: [needs-further-analysis] Manual UAT revealed the guard was reactive, not pre-emptive. When receiver closed mailbox then sender tapped "Encrypt Key", the RSA encryption ran first using the cached (stale) key. Only ~1-2 seconds later did the Firestore stream deliver the null snapshot and trigger _revertToWaiting(). Root cause: the stream-based guard cannot block the RSA encrypt call in the latency window.
-
-FIX APPLIED (2026-06-01): Pre-emptive freshness check added to _encryptAesKey() — a one-shot Firestore get() is performed before the biometric prompt. If the live key is null (receiver gone) or differs from the cached key, encryption is aborted and _wipeSensitiveData() is called immediately. New test GAP2-03 added to stale_key_test.dart. flutter analyze clean, 4/4 stale key tests passing.
-
-Re-test required: perform the same scenario — receiver closes mailbox, sender taps "Encrypt Key" within ~1-2 seconds. Expected result: "Receiver closed their session — cannot encrypt." error fires before biometric prompt appears, and the AES state is wiped.
+result: pass
+note: "Re-tested 2026-07-05: 'Receiver closed their session — cannot encrypt.' fires pre-emptively before the biometric prompt; no stale-key encryption occurs. Original issue (reactive-not-preemptive guard) was fixed 2026-06-01 and is now confirmed live."
 
 ### 2. Dialog spacing visual inspection
 
@@ -35,24 +32,19 @@ result: [pass-code] Code evidence: `CrypTransferAdmin` confirmed at admin_dashbo
 
 expected: When the receiver manually taps "Abort & Destroy" on the ReceiverTransferScreen abort dialog, `closeReceiverSession()` is called before navigating to HomeScreen. Firestore state is fully torn down: `isReadyToReceive=false`, `publicKey` deleted, `sessionActive=false`. No dirty session remains.
 
-result: [needs-retest] Fix applied 2026-06-03 (commit af92b1d): `_abortSessionDueToDisconnect()` in `receiver_transfer_screen.dart` now calls `EncryptionService.closeReceiverSession(uid)` after `wipeAll()` and before `pushAndRemoveUntil(HomeScreen)`. Other abort paths (`_watchTransferStatus`, `_abortDueToWatchdog`, and all `decrypt_screen.dart` paths) already had this call.
-
-Re-test scenario: enter ReceiverTransferScreen (sender has initiated a transfer, receiver is on the status-steps screen), tap the back button to open the abort dialog, confirm "Abort & Destroy". Expected: (1) snackbar "Transfer aborted — tunnel destroyed." appears; (2) navigates to HomeScreen; (3) re-opening the receiver mailbox shows a clean state with no active session (no stale publicKey or isReadyToReceive=true in Firestore).
+result: pass
+note: "Re-tested 2026-07-05: snackbar 'Transfer aborted — tunnel destroyed.' appears, navigates to HomeScreen, re-opening the mailbox shows a clean state. Fix from commit af92b1d confirmed live."
 
 ## Summary
 
 total: 4
-passed: 1
+passed: 3
 issues: 0
 pending: 0
 skipped: 0
 blocked: 0
-needs-retest: 2
 pass-code: 1
-fix-applied: 1
 
 ## Gaps
 
-- Test 1: Re-run after pre-emptive freshness fix (2026-06-01). Stop sender after "Encrypt with AES Key", then have receiver close mailbox, then tap "Encrypt Key" within 1-2 s. Expected: "Receiver closed their session — cannot encrypt." fires before biometric prompt; no stale-key RSA encryption occurs.
-- Test 3: Verify live with admin account login to confirm GlassContainer tiles render and feeds load without runtime errors.
-- Test 4: Manual abort dialog on ReceiverTransferScreen — confirm Firestore session state is clean after abort.
+- Test 3: Visual styling (CrypTransferAdmin AppBar, GlassContainer tiles) remains pass-code only — confirmed in source but not re-verified live with an admin account login this pass. Low-risk gap given corroborating on-device evidence from the analytics-permission-denied debug session, which navigated this exact screen and confirmed rendering.

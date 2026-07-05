@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: resolved
 trigger: "Two identical in-app banners appear when a user sends a connection request"
 created: 2026-06-13
-updated: 2026-06-13
+updated: 2026-07-05
 ---
 
 ## Current Focus

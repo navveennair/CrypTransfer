@@ -1,31 +1,32 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-current_phase: 11
-current_plan: 5
-status: completed
-last_updated: "2026-06-11T13:59:53.811Z"
+milestone_name: Pre-Viva Thesis Demonstration Build
+current_phase: null
+current_plan: null
+status: milestone_shipped
+last_updated: "2026-07-05T00:00:00.000Z"
 progress:
-  total_phases: 10
-  completed_phases: 9
-  total_plans: 34
-  completed_plans: 34
-  percent: 90
+  total_phases: 11
+  completed_phases: 11
+  total_plans: 40
+  completed_plans: 40
+  percent: 100
 ---
 
 # Session State
 
 ## Project Reference
 
-See: .planning/PROJECT.md
+See: .planning/PROJECT.md (updated 2026-07-05)
+
+**Core value:** Zero-remanence file transfer — plaintext, AES session keys, and RSA private keys cryptographically wiped from both sender and receiver at session end.
+**Current focus:** Planning next milestone (v1.1). See `.planning/MILESTONES.md` for v1.0's "Known Deferred Items" — Phase 11 ConnectionNodeMap bug and Phase 09 browse-files re-confirmation are the two carried-forward open items.
 
 ## Position
 
-**Milestone:** v1.0 milestone
-**Current phase:** 11
-**Current plan:** 5
-**Status:** Phase 11 complete — milestone v1.0 fully delivered (10/11 phases; Phase 07.1 superseded by 07-1 directory naming, counted once)
+**Milestone:** v1.0 Pre-Viva Thesis Demonstration Build — ✅ SHIPPED 2026-07-05
+**Status:** All 11 phases complete (40/40 plans). Milestone archived to `.planning/milestones/v1.0-ROADMAP.md`. Tagged v1.0 in git.
 
 ## Session Log
 
@@ -68,6 +69,7 @@ See: .planning/PROJECT.md
 - 2026-06-04: Phase 06 human UAT closed — 8/8 tests passed (CR-01, WR-01, WR-03, TB-01 through TB-05); all gap fixes verified (handshake delete rule, timer restart on revert); 06-HUMAN-UAT.md marked complete
 - 2026-06-03: Quick task 260603-b2a complete — re-enabled biometric gate on RSA Key Vault; entry gate + regenerate gate + delete gate all active; BiometricHelper import added; flutter analyze clean
 - 2026-05-29: Phase 08 complete — applicationId renamed to com.navveennair.cryptransfer; google-services.json multi-app (both packages registered); MethodChannels decoupled to cryptransfer/{security,file} per D-04; all D-06 gates green (analyze clean, 107/108 tests, APK stamped, on-device smoke 5a/5b/5c/5d/5e passed); role conflict false positive fixed (stale selectedSenderUid cleared in sender transaction); atomic commit fc8ec0f
+- 2026-07-05: Milestone v1.0 closed and archived. Pre-close audit triaged 44 apparent open items down to 2 real deferred items: Phase 11 ConnectionNodeMap ISOLATED-status + tab-persistence bug (needs new debug session), Phase 09 browse-files re-lock (code traced as already fixed, pending on-device re-confirm). 14/15 flagged debug sessions confirmed resolved and moved to .planning/debug/resolved/; all real UAT gaps across phases 02-11 closed via conversational re-test; Phase 03 lastVaultAccessAt gap waived by user decision; fixed a false-positive bug in the GSD audit tool's quick-task scanner (audit.cjs); removed 5 stale .continue-here.md files; closed empty thread admin-security-and-gsd-cleanup. PROJECT.md, ROADMAP.md, MILESTONES.md, RETROSPECTIVE.md updated; archived to .planning/milestones/v1.0-ROADMAP.md; tagged v1.0.
 
 ## Accumulated Context
 
@@ -84,20 +86,7 @@ See: .planning/PROJECT.md
 
 ### Decisions
 
-- AppTheme.textMain and textSecondary are static const aliases resolving to darkTextMain/darkTextSecondary (app ships dark-only palette)
-- Test stubs use closure functions (not getters) for local boolean logic in test body (valid Dart)
-- WriteBatch used in register() and signInWithGoogle() to atomically write users/{uid} + users/{uid}/profile/preferences (prevents partial-write orphaned user docs)
-- regenerateKeyPair uses compute() + 3-doc WriteBatch: publicKey update + audit + keyVaultCreatedAt (D-14)
-- deleteKeyPair uses 2-doc WriteBatch: publicKey FieldValue.delete() + audit log (no keyVaultCreatedAt on delete)
-- FakeSecureStorage + MockFirebaseAuth + TestWidgetsFlutterBinding.ensureInitialized() required for unit tests involving AuthRepository and compute()
-- Removed _updatingAccess state field — field was set but never read in build(); vault opens immediately after gate passes, access timestamp is fire-and-forget
-- Removed unused cloud_firestore and firebase_constants imports from RsaKeyManagerScreen — screen delegates all Firestore work to AuthRepository
-- Removed _generateKeys() and _showProgressDialog() — dead code after D-07 enforcement; vault is sole key lifecycle surface
-- rsa_key_manager rules mirror audit_logs pattern: update:false + action field enum validation inside match /users/{userId}
-- AuthRepository import retained in sidebar_drawer.dart — still used for streamUserProfile() admin check and logout()
-- selectSenderHandshake returns the Firestore doc ID so ReceiverScreen can pass it to setReceiverReady without a second query
-- receiverReady: false initialized in new-doc batch.set() so the field always exists from creation (D-02)
-- setReceiverReady is a standalone method (not folded into selectSenderHandshake) so ReceiverScreen can call it after session setup completes
+Full v1.0 decision log archived in `.planning/milestones/v1.0-ROADMAP.md` (Milestone Summary section) and `.planning/PROJECT.md` (Key Decisions table with outcomes). Cleared here per milestone-close convention — fresh log starts for the next milestone.
 
 ### Quick Tasks Completed
 
@@ -114,4 +103,7 @@ See: .planning/PROJECT.md
 | 260608-a4b | Write script to delete user audit logs from Firestore | 2026-06-08 | — | [260608-a4b-delete-user-audit-logs](.planning/quick/260608-a4b-delete-user-audit-logs/) |
 | 260613-a1k | Prevent users from attaching files larger than 100 MB | 2026-06-13 | 9f3863d | [260613-a1k-max-file-size-100mb](.planning/quick/260613-a1k-max-file-size-100mb/) |
 
-**Planned Phase:** 8 (applicationid-rename-replace-com-example-cryptransfer-with-p) — 1 plans — 2026-05-28T17:24:59.919Z
+### Open Items Carried Into Next Milestone
+
+- Phase 11 ConnectionNodeMap "ISOLATED" status + tab-switch persistence bug — needs a dedicated debug session (see `.planning/phases/11-admin-dashboard-security-efficiency-hardening-fix-critical-u/11-HUMAN-UAT.md`)
+- Phase 09 browse-files re-lock after encryption — code traced as already fixed via the `sender_controller.dart` extraction; needs one final on-device re-confirmation

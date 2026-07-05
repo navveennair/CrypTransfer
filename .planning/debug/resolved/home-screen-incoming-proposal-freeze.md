@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: resolved
 trigger: "Home screen freezes (full app hang) when another user sends a connection proposal to the current user"
 created: 2026-06-13T00:00:00Z
-updated: 2026-06-13T00:00:00Z
+updated: 2026-07-05T00:00:00Z
 ---
 
 ## Current Focus
@@ -65,7 +65,7 @@ started: Current
 
 root_cause: _ProposalBanner is inserted as an OverlayEntry wrapping a Material(color:Colors.transparent) widget that fills the full overlay slot. Material is opaque to hit-testing regardless of its paint color. The banner has no auto-dismiss. Result: ALL touches outside the small banner card (taps on home body, drawer, AppBar) are absorbed by the transparent Material, making the app appear completely frozen.
 
-fix: Wrap the OverlayEntry content in IgnorePointer for the non-interactive area, OR use a Stack with a transparent, non-hit-testing background. Concretely: change the OverlayEntry builder to return the Positioned banner card directly (without wrapping in Material), OR add a transparent GestureDetector with behavior: HitTestBehavior.translucent to the background so touches pass through to the content below.
+fix: Superseded by a later home_screen.dart rewrite rather than patched in place. The original _ProposalBanner/_startHandshakeListener mechanism no longer exists — incoming connection/friend requests were relocated entirely to FindFriendsScreen's inline "Incoming Requests" list (plain Material list rows, no OverlayEntry). HomeScreen now only has two OverlayEntry banners (_showNotifBanner for rsa_key_received/file_received, _showOutcomeBanner for the proposer's own outgoing-request outcome), both confined via a Positioned root + scoped Material and both auto-dismiss after 5s — neither can block full-screen hit-testing and neither fires on an incoming request.
 
-verification: []
-files_changed: [lib/presentation/home/home_screen.dart]
+verification: "Traced 2026-07-05: grepped home_screen.dart for _ProposalBanner/_startHandshakeListener/streamIncomingPending — zero matches. Confirmed find_friends_screen.dart renders incoming requests as inline list rows (line 478 'Incoming Requests' section) with no OverlayEntry. No code path remains that can reproduce the original full-screen Material hit-test block."
+files_changed: [lib/presentation/home/home_screen.dart, lib/presentation/home/find_friends_screen.dart]

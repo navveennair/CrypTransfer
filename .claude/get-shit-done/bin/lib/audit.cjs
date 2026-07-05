@@ -105,7 +105,16 @@ function scanQuickTasks(planDir) {
       continue;
     }
 
-    const summaryPath = path.join(safeTaskDir, 'SUMMARY.md');
+    // Summary files are named either literally "SUMMARY.md" or prefixed with
+    // the task id, e.g. "260613-a1k-SUMMARY.md" — match either convention.
+    let summaryFile = 'SUMMARY.md';
+    try {
+      const found = fs.readdirSync(safeTaskDir).find(f => /SUMMARY\.md$/i.test(f));
+      if (found) summaryFile = found;
+    } catch {
+      // fall through with default filename; existsSync check below will fail safely
+    }
+    const summaryPath = path.join(safeTaskDir, summaryFile);
 
     let status = 'missing';
     let description = '';

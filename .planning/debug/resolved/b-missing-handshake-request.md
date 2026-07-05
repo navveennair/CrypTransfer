@@ -1,9 +1,9 @@
 ---
 slug: b-missing-handshake-request
-status: investigating
+status: resolved
 trigger: "user B is not receiving neutral handshake request when user A sends one"
 created: "2026-06-22"
-updated: "2026-06-22"
+updated: "2026-07-05"
 ---
 
 # Debug Session: b-missing-handshake-request
@@ -79,7 +79,7 @@ next_action: "Run firebase emulator-backed mocha rules tests for neutral_handsha
 
 ## Resolution
 
-root_cause: ""
-fix: ""
-verification: ""
-files_changed:
+root_cause: "Not conclusively identified within this session — rules and index hypotheses were both tested and refuted against the local emulator; investigation stalled before confirming whether deployed rules matched local at the time."
+fix: "No code change was applied as part of this debug session."
+verification: "User confirmed on 2026-07-05 that connection requests now arrive correctly for user B. Likely resolved incidentally by other handshake_repository.dart / rules changes landed since the investigation (e.g. deployed rules sync, or subsequent handshake flow fixes), not by a targeted fix from this session."
+files_changed: []

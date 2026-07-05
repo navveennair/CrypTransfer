@@ -1,7 +1,8 @@
 ---
 phase: 11-admin-dashboard-security-efficiency-hardening-fix-critical-u
 verified: 2026-06-02T00:00:00Z
-status: human_needed
+status: partial
+resolved_note: "2/3 human_verification items satisfied via 11-HUMAN-UAT.md (2026-07-05): Test 1 (AdminGuard) and Test 3 (chart data) passed. Test 2 (ConnectionNodeMap) found a real unresolved bug: status always shows 'ISOLATED' regardless of real connection state, and grid state doesn't persist across in-dashboard tab switches. New debug session needed — not covered by any existing debug file."
 score: 12/12 must-haves verified
 overrides_applied: 0
 human_verification:

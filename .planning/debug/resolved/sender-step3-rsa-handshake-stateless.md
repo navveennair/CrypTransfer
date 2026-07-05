@@ -1,5 +1,5 @@
 ---
-status: fixed
+status: resolved
 trigger: "Sender Step 3 'Encrypt Key for @' button is stateless when receiver completes all steps. RSA Key Handshake should trigger immediately but doesn't."
 created: 2026-05-26T13:35:00Z
 updated: 2026-05-27T13:45:00Z

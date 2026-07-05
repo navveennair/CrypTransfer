@@ -1,5 +1,5 @@
 ---
-status: fixed
+status: resolved
 trigger: User cannot click "Send File" or "Receive File" buttons — buttons show visual feedback (ripple) but no navigation occurs. Error message shows "Connection with @ not establish yet. Connection: null"
 created: 2026-05-26
 updated: 2026-05-26
